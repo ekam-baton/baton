@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!--
+        BATON base theme.
+        - Parent: android:Theme.Material.Light.NoActionBar — built into the Android
+          framework from API 21+, no AppCompat dependency required.
+        - windowBackground is overridden to #070B14 (BatonBackground) so the
+          "Light" parent has no visible effect — launch shows a dark canvas
+          immediately, preventing a white flash before Compose draws its first frame.
+        - Status/nav bar transparency is applied at runtime by Activity.enableEdgeToEdge();
+          no XML item needed here.
+    -->
+    <style name="Theme.Baton" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">#070B14</item>
+        <item name="android:windowAnimationStyle">@null</item>
+    </style>
+
+    <!-- Splash theme — identical until a proper splash screen drawable is added. -->
+    <style name="Theme.Baton.Splash" parent="Theme.Baton" />
+
+</resources>

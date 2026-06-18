@@ -1,0 +1,10 @@
+C:\Users\yrish\.gemini\antigravity\scratch\baton\gateway-engine\target\debug\deps\polyval-29d27e2028068b89.d: C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\polyval-0.6.2\src\lib.rs C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\polyval-0.6.2\src\backend.rs C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\polyval-0.6.2\src\backend\soft64.rs C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\polyval-0.6.2\src\mulx.rs C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\polyval-0.6.2\src\backend\autodetect.rs C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\polyval-0.6.2\src\backend\clmul.rs
+
+C:\Users\yrish\.gemini\antigravity\scratch\baton\gateway-engine\target\debug\deps\libpolyval-29d27e2028068b89.rmeta: C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\polyval-0.6.2\src\lib.rs C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\polyval-0.6.2\src\backend.rs C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\polyval-0.6.2\src\backend\soft64.rs C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\polyval-0.6.2\src\mulx.rs C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\polyval-0.6.2\src\backend\autodetect.rs C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\polyval-0.6.2\src\backend\clmul.rs
+
+C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\polyval-0.6.2\src\lib.rs:
+C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\polyval-0.6.2\src\backend.rs:
+C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\polyval-0.6.2\src\backend\soft64.rs:
+C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\polyval-0.6.2\src\mulx.rs:
+C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\polyval-0.6.2\src\backend\autodetect.rs:
+C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\polyval-0.6.2\src\backend\clmul.rs:

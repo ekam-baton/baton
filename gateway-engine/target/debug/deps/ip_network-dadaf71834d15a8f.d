@@ -1,0 +1,10 @@
+C:\Users\yrish\.gemini\antigravity\scratch\baton\gateway-engine\target\debug\deps\ip_network-dadaf71834d15a8f.d: C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\ip_network-0.4.1\src\lib.rs C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\ip_network-0.4.1\src\helpers.rs C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\ip_network-0.4.1\src\ip_network.rs C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\ip_network-0.4.1\src\ipv4_network.rs C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\ip_network-0.4.1\src\ipv6_network.rs C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\ip_network-0.4.1\src\iterator.rs
+
+C:\Users\yrish\.gemini\antigravity\scratch\baton\gateway-engine\target\debug\deps\libip_network-dadaf71834d15a8f.rmeta: C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\ip_network-0.4.1\src\lib.rs C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\ip_network-0.4.1\src\helpers.rs C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\ip_network-0.4.1\src\ip_network.rs C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\ip_network-0.4.1\src\ipv4_network.rs C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\ip_network-0.4.1\src\ipv6_network.rs C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\ip_network-0.4.1\src\iterator.rs
+
+C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\ip_network-0.4.1\src\lib.rs:
+C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\ip_network-0.4.1\src\helpers.rs:
+C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\ip_network-0.4.1\src\ip_network.rs:
+C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\ip_network-0.4.1\src\ipv4_network.rs:
+C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\ip_network-0.4.1\src\ipv6_network.rs:
+C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\ip_network-0.4.1\src\iterator.rs:

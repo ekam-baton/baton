@@ -1,0 +1,11 @@
+C:\Users\yrish\.gemini\antigravity\scratch\baton\gateway-engine\target\debug\deps\chacha20-141ba319db08c74d.d: C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\chacha20-0.9.1\src\lib.rs C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\chacha20-0.9.1\src\backends.rs C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\chacha20-0.9.1\src\legacy.rs C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\chacha20-0.9.1\src\xchacha.rs C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\chacha20-0.9.1\src\backends\soft.rs C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\chacha20-0.9.1\src\backends\avx2.rs C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\chacha20-0.9.1\src\backends\sse2.rs
+
+C:\Users\yrish\.gemini\antigravity\scratch\baton\gateway-engine\target\debug\deps\libchacha20-141ba319db08c74d.rmeta: C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\chacha20-0.9.1\src\lib.rs C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\chacha20-0.9.1\src\backends.rs C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\chacha20-0.9.1\src\legacy.rs C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\chacha20-0.9.1\src\xchacha.rs C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\chacha20-0.9.1\src\backends\soft.rs C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\chacha20-0.9.1\src\backends\avx2.rs C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\chacha20-0.9.1\src\backends\sse2.rs
+
+C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\chacha20-0.9.1\src\lib.rs:
+C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\chacha20-0.9.1\src\backends.rs:
+C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\chacha20-0.9.1\src\legacy.rs:
+C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\chacha20-0.9.1\src\xchacha.rs:
+C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\chacha20-0.9.1\src\backends\soft.rs:
+C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\chacha20-0.9.1\src\backends\avx2.rs:
+C:\Users\yrish\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\chacha20-0.9.1\src\backends\sse2.rs:
