@@ -1,6 +1,9 @@
 package com.ekam.baton.feature.agents
 
+import org.koin.compose.viewmodel.koinViewModel
+
 import androidx.compose.foundation.background
+import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
@@ -21,18 +24,39 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
-import com.ekam.baton.core.data.db.entity.AgentEntity
+import com.ekam.baton.core.data.model.Agent
+
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.platform.LocalContext
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
+import kotlinx.coroutines.flow.collectLatest
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AgentsScreen(
     onAddAgentClick: () -> Unit,
     onEditAgentClick: (String) -> Unit,
-    viewModel: AgentsViewModel = hiltViewModel()
+    viewModel: AgentsViewModel = koinViewModel()
 ) {
-    val agents by viewModel.agents.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
+    val agents by viewModel.agents.collectAsStateWithLifecycle()
+    val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+
+    LaunchedEffect(viewModel.uiEvents) {
+        viewModel.uiEvents.collectLatest { event ->
+            when (event) {
+                is AgentsUiEvent.ShowError -> {
+                    Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()
+                }
+                is AgentsUiEvent.LaunchBrowser -> {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(event.url))
+                    context.startActivity(intent)
+                }
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -113,7 +137,7 @@ fun EmptyAgentsState(modifier: Modifier = Modifier) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SwipeToDeleteAgentCard(
-    agent: AgentEntity,
+    agent: Agent,
     onDelete: () -> Unit,
     onEdit: () -> Unit
 ) {
@@ -172,11 +196,7 @@ fun SwipeToDeleteAgentCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Avatar
-                val avatarColor = try {
-                    Color(android.graphics.Color.parseColor(agent.colorAccent))
-                } catch (e: Exception) {
-                    MaterialTheme.colorScheme.primary
-                }
+                val avatarColor = agent.colorAccent.toColor(MaterialTheme.colorScheme.primary)
                 Box(
                     modifier = Modifier
                         .size(48.dp)
@@ -284,5 +304,13 @@ fun SwipeToDeleteAgentCard(
                 )
             }
         }
+    }
+}
+
+fun String.toColor(fallback: Color): Color {
+    return try {
+        Color(android.graphics.Color.parseColor(this))
+    } catch (e: Exception) {
+        fallback
     }
 }

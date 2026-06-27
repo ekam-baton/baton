@@ -1,0 +1,12 @@
+[
+  {
+    "user_email": "user1@example.com",
+    "client_public_key": "8085a812b184e907de385ec56f8f7c9e9d6b2c8a0f8b1a3d5e7f9c2d1b8a9b0c",
+    "is_active": true
+  },
+  {
+    "user_email": "user2@example.com",
+    "client_public_key": "4c3b2a1a0f8b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d",
+    "is_active": false
+  }
+]

@@ -3,11 +3,8 @@ package com.ekam.baton.core.data.memory
 import com.ekam.baton.core.data.db.dao.MemoryDao
 import com.ekam.baton.core.data.db.entity.MemoryEntity
 import java.util.UUID
-import javax.inject.Inject
-import javax.inject.Singleton
 
-@Singleton
-class WorkingMemoryManager @Inject constructor(
+class WorkingMemoryManager constructor(
     private val memoryDao: MemoryDao
 ) {
     suspend fun addWorkingMemory(conversationId: String, content: String, title: String) {

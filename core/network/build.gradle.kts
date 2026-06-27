@@ -1,14 +1,68 @@
 plugins {
+    alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.android.library)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.serialization)
-    alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
+}
+
+kotlin {
+    androidTarget {
+        compilations.all {
+            kotlinOptions {
+                jvmTarget = "17"
+            }
+        }
+    }
+    
+    listOf(
+        iosX64(),
+        iosArm64(),
+        iosSimulatorArm64()
+    ).forEach { iosTarget ->
+        iosTarget.binaries.framework {
+            baseName = "Network"
+            isStatic = true
+        }
+    }
+
+    sourceSets {
+        commonMain.dependencies {
+            implementation(libs.ktor.client.core)
+            implementation(libs.ktor.client.content.negotiation)
+            implementation(libs.ktor.serialization.kotlinx.json)
+            implementation(libs.koin.core)
+        }
+        
+        androidMain.dependencies {
+            implementation(libs.ktor.client.okhttp)
+            implementation(libs.okhttp)
+            implementation(libs.okhttp.logging)
+            implementation(libs.okhttp.sse)
+            
+            implementation(libs.androidx.browser)
+            implementation(libs.security.crypto)
+            implementation(libs.kotlinx.coroutines.android)
+            api("io.getstream:stream-webrtc-android:1.3.10")
+            
+            implementation(libs.koin.android)
+        }
+        
+        val androidUnitTest by getting {
+            dependencies {
+                implementation(libs.bundles.testing.unit)
+                implementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+            }
+        }
+        
+        iosMain.dependencies {
+            implementation(libs.ktor.client.darwin)
+        }
+    }
 }
 
 android {
     namespace = "com.ekam.baton.core.network"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 26
@@ -20,34 +74,7 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-
     buildFeatures {
-        buildConfig = true // required for BuildConfig.DEBUG in NetworkModule
+        buildConfig = true
     }
-}
-
-dependencies {
-    // OkHttp BOM
-    implementation(platform(libs.okhttp.bom))
-    implementation(libs.bundles.network)
-    
-    // Custom Tabs for OAuth
-    implementation(libs.androidx.browser)
-    
-    // Security Crypto
-    implementation(libs.security.crypto)
-
-    // Kotlinx
-    implementation(libs.kotlinx.coroutines.android)
-
-    // Hilt
-    implementation(libs.hilt.android)
-    ksp(libs.hilt.compiler)
-
-    testImplementation(libs.junit4)
-    testImplementation(libs.mockwebserver)
-    testImplementation(libs.kotlinx.coroutines.test)
 }

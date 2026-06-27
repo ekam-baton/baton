@@ -2,6 +2,7 @@ package com.ekam.baton.core.data.repository
 
 import com.ekam.baton.core.data.db.dao.AgentDao
 import com.ekam.baton.core.data.db.entity.AgentEntity
+import com.ekam.baton.core.data.model.toDomainModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -121,7 +122,7 @@ class AgentRepositoryTest {
     @Test
     fun `upsertAgent inserts new agent`() = runTest {
         val a = agent(id = "new-1", name = "New Agent")
-        repository.upsertAgent(a)
+        repository.upsertAgent(a.toDomainModel())
 
         val result = repository.getAgentById("new-1")
         assertNotNull(result)
@@ -131,10 +132,10 @@ class AgentRepositoryTest {
     @Test
     fun `upsertAgent updates existing agent`() = runTest {
         val original = agent(id = "u-1", name = "Original")
-        repository.upsertAgent(original)
+        repository.upsertAgent(original.toDomainModel())
 
         val updated = original.copy(name = "Updated")
-        repository.upsertAgent(updated)
+        repository.upsertAgent(updated.toDomainModel())
 
         val result = repository.getAgentById("u-1")
         assertEquals("Updated", result!!.name)
@@ -149,7 +150,7 @@ class AgentRepositoryTest {
     @Test
     fun `deleteAgent removes agent`() = runTest {
         val a = agent(id = "del-1")
-        repository.upsertAgent(a)
+        repository.upsertAgent(a.toDomainModel())
         repository.deleteAgent("del-1")
 
         assertNull(repository.getAgentById("del-1"))
@@ -159,7 +160,7 @@ class AgentRepositoryTest {
     @Test
     fun `deleteAgent with unknown id does nothing`() = runTest {
         val a = agent(id = "keep")
-        repository.upsertAgent(a)
+        repository.upsertAgent(a.toDomainModel())
         repository.deleteAgent("nonexistent")
 
         assertEquals(1, repository.getAllAgents().first().size)
@@ -170,7 +171,7 @@ class AgentRepositoryTest {
     @Test
     fun `updateLastUsed updates timestamp for existing agent`() = runTest {
         val a = agent(id = "ts-1")
-        repository.upsertAgent(a)
+        repository.upsertAgent(a.toDomainModel())
 
         val ts = 1_700_000_000_000L
         repository.updateLastUsed("ts-1", ts)

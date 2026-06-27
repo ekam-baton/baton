@@ -1,9 +1,16 @@
 package com.ekam.baton.feature.settings
 
+import org.koin.compose.viewmodel.koinViewModel
+
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.material.icons.filled.Sync
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -12,6 +19,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,39 +32,65 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
-import com.ekam.baton.core.data.db.entity.AgentEntity
+import androidx.compose.ui.unit.sp
+import com.ekam.baton.core.data.model.Agent
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     onNavigateToTunnelSetup: () -> Unit = {},
-    viewModel: SettingsViewModel = hiltViewModel()
+    onNavigateToMemory: () -> Unit = {},
+    onNavigateToFeedback: () -> Unit = {},
+    viewModel: SettingsViewModel = koinViewModel()
 ) {
-    val themeMode by viewModel.themeMode.collectAsState()
-    val accentColor by viewModel.accentColor.collectAsState()
-    val fontSize by viewModel.fontSize.collectAsState()
-    val appLockEnabled by viewModel.appLockEnabled.collectAsState()
-    val autoExtractFacts by viewModel.autoExtractFacts.collectAsState()
-    val autoGenerateEpisodes by viewModel.autoGenerateEpisodes.collectAsState()
-    val memoryRetentionDays by viewModel.memoryRetentionDays.collectAsState()
-    val enableHapticFeedback by viewModel.enableHapticFeedback.collectAsState()
+    val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
+    val accentColor by viewModel.accentColor.collectAsStateWithLifecycle()
+    val fontSize by viewModel.fontSize.collectAsStateWithLifecycle()
+    val appLockEnabled by viewModel.appLockEnabled.collectAsStateWithLifecycle()
+    val autoExtractFacts by viewModel.autoExtractFacts.collectAsStateWithLifecycle()
+    val autoGenerateEpisodes by viewModel.autoGenerateEpisodes.collectAsStateWithLifecycle()
+    val memoryRetentionDays by viewModel.memoryRetentionDays.collectAsStateWithLifecycle()
+    val enableHapticFeedback by viewModel.enableHapticFeedback.collectAsStateWithLifecycle()
+    val backendUrl by viewModel.backendUrl.collectAsStateWithLifecycle()
     
-    val agents by viewModel.agents.collectAsState()
-    val tunnelStatusMap by viewModel.tunnelStatusMap.collectAsState()
+    val agents by viewModel.agents.collectAsStateWithLifecycle()
+    val tunnelStatusMap by viewModel.tunnelStatusMap.collectAsStateWithLifecycle()
+    val userEmail by viewModel.userEmail.collectAsStateWithLifecycle()
+    val userPhone by viewModel.userPhone.collectAsStateWithLifecycle()
 
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
 
-    var showThemeDialog by remember { mutableStateOf(false) }
+    var activeLegalTitle by remember { mutableStateOf<String?>(null) }
+    var activeLegalContent by remember { mutableStateOf<String?>(null) }
+
+    fun showLegal(title: String, fileName: String) {
+        try {
+            val content = context.assets.open(fileName).bufferedReader().use { it.readText() }
+            activeLegalTitle = title
+            activeLegalContent = content
+        } catch (e: Exception) {
+            activeLegalTitle = title
+            activeLegalContent = "Failed to load document: ${e.localizedMessage}"
+        }
+    }
+
+
     var showFontSizeDialog by remember { mutableStateOf(false) }
     var showMemoryRetentionDialog by remember { mutableStateOf(false) }
     var showWipeDialog by remember { mutableStateOf(false) }
     var showClearMemoriesDialog by remember { mutableStateOf(false) }
+    var showBackendUrlDialog by remember { mutableStateOf(false) }
+    var backendUrlInput by remember { mutableStateOf("") }
+    var showBillingDialog by remember { mutableStateOf(false) }
+    var isProcessingPayment by remember { mutableStateOf(false) }
+    var paymentSuccess by remember { mutableStateOf(false) }
     var wipeConfirmationText by remember { mutableStateOf("") }
 
     val colors = listOf(
-        0xFF9D65FF, // Purple (Default)
+        0xFFECEFF4, // Cool White (Default)
+        0xFF9D65FF, // Purple
         0xFF0A84FF, // Blue
         0xFF30D158, // Green
         0xFFFF9F0A, // Orange
@@ -91,38 +125,89 @@ fun SettingsScreen(
                 .padding(innerPadding),
             contentPadding = PaddingValues(bottom = 32.dp)
         ) {
-            // SECTION: Appearance
+            // SECTION: Profile
             item {
-                SettingsSectionHeader("Appearance")
+                SettingsSectionHeader("Profile Details")
                 ListItem(
-                    headlineContent = { Text("Theme") },
-                    supportingContent = { Text(themeMode.replaceFirstChar { it.uppercase() }) },
-                    leadingContent = { Icon(Icons.Default.DarkMode, contentDescription = null) },
-                    modifier = Modifier.clickable { showThemeDialog = true },
+                    headlineContent = { Text("Email Address") },
+                    supportingContent = { Text(userEmail.ifBlank { "Not set" }) },
+                    leadingContent = { Icon(Icons.Default.Email, contentDescription = null) },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                 )
                 ListItem(
+                    headlineContent = { Text("Phone Number") },
+                    supportingContent = { Text(userPhone.ifBlank { "Not set" }) },
+                    leadingContent = { Icon(Icons.Default.Phone, contentDescription = null) },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                )
+            }
+
+            // SECTION: Subscription
+            item {
+                SettingsSectionHeader("Subscription")
+                val isPremium by viewModel.isPremiumUnlocked.collectAsStateWithLifecycle()
+                val trialStart by viewModel.trialStartTime.collectAsStateWithLifecycle()
+                
+                if (isPremium) {
+                    ListItem(
+                        headlineContent = { Text("Premium Status") },
+                        supportingContent = { Text("Premium Active — Unlimited Access") },
+                        leadingContent = { Icon(Icons.Default.Star, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary) },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                } else {
+                    val daysLeft = viewModel.getTrialDaysRemaining(trialStart)
+                    ListItem(
+                        headlineContent = { Text("Subscription Plan") },
+                        supportingContent = { Text("Trial Active — $daysLeft days remaining") },
+                        leadingContent = { Icon(Icons.Default.Star, contentDescription = null) },
+                        trailingContent = {
+                            Button(
+                                onClick = { showBillingDialog = true },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.tertiary,
+                                    contentColor = MaterialTheme.colorScheme.onTertiary
+                                ),
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                modifier = Modifier.height(32.dp)
+                            ) {
+                                Text("Upgrade", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                }
+            }
+
+            // SECTION: Appearance
+            item {
+                SettingsSectionHeader("Appearance")
+
+                ListItem(
                     headlineContent = { Text("Accent color") },
                     supportingContent = {
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 8.dp)) {
-                            items(colors) { colorLong ->
-                                Box(
-                                    modifier = Modifier
-                                        .size(32.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(colorLong))
-                                        .clickable { 
-                                            if (enableHapticFeedback) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                            viewModel.setAccentColor(colorLong) 
+                        Box(modifier = Modifier.height(40.dp)) {
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 8.dp)) {
+                                items(colors) { colorLong ->
+                                    Box(
+                                        modifier = Modifier
+                                            .size(32.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(colorLong))
+                                            .clickable { 
+                                                if (enableHapticFeedback) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                viewModel.setAccentColor(colorLong) 
+                                            }
+                                    ) {
+                                        if (accentColor == colorLong) {
+                                            Icon(
+                                                Icons.Default.Check, 
+                                                contentDescription = "Selected", 
+                                                tint = Color.White, 
+                                                modifier = Modifier.align(Alignment.Center).size(20.dp)
+                                            )
                                         }
-                                ) {
-                                    if (accentColor == colorLong) {
-                                        Icon(
-                                            Icons.Default.Check, 
-                                            contentDescription = "Selected", 
-                                            tint = Color.White, 
-                                            modifier = Modifier.align(Alignment.Center).size(20.dp)
-                                        )
                                     }
                                 }
                             }
@@ -171,6 +256,16 @@ fun SettingsScreen(
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                 )
                 ListItem(
+                    headlineContent = { Text("Log out") },
+                    supportingContent = { Text("Require biometric login to access app") },
+                    leadingContent = { Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = null) },
+                    modifier = Modifier.clickable {
+                        if (enableHapticFeedback) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        viewModel.logout()
+                    },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                )
+                ListItem(
                     headlineContent = { Text("Database encryption") },
                     supportingContent = { Text("Encrypted with SQLCipher") },
                     leadingContent = { Icon(Icons.Default.Security, contentDescription = null) },
@@ -185,6 +280,21 @@ fun SettingsScreen(
                     headlineContent = { Text("Clear all data", color = MaterialTheme.colorScheme.error) },
                     leadingContent = { Icon(Icons.Default.DeleteForever, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
                     modifier = Modifier.clickable { showWipeDialog = true },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                )
+            }
+
+            // SECTION: Network Configuration
+            item {
+                SettingsSectionHeader("Network Configuration")
+                ListItem(
+                    headlineContent = { Text("Backend API URL") },
+                    supportingContent = { Text(backendUrl) },
+                    leadingContent = { Icon(Icons.Default.Link, contentDescription = null) },
+                    modifier = Modifier.clickable { 
+                        backendUrlInput = backendUrl
+                        showBackendUrlDialog = true 
+                    },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                 )
             }
@@ -216,17 +326,46 @@ fun SettingsScreen(
             item {
                 SettingsSectionHeader("Memory")
                 ListItem(
+                    headlineContent = { Text("Agent Memory Viewer") },
+                    supportingContent = { Text("Browse episodic and semantic memories") },
+                    leadingContent = { Icon(Icons.Default.Psychology, contentDescription = null) },
+                    modifier = Modifier.clickable { onNavigateToMemory() },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                )
+                ListItem(
                     headlineContent = { Text("Auto-extract facts") },
                     supportingContent = { Text("Automatically learn key facts from your messages") },
-                    leadingContent = { Icon(Icons.Default.Memory, contentDescription = null) },
+                    leadingContent = { Icon(Icons.Default.Info, contentDescription = null) },
                     trailingContent = {
                         Switch(
                             checked = autoExtractFacts,
-                            onCheckedChange = { viewModel.setAutoExtractFacts(it) }
+                            onCheckedChange = { viewModel.setAutoExtractFacts(it) },
+                            colors = SwitchDefaults.colors(checkedThumbColor = MaterialTheme.colorScheme.primary)
                         )
                     },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                 )
+
+                SettingsSectionHeader("E-Discovery & Legal")
+                ListItem(
+                    headlineContent = { Text("Export Cryptographic Ledger") },
+                    supportingContent = { Text("Export tamper-proof audit logs (JSON)") },
+                    leadingContent = { Icon(Icons.Default.Lock, contentDescription = null) },
+                    trailingContent = {
+                        OutlinedButton(
+                            onClick = {
+                                viewModel.exportAuditLogs(context)
+                            },
+                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+                        ) {
+                            Text("Export")
+                        }
+                    },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                )
+
+                SettingsSectionHeader("Account & Data")
                 ListItem(
                     headlineContent = { Text("Auto-generate episodes") },
                     supportingContent = { Text("Periodically summarize conversation history") },
@@ -258,6 +397,16 @@ fun SettingsScreen(
             item {
                 SettingsSectionHeader("About")
                 ListItem(
+                    headlineContent = { Text("Report a Bug / Feedback") },
+                    supportingContent = { Text("Send feedback to the Baton development team") },
+                    leadingContent = { Icon(Icons.Default.BugReport, contentDescription = null) },
+                    modifier = Modifier.clickable { 
+                        if (enableHapticFeedback) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onNavigateToFeedback() 
+                    },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                )
+                ListItem(
                     headlineContent = { Text("App version") },
                     supportingContent = { Text("1.0.0-alpha") }, // Would come from BuildConfig in real app
                     leadingContent = { Icon(Icons.Default.Info, contentDescription = null) },
@@ -265,10 +414,31 @@ fun SettingsScreen(
                 )
                 ListItem(
                     headlineContent = { Text("Privacy policy") },
+                    supportingContent = { Text("How we protect your local data") },
                     leadingContent = { Icon(Icons.Default.Policy, contentDescription = null) },
                     modifier = Modifier.clickable { 
-                        val i = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/ekam-ai-labs/baton"))
-                        context.startActivity(i)
+                        if (enableHapticFeedback) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        showLegal("Privacy Policy", "privacy_policy.txt")
+                    },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                )
+                ListItem(
+                    headlineContent = { Text("Terms of Service") },
+                    supportingContent = { Text("Rules for using BATON") },
+                    leadingContent = { Icon(Icons.Default.Description, contentDescription = null) },
+                    modifier = Modifier.clickable { 
+                        if (enableHapticFeedback) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        showLegal("Terms of Service", "terms_of_service.txt")
+                    },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                )
+                ListItem(
+                    headlineContent = { Text("Biometric Disclosure") },
+                    supportingContent = { Text("How native authentication is secured") },
+                    leadingContent = { Icon(Icons.Default.Fingerprint, contentDescription = null) },
+                    modifier = Modifier.clickable { 
+                        if (enableHapticFeedback) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        showLegal("Biometric Disclosure & Consent", "biometric_disclosure.txt")
                     },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                 )
@@ -288,33 +458,7 @@ fun SettingsScreen(
 
     // DIALOGS
 
-    if (showThemeDialog) {
-        AlertDialog(
-            onDismissRequest = { showThemeDialog = false },
-            title = { Text("Choose Theme") },
-            text = {
-                Column {
-                    listOf("system", "light", "dark").forEach { mode ->
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { 
-                                    viewModel.setThemeMode(mode)
-                                    showThemeDialog = false
-                                }
-                                .padding(vertical = 12.dp)
-                        ) {
-                            RadioButton(selected = themeMode == mode, onClick = null)
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Text(mode.replaceFirstChar { it.uppercase() })
-                        }
-                    }
-                }
-            },
-            confirmButton = {}
-        )
-    }
+
 
     if (showFontSizeDialog) {
         AlertDialog(
@@ -394,25 +538,40 @@ fun SettingsScreen(
                 }
             },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        if (wipeConfirmationText == "DELETE") {
-                            // Implement wipe
-                            showWipeDialog = false
-                            wipeConfirmationText = ""
-                        }
-                    },
-                    enabled = wipeConfirmationText == "DELETE"
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Text("Clear Data", color = if (wipeConfirmationText == "DELETE") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f))
+                    OutlinedButton(
+                        onClick = { 
+                            showWipeDialog = false 
+                            wipeConfirmationText = ""
+                        },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)
+                    ) {
+                        Text("Cancel")
+                    }
+                    Button(
+                        onClick = {
+                            if (wipeConfirmationText == "DELETE") {
+                                viewModel.clearAllData()
+                                showWipeDialog = false
+                                wipeConfirmationText = ""
+                            }
+                        },
+                        enabled = wipeConfirmationText == "DELETE",
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError
+                        )
+                    ) {
+                        Text("Clear Data")
+                    }
                 }
             },
-            dismissButton = {
-                TextButton(onClick = { 
-                    showWipeDialog = false 
-                    wipeConfirmationText = ""
-                }) { Text("Cancel") }
-            }
+            dismissButton = null
         )
     }
 
@@ -422,14 +581,269 @@ fun SettingsScreen(
             title = { Text("Clear all memories", color = MaterialTheme.colorScheme.error) },
             text = { Text("This will permanently delete all semantic, episodic, and working memories across all agents.") },
             confirmButton = {
-                TextButton(onClick = { showClearMemoriesDialog = false }) {
-                    Text("Clear Memories", color = MaterialTheme.colorScheme.error)
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = { showClearMemoriesDialog = false },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)
+                    ) {
+                        Text("Cancel")
+                    }
+                    Button(
+                        onClick = {
+                            viewModel.clearAllMemories()
+                            showClearMemoriesDialog = false
+                        },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError
+                        )
+                    ) {
+                        Text("Clear")
+                    }
+                }
+            },
+            dismissButton = null
+        )
+    }
+
+    if (showBackendUrlDialog) {
+        AlertDialog(
+            onDismissRequest = { showBackendUrlDialog = false },
+            title = { Text("Backend URL") },
+            text = {
+                Column {
+                    Text(
+                        "Set the API URL for Baton to connect to your backend.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = backendUrlInput,
+                        onValueChange = { backendUrlInput = it },
+                        label = { Text("URL") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "Note: You must restart the app after changing the backend URL for it to take effect.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.setBackendUrl(backendUrlInput)
+                    showBackendUrlDialog = false
+                }) {
+                    Text("Save")
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showClearMemoriesDialog = false }) { Text("Cancel") }
+                TextButton(onClick = { showBackendUrlDialog = false }) {
+                    Text("Cancel")
+                }
             }
         )
+    }
+
+    if (activeLegalTitle != null && activeLegalContent != null) {
+        AlertDialog(
+            onDismissRequest = {
+                activeLegalTitle = null
+                activeLegalContent = null
+            },
+            title = {
+                Text(
+                    text = activeLegalTitle!!,
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                )
+            },
+            text = {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 400.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    Text(
+                        text = activeLegalContent!!,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = Color(0xFFCFD8DC),
+                            lineHeight = 20.sp
+                        )
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        activeLegalTitle = null
+                        activeLegalContent = null
+                    }
+                ) {
+                    Text("Close", color = MaterialTheme.colorScheme.tertiary)
+                }
+            },
+            containerColor = Color(0xFF0F1623), // BatonSurface
+            shape = RoundedCornerShape(24.dp)
+        )
+    }
+
+    if (showBillingDialog) {
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = {
+                if (!isProcessingPayment) showBillingDialog = false
+            }
+        ) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E2436)),
+                shape = RoundedCornerShape(28.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // Google Play Banner
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Google Play",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF34A853)
+                        )
+                        Text(
+                            text = "Secure Checkout",
+                            fontSize = 12.sp,
+                            color = Color(0xFF7A8B9E)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    HorizontalDivider(color = Color(0xFF2C354E))
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    val coroutineScope = rememberCoroutineScope()
+                    if (!isProcessingPayment && !paymentSuccess) {
+                        Text(
+                            text = "BATON Premium Subscription",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Billed annually. 6 months free, then ₹250.00/year.",
+                            fontSize = 13.sp,
+                            color = Color(0xFF7A8B9E),
+                            textAlign = TextAlign.Center
+                        )
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = { showBillingDialog = false },
+                                shape = RoundedCornerShape(14.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFF453A)),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = Color(0xFFFF453A)
+                                ),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(48.dp)
+                            ) {
+                                Text("Cancel", fontWeight = FontWeight.Bold)
+                            }
+
+                            Button(
+                                onClick = {
+                                    coroutineScope.launch {
+                                        isProcessingPayment = true
+                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        kotlinx.coroutines.delay(2000)
+                                        viewModel.setPremiumUnlocked(true)
+                                        isProcessingPayment = false
+                                        paymentSuccess = true
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        kotlinx.coroutines.delay(1500)
+                                        showBillingDialog = false
+                                        paymentSuccess = false
+                                    }
+                                },
+                                shape = RoundedCornerShape(14.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF188038) // Darker Google Green for better contrast
+                                ),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(48.dp)
+                            ) {
+                                Text("1-Tap Buy", color = Color.White, fontWeight = FontWeight.Bold)
+                            }
+                        }
+
+                    } else if (isProcessingPayment) {
+                        CircularProgressIndicator(color = Color(0xFF34A853))
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "Processing transaction securely...",
+                            fontSize = 14.sp,
+                            color = Color(0xFF7A8B9E)
+                        )
+                    } else if (paymentSuccess) {
+                        Surface(
+                            color = Color(0xFF34A853).copy(alpha = 0.1f),
+                            shape = CircleShape,
+                            modifier = Modifier.size(72.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = "Success",
+                                    tint = Color(0xFF34A853),
+                                    modifier = Modifier.size(36.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "Subscription Activated!",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Thank you for supporting BATON.",
+                            fontSize = 13.sp,
+                            color = Color(0xFF7A8B9E)
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 

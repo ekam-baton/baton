@@ -79,6 +79,11 @@ private class InjectionFakeDao : MemoryDao {
         }
         emit()
     }
+
+    override suspend fun clearAllMemories() {
+        memories.clear()
+        emit()
+    }
 }
 
 class MemoryInjectionEngineTest {

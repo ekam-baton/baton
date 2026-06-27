@@ -43,4 +43,7 @@ interface MemoryDao {
 
     @Query("UPDATE memories SET isActive = 0 WHERE layer = 'working' AND conversationId = :conversationId")
     suspend fun clearWorkingMemoriesForConversation(conversationId: String)
+
+    @Query("DELETE FROM memories")
+    suspend fun clearAllMemories()
 }

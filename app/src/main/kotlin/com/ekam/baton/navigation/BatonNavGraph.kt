@@ -32,8 +32,8 @@ sealed class Screen(val route: String) {
     object Chats    : Screen("chats_root")
     /** Agents tab — agent management. */
     object Agents   : Screen("agents_root") // Use nested graph route
-    /** Memory tab — memory viewer/editor. */
-    object Memory   : Screen("memory")
+    /** A2A tab — Agent-to-Agent protocol handshake. */
+    object A2A      : Screen("a2a_root")
     /** Settings tab — app configuration. */
     object Settings : Screen("settings")
 }
@@ -90,7 +90,7 @@ fun BatonNavGraph(
                         conversationId = conversationId,
                         onNavigateBack = { navController.popBackStack() },
                         onNavigateToMemory = { agentId -> 
-                            navController.navigate(Screen.Memory.route)
+                            navController.navigate("memory")
                         }
                     )
                 }
@@ -129,13 +129,32 @@ fun BatonNavGraph(
             )
         }
         
-        composable(Screen.Memory.route)   { MemoryScreen() }
+        composable(Screen.A2A.route) { 
+            com.ekam.baton.feature.agents.a2a.A2AScreen() 
+        }
+        
+        composable("memory") { MemoryScreen() }
+        
         composable(Screen.Settings.route) { 
             SettingsScreen(
                 onNavigateToTunnelSetup = {
                     navController.navigate("agents/tunnel_setup")
+                },
+                onNavigateToMemory = {
+                    navController.navigate("memory")
+                },
+                onNavigateToFeedback = {
+                    navController.navigate("feedback")
                 }
             ) 
+        }
+
+        composable("feedback") {
+            val settingsViewModel: com.ekam.baton.feature.settings.SettingsViewModel = org.koin.compose.viewmodel.koinViewModel()
+            com.ekam.baton.feature.settings.FeedbackScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onSubmitFeedback = { type, desc -> settingsViewModel.submitFeedback(type, desc) }
+            )
         }
     }
 }

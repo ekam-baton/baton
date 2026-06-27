@@ -1,0 +1,30 @@
+BATON PRIVACY POLICY
+Last Updated: June 20, 2026
+
+This Privacy Policy explains how BATON ("we", "us", or "our") handles user information. BATON is a secure, personal AI assistant interface designed with user privacy and local-first data storage as sovereign principles.
+
+1. DATA WE COLLECT
+For onboarding, profile setup, and secure communication tracking, we collect the following information:
+- Email Address
+- Phone Number
+No password is required, as the application relies on hardware-backed biometric authentication.
+
+2. HOW YOUR DATA IS STORED & PROTECTED
+- Encryption: All user profile data, settings, message logs, and memory storage are encrypted on-device using a high-security SQLCipher SQLite database.
+- Local-First Architecture: Your data is stored locally on your mobile device. It is not uploaded, stored, or synced to any centralized server owned or operated by us.
+
+3. EXTERNAL DATA TRANSIT & THIRD-PARTY AI SERVICES
+- Model Context Protocol (MCP): BATON acts as a client that routes user messages to Model Context Protocol (MCP) servers or endpoints configured by you.
+- Data Shared with AI: When you interact with an agent, your message and relevant context (including local semantic and episodic memory fragments) are sent to the user-configured MCP endpoint.
+- Third-Party Policies: We do not control and are not responsible for the privacy practices of your custom MCP endpoints, hosting providers, or the AI models running on them. You must review the policies of those third-party providers.
+
+4. USER CONTROL AND DATA WIPE
+You have absolute control over your data:
+- Memory Retention: You can configure the retention period of memory logs inside settings.
+- Wiping Data: You can immediately erase all database records, chat histories, agent definitions, and signup profile data at any time by navigating to Settings -> Privacy & Security -> Clear all data.
+
+5. BIOMETRIC DATA
+BATON utilizes your device's biometric sensors to secure app access. We do not collect, store, or transmit your biometric records (fingerprints or face scans). Please refer to our Biometric Disclosure statement for more details.
+
+6. CONTACT US
+For questions regarding this privacy policy or our local-first storage design, please contact the repository maintainers.

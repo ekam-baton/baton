@@ -11,8 +11,8 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface MessageDao {
 
-    @Query("SELECT * FROM messages WHERE conversation_id = :conversationId ORDER BY timestamp ASC")
-    fun getMessagesForConversation(conversationId: String): Flow<List<MessageEntity>>
+    @Query("SELECT * FROM messages WHERE conversation_id = :conversationId ORDER BY timestamp DESC")
+    fun getMessagesForConversation(conversationId: String): androidx.paging.PagingSource<Int, MessageEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMessage(message: MessageEntity)

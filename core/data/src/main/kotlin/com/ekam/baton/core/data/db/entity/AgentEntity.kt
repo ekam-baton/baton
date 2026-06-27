@@ -23,6 +23,9 @@ data class AgentEntity(
     @ColumnInfo(name = "avatar_uri")
     val avatarUri: String? = null,
 
+    @ColumnInfo(name = "provider_type", defaultValue = "local_mcp")
+    val providerType: String = "local_mcp", // "local_mcp", "anthropic", "gemini", "openai"
+
     @ColumnInfo(name = "mcp_endpoint_url")
     val mcpEndpointUrl: String,
 
@@ -54,5 +57,11 @@ data class AgentEntity(
     val securityMode: String = "standard", // "standard", "secured", "signed", "sovereign"
 
     @ColumnInfo(name = "security_config", defaultValue = "{}")
-    val securityConfig: String = "{}" // JSON blob storing security settings and keys
+    val securityConfig: String = "{}", // JSON blob storing security settings and keys
+
+    @ColumnInfo(name = "previous_hash", defaultValue = "")
+    val previousHash: String = "",
+
+    @ColumnInfo(name = "hash", defaultValue = "")
+    val hash: String = ""
 )

@@ -1,8 +1,8 @@
 package com.ekam.baton.navigation
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.CompareArrows
 import androidx.compose.material.icons.outlined.Forum
-import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.SmartToy
 import androidx.compose.material3.Icon
@@ -45,9 +45,9 @@ val bottomNavItems: List<BottomNavItem> = listOf(
         contentDescription = "Agents",
     ),
     BottomNavItem(
-        route              = Screen.Memory.route,
-        icon               = Icons.Outlined.Psychology,
-        contentDescription = "Memory",
+        route              = Screen.A2A.route,
+        icon               = Icons.Outlined.CompareArrows,
+        contentDescription = "A2A Handshake",
     ),
     BottomNavItem(
         route              = Screen.Settings.route,

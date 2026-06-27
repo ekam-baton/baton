@@ -5,21 +5,16 @@ import android.os.Bundle
 import android.widget.Toast
 import com.ekam.baton.core.network.auth.OAuthFlowManager
 import com.ekam.baton.core.data.repository.AgentRepository
-import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import javax.inject.Inject
 
-@AndroidEntryPoint
 class OAuthCallbackActivity : ComponentActivity() {
 
-    @Inject
     lateinit var oauthFlowManager: OAuthFlowManager
 
-    @Inject
     lateinit var agentRepository: AgentRepository
 
     override fun onCreate(savedInstanceState: Bundle?) {

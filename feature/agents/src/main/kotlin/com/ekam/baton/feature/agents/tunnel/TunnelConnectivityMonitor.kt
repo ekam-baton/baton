@@ -10,27 +10,25 @@ import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import android.annotation.SuppressLint
 import androidx.core.app.NotificationManagerCompat
-import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.ekam.baton.core.data.repository.AgentRepository
 import com.ekam.baton.core.data.preferences.AppPreferences
 import com.ekam.baton.core.network.tunnel.TunnelEndpointValidator
 import com.ekam.baton.core.network.tunnel.Status
-import dagger.assisted.Assisted
-import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import org.koin.core.component.inject
 
-@HiltWorker
-class TunnelConnectivityMonitor @AssistedInject constructor(
-    @Assisted private val context: Context,
-    @Assisted workerParams: WorkerParameters,
-    private val agentRepository: AgentRepository,
-    private val endpointValidator: TunnelEndpointValidator,
-    private val appPreferences: AppPreferences
-) : CoroutineWorker(context, workerParams) {
+class TunnelConnectivityMonitor(
+    appContext: Context,
+    workerParams: WorkerParameters
+) : CoroutineWorker(appContext, workerParams), org.koin.core.component.KoinComponent {
+
+    private val agentRepository: AgentRepository by inject()
+    private val endpointValidator: TunnelEndpointValidator by inject()
+    private val appPreferences: AppPreferences by inject()
 
     override suspend fun doWork(): Result {
         // Fetch all agents
@@ -78,18 +76,18 @@ class TunnelConnectivityMonitor @AssistedInject constructor(
     @SuppressLint("MissingPermission")
     private fun postNotification(title: String, content: String) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            if (ActivityCompat.checkSelfPermission(applicationContext, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                 return
             }
         }
 
-        val builder = NotificationCompat.Builder(context, "baton_tunnel_alerts")
+        val builder = NotificationCompat.Builder(applicationContext, "baton_tunnel_alerts")
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle(title)
             .setContentText(content)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
 
-        with(NotificationManagerCompat.from(context)) {
+        with(NotificationManagerCompat.from(applicationContext)) {
             notify(System.currentTimeMillis().toInt(), builder.build())
         }
     }

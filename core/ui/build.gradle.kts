@@ -1,51 +1,61 @@
 plugins {
+    alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.android.library)
-    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.compose.multiplatform)
     alias(libs.plugins.kotlin.compose)
+}
+
+kotlin {
+    androidTarget {
+        compilations.all {
+            kotlinOptions {
+                jvmTarget = "17"
+            }
+        }
+    }
+    
+    listOf(
+        iosX64(),
+        iosArm64(),
+        iosSimulatorArm64()
+    ).forEach { iosTarget ->
+        iosTarget.binaries.framework {
+            baseName = "UI"
+            isStatic = true
+        }
+    }
+
+    sourceSets {
+        commonMain.dependencies {
+            implementation(compose.ui)
+            implementation(compose.foundation)
+            implementation(compose.material3)
+            implementation(compose.runtime)
+            implementation(compose.components.resources)
+            implementation(compose.materialIconsExtended)
+            implementation(compose.animation)
+        }
+        
+        androidMain.dependencies {
+            api(libs.androidx.graphics.path)
+            api(libs.compose.ui.tooling.preview)
+            api(libs.activity.compose)
+            api(libs.compose.ui.text.google.fonts)
+        }
+    }
 }
 
 android {
     namespace = "com.ekam.baton.core.ui"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 26
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
-    buildFeatures {
-        compose = true
-    }
-
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-}
-
-dependencies {
-    val composeBom = platform(libs.compose.bom)
-    implementation(composeBom)
-
-    api(libs.compose.ui)
-    api(libs.compose.ui.graphics)
-    api(libs.compose.ui.tooling.preview)
-    api(libs.compose.material3)
-    api(libs.compose.material.icons.extended)
-    api(libs.compose.runtime)
-    api(libs.compose.foundation)
-    api(libs.compose.animation)
-    api(libs.activity.compose)
-    // Downloadable fonts API — Inter is fetched from GMS at runtime, no bundled TTFs needed
-    api(libs.compose.ui.text.google.fonts)
-
-
-    debugImplementation(libs.compose.ui.tooling)
-    debugImplementation(libs.compose.ui.test.manifest)
-
-    testImplementation(libs.junit4)
 }

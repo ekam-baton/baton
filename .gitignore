@@ -12,3 +12,9 @@ build/
 .cxx
 local.properties
 *.apk
+
+target/
+*.log
+*.pdb
+*.exe
+

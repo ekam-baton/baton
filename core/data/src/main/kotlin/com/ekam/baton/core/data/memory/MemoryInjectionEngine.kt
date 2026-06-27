@@ -1,11 +1,8 @@
 package com.ekam.baton.core.data.memory
 
 import com.ekam.baton.core.data.db.dao.MemoryDao
-import javax.inject.Inject
-import javax.inject.Singleton
 
-@Singleton
-class MemoryInjectionEngine @Inject constructor(
+class MemoryInjectionEngine constructor(
     private val memoryDao: MemoryDao
 ) {
     suspend fun buildContextBlock(

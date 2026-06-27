@@ -2,20 +2,17 @@ package com.ekam.baton.feature.memory
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.ekam.baton.core.data.db.entity.MemoryEntity
-import com.ekam.baton.core.data.db.entity.AgentEntity
+import com.ekam.baton.core.data.model.Memory
+import com.ekam.baton.core.data.model.Agent
 import com.ekam.baton.core.data.repository.MemoryRepository
 import com.ekam.baton.core.data.repository.AgentRepository
-import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.util.UUID
-import javax.inject.Inject
 
 import androidx.lifecycle.SavedStateHandle
 
-@HiltViewModel
-class MemoryViewModel @Inject constructor(
+class MemoryViewModel(
     private val memoryRepository: MemoryRepository,
     private val agentRepository: AgentRepository,
     savedStateHandle: SavedStateHandle
@@ -27,10 +24,10 @@ class MemoryViewModel @Inject constructor(
     private val _agentFilter = MutableStateFlow<String?>(savedStateHandle["agentId"])
     val agentFilter = _agentFilter.asStateFlow()
 
-    private val _memoriesByLayer = MutableStateFlow<Map<String, List<MemoryEntity>>>(emptyMap())
+    private val _memoriesByLayer = MutableStateFlow<Map<String, List<Memory>>>(emptyMap())
     val memoriesByLayer = _memoriesByLayer.asStateFlow()
 
-    val agents: StateFlow<List<AgentEntity>> = agentRepository.getAllAgents()
+    val agents: StateFlow<List<Agent>> = agentRepository.getAllAgents()
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -75,7 +72,7 @@ class MemoryViewModel @Inject constructor(
     fun addMemory(layer: String, agentId: String?, title: String, content: String, tags: List<String>) {
         viewModelScope.launch {
             val tagsJson = "[\"" + tags.joinToString("\",\"") + "\"]"
-            val memory = MemoryEntity(
+            val memory = Memory(
                 id = UUID.randomUUID().toString(),
                 layer = layer,
                 agentId = agentId,

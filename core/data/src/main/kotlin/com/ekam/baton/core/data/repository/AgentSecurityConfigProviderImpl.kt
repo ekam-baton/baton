@@ -5,11 +5,8 @@ import com.ekam.baton.core.network.security.AgentSecurityConfigProvider
 import com.ekam.baton.core.network.security.AgentSecurityDetails
 import org.json.JSONArray
 import org.json.JSONObject
-import javax.inject.Inject
-import javax.inject.Singleton
 
-@Singleton
-class AgentSecurityConfigProviderImpl @Inject constructor(
+class AgentSecurityConfigProviderImpl constructor(
     private val agentDao: AgentDao
 ) : AgentSecurityConfigProvider {
 

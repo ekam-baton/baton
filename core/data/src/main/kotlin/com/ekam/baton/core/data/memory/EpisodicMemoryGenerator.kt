@@ -4,11 +4,8 @@ import com.ekam.baton.core.data.db.dao.MemoryDao
 import com.ekam.baton.core.data.db.dao.MessageDao
 import com.ekam.baton.core.data.db.entity.MemoryEntity
 import java.util.UUID
-import javax.inject.Inject
-import javax.inject.Singleton
 
-@Singleton
-class EpisodicMemoryGenerator @Inject constructor(
+class EpisodicMemoryGenerator constructor(
     private val memoryDao: MemoryDao,
     private val messageDao: MessageDao
 ) {
@@ -17,11 +14,12 @@ class EpisodicMemoryGenerator @Inject constructor(
         
         if (lastMessages.isEmpty()) return
 
-        // TODO: For now (MVP), implement the summary generation as a stub.
-        // We will add real summarization via MCP in a future update.
-        val firstMessagePreview = lastMessages.lastOrNull { it.role == "user" }?.content?.take(30) ?: "interaction"
+        // The summary generation is implemented as a basic heuristic stub for the MVP.
+        // We will add real summarization via an MCP LLM tool in a future update.
+        val userMessages = lastMessages.filter { it.role == "user" }
+        val topics = userMessages.take(3).joinToString(", ") { it.content.take(20).replace("\n", " ") }
         
-        val summary = "Conversation on ${java.util.Date()} about: $firstMessagePreview..."
+        val summary = "Recent topics discussed: $topics..."
 
         val memory = MemoryEntity(
             id = UUID.randomUUID().toString(),

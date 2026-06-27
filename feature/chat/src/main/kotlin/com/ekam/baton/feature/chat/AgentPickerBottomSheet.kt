@@ -16,13 +16,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.ekam.baton.core.data.db.entity.AgentEntity
+import com.ekam.baton.core.data.model.Agent
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AgentPickerBottomSheet(
-    agents: List<AgentEntity>,
-    onAgentSelected: (AgentEntity) -> Unit,
+    agents: List<Agent>,
+    onAgentSelected: (Agent) -> Unit,
     onDismissRequest: () -> Unit,
     sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 ) {
@@ -75,7 +75,7 @@ fun AgentPickerBottomSheet(
 
 @Composable
 private fun AgentPickerItem(
-    agent: AgentEntity,
+    agent: Agent,
     onClick: () -> Unit
 ) {
     Row(
@@ -92,6 +92,10 @@ private fun AgentPickerItem(
         } catch (e: Exception) {
             fallbackColor
         }
+        val contentColor = run {
+            val luminance = 0.2126f * avatarColor.red + 0.7152f * avatarColor.green + 0.0722f * avatarColor.blue
+            if (luminance > 0.5f) Color(0xFF0A0E1A) else Color.White
+        }
 
         Box(
             modifier = Modifier
@@ -102,7 +106,7 @@ private fun AgentPickerItem(
         ) {
             Text(
                 text = agent.name.firstOrNull()?.uppercase() ?: "?",
-                color = Color.White,
+                color = contentColor,
                 style = MaterialTheme.typography.titleMedium
             )
         }

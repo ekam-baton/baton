@@ -16,13 +16,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.ekam.baton.core.data.db.entity.MemoryEntity
+import com.ekam.baton.core.data.model.Memory
 import android.text.format.DateUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MemoryCard(
-    memory: MemoryEntity,
+    memory: Memory,
     modifier: Modifier = Modifier,
     onToggleActive: (Boolean) -> Unit,
     onDelete: () -> Unit
@@ -36,18 +36,33 @@ fun MemoryCard(
             title = { Text("Delete Memory") },
             text = { Text("Are you sure you want to delete this memory? This cannot be undone.") },
             confirmButton = {
-                TextButton(onClick = {
-                    showDeleteDialog = false
-                    onDelete()
-                }) {
-                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = { showDeleteDialog = false },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)
+                    ) {
+                        Text("Cancel")
+                    }
+                    Button(
+                        onClick = {
+                            showDeleteDialog = false
+                            onDelete()
+                        },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError
+                        )
+                    ) {
+                        Text("Delete")
+                    }
                 }
             },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("Cancel")
-                }
-            }
+            dismissButton = null
         )
     }
 

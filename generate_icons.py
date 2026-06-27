@@ -1,122 +1,85 @@
 import os
+import glob
 from PIL import Image
 
-def create_icons(input_path, output_dir):
+def create_icons(source_path, res_dir):
     try:
-        img = Image.open(input_path)
+        img = Image.open(source_path).convert("RGBA")
     except Exception as e:
         print(f"Error opening image: {e}")
         return
 
-    # Convert to RGB if not
-    if img.mode != 'RGB':
-        img = img.convert('RGB')
-
+    # Create a square canvas using the background color
     width, height = img.size
-    print(f"Original size: {width}x{height}")
-
-    # Center crop to square
-    size = min(width, height)
-    left = (width - size) / 2
-    top = (height - size) / 2
-    right = (width + size) / 2
-    bottom = (height + size) / 2
-
-    square_img = img.crop((left, top, right, bottom))
-
-    # Also create a version with padding for adaptive foreground if needed
-    # Wait, the user's image is a tall rectangle. If we center crop to square, 
-    # we might cut off the top/bottom of the baton.
-    # Let's check. Actually, instead of cropping, let's pad it to a square 
-    # using the background color at the edge.
-    
-    # Get background color from top-left pixel
     bg_color = img.getpixel((0, 0))
-    print(f"Background color detected: {bg_color}")
     
-    # Create a new square image with the background color
-    new_size = max(width, height)
-    padded_img = Image.new('RGB', (new_size, new_size), bg_color)
+    # We want the foreground to fit within the safe zone of adaptive icons (66% of the icon size).
+    # For a 108x108 adaptive icon, the safe zone is a 72dp diameter circle.
+    # The baton is tall, so we need to make sure its height fits within that safe zone.
+    # Let's create a square image where the original image's height is scaled down to fit 50% of the new square's height.
     
-    # Paste the original image in the center
-    paste_x = (new_size - width) // 2
-    paste_y = (new_size - height) // 2
-    padded_img.paste(img, (paste_x, paste_y))
-
-    # Now we have a perfect square with the entire baton visible
+    target_size = 1024
+    square = Image.new("RGBA", (target_size, target_size), bg_color)
+    
+    # Scale the original image so its height is about 60% of target_size
+    scale_factor = (target_size * 0.6) / height
+    new_w = int(width * scale_factor)
+    new_h = int(height * scale_factor)
+    
+    resized_img = img.resize((new_w, new_h), Image.LANCZOS)
+    
+    # Paste in the center
+    paste_x = (target_size - new_w) // 2
+    paste_y = (target_size - new_h) // 2
+    square.paste(resized_img, (paste_x, paste_y), resized_img)
+    
+    # Also save a pure background for the adaptive background layer
+    bg_layer = Image.new("RGBA", (target_size, target_size), bg_color)
+    
+    # Now generate the mipmap sizes
+    # Sizes for adaptive icons (foreground and background):
+    # mdpi: 108x108
+    # hdpi: 162x162
+    # xhdpi: 216x216
+    # xxhdpi: 324x324
+    # xxxhdpi: 432x432
+    
+    # Legacy icon sizes:
+    # mdpi: 48x48
+    # hdpi: 72x72
+    # xhdpi: 96x96
+    # xxhdpi: 144x144
+    # xxxhdpi: 192x192
     
     sizes = {
-        "mipmap-mdpi": 48,
-        "mipmap-hdpi": 72,
-        "mipmap-xhdpi": 96,
-        "mipmap-xxhdpi": 144,
-        "mipmap-xxxhdpi": 192,
+        'mdpi': (108, 48),
+        'hdpi': (162, 72),
+        'xhdpi': (216, 96),
+        'xxhdpi': (324, 144),
+        'xxxhdpi': (432, 192)
     }
-
-    res_dir = os.path.join(output_dir, 'app', 'src', 'main', 'res')
-
-    for mipmap, dim in sizes.items():
-        folder = os.path.join(res_dir, mipmap)
-        os.makedirs(folder, exist_ok=True)
-        
-        # Resize
-        resized = padded_img.resize((dim, dim), Image.Resampling.LANCZOS)
-        
-        # Save ic_launcher.png
-        resized.save(os.path.join(folder, 'ic_launcher.png'), 'PNG')
-        
-        # Save ic_launcher_round.png (we'll just use the same square but we can apply a circular mask)
-        # For simplicity, we just save it as ic_launcher_round.png too (Android launcher can mask it)
-        # Actually, let's create a circular mask
-        mask = Image.new('L', (dim, dim), 0)
-        from PIL import ImageDraw
-        draw = ImageDraw.Draw(mask)
-        draw.ellipse((0, 0, dim, dim), fill=255)
-        
-        round_img = resized.copy()
-        round_img.putalpha(mask)
-        round_img.save(os.path.join(folder, 'ic_launcher_round.png'), 'PNG')
-        print(f"Created {mipmap} icons")
-
-    # For adaptive icon (v26), we need a foreground and background.
-    # We can create a foreground layer (padded image resized to 108x108)
-    v26_dir = os.path.join(res_dir, 'mipmap-anydpi-v26')
-    os.makedirs(v26_dir, exist_ok=True)
     
-    fg_folder = os.path.join(res_dir, 'drawable')
-    os.makedirs(fg_folder, exist_ok=True)
-    
-    fg_img = padded_img.resize((108, 108), Image.Resampling.LANCZOS)
-    fg_img.save(os.path.join(fg_folder, 'ic_launcher_foreground.png'), 'PNG')
-    print("Created ic_launcher_foreground.png")
-    
-    # Write ic_launcher.xml
-    xml_content = f"""<?xml version="1.0" encoding="utf-8"?>
-<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background android:drawable="@color/ic_launcher_background"/>
-    <foreground android:drawable="@drawable/ic_launcher_foreground"/>
-</adaptive-icon>
-"""
-    with open(os.path.join(v26_dir, 'ic_launcher.xml'), 'w') as f:
-        f.write(xml_content)
-    with open(os.path.join(v26_dir, 'ic_launcher_round.xml'), 'w') as f:
-        f.write(xml_content)
+    for dpi, (adaptive_size, legacy_size) in sizes.items():
+        dpi_dir = os.path.join(res_dir, f'mipmap-{dpi}')
+        os.makedirs(dpi_dir, exist_ok=True)
         
-    # Write colors.xml for background
-    values_dir = os.path.join(res_dir, 'values')
-    os.makedirs(values_dir, exist_ok=True)
-    color_hex = f"#{bg_color[0]:02x}{bg_color[1]:02x}{bg_color[2]:02x}"
-    colors_xml = f"""<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <color name="ic_launcher_background">{color_hex}</color>
-</resources>
-"""
-    with open(os.path.join(values_dir, 'ic_launcher_colors.xml'), 'w') as f:
-        f.write(colors_xml)
+        # Adaptive Foreground
+        fg = square.resize((adaptive_size, adaptive_size), Image.LANCZOS)
+        fg.save(os.path.join(dpi_dir, 'ic_launcher_foreground.png'))
         
-    print("All icons successfully generated.")
+        # Adaptive Background
+        bg = bg_layer.resize((adaptive_size, adaptive_size), Image.LANCZOS)
+        bg.save(os.path.join(dpi_dir, 'ic_launcher_background.png'))
+        
+        # Legacy Icon
+        # Scale the original square to the legacy size
+        legacy = square.resize((legacy_size, legacy_size), Image.LANCZOS)
+        legacy.save(os.path.join(dpi_dir, 'ic_launcher.png'))
+        legacy.save(os.path.join(dpi_dir, 'ic_launcher_round.png'))
+        
+    print("Icons generated successfully!")
 
 if __name__ == "__main__":
-    input_image = r"C:\Users\yrish\.gemini\antigravity\brain\7f8f3f0a-cb83-4984-a703-10ac0984b1f5\media__1781766309478.jpg"
-    target_dir = r"C:\Users\yrish\.gemini\antigravity\scratch\baton"
-    create_icons(input_image, target_dir)
+    source = r"C:\Users\yrish\.gemini\antigravity\brain\7f8f3f0a-cb83-4984-a703-10ac0984b1f5\media__1782071992790.png"
+    res_dir = r"C:\Users\yrish\.gemini\antigravity\scratch\baton\app\src\main\res"
+    create_icons(source, res_dir)

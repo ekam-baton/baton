@@ -1,7 +1,10 @@
 package com.ekam.baton.feature.chat
 
+import org.koin.compose.viewmodel.koinViewModel
+
 import android.text.format.DateUtils
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -22,28 +25,24 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
-import com.ekam.baton.core.data.db.entity.ConversationEntity
-import com.ekam.baton.core.data.db.entity.AgentEntity
+import com.ekam.baton.core.data.model.Conversation
+import com.ekam.baton.core.data.model.Agent
+
+import androidx.paging.compose.collectAsLazyPagingItems
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatsListScreen(
     onNavigateToChat: (String) -> Unit,
-    viewModel: ChatViewModel = hiltViewModel()
+    viewModel: ChatViewModel = koinViewModel()
 ) {
-    val conversations by viewModel.conversations.collectAsState()
-    val agents by viewModel.agents.collectAsState()
+    val conversations = viewModel.conversations.collectAsLazyPagingItems()
+    val agents by viewModel.agents.collectAsStateWithLifecycle()
+    val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     
     var showAgentPicker by remember { mutableStateOf(false) }
-    var searchQuery by remember { mutableStateOf("") }
     var isSearchExpanded by remember { mutableStateOf(false) }
-
-    val filteredConversations = if (searchQuery.isBlank()) {
-        conversations
-    } else {
-        conversations.filter { it.title.contains(searchQuery, ignoreCase = true) }
-    }
 
     Scaffold(
         topBar = {
@@ -86,7 +85,7 @@ fun ChatsListScreen(
             AnimatedVisibility(visible = isSearchExpanded) {
                 OutlinedTextField(
                     value = searchQuery,
-                    onValueChange = { searchQuery = it },
+                    onValueChange = { viewModel.updateSearchQuery(it) },
                     placeholder = { Text("Search conversations...") },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -101,7 +100,7 @@ fun ChatsListScreen(
                 )
             }
 
-            if (filteredConversations.isEmpty()) {
+            if (conversations.itemCount == 0) {
                 EmptyChatsState(modifier = Modifier.weight(1f))
             } else {
                 LazyColumn(
@@ -110,15 +109,18 @@ fun ChatsListScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(
-                        items = filteredConversations,
-                        key = { it.id }
-                    ) { conversation ->
-                        SwipeToDeleteConversationItem(
-                            conversation = conversation,
-                            agentColorHex = agents.find { it.id == conversation.agentId }?.colorAccent,
-                            onClick = { onNavigateToChat(conversation.id) },
-                            onDelete = { viewModel.deleteConversation(conversation.id) }
-                        )
+                        count = conversations.itemCount,
+                        key = { index -> conversations[index]?.id ?: index }
+                    ) { index ->
+                        val conversation = conversations[index]
+                        if (conversation != null) {
+                            SwipeToDeleteConversationItem(
+                                conversation = conversation,
+                                agentColorHex = agents.find { it.id == conversation.agentId }?.colorAccent,
+                                onClick = { onNavigateToChat(conversation.id) },
+                                onDelete = { viewModel.deleteConversation(conversation.id) }
+                            )
+                        }
                     }
                 }
             }
@@ -165,7 +167,7 @@ fun EmptyChatsState(modifier: Modifier = Modifier) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SwipeToDeleteConversationItem(
-    conversation: ConversationEntity,
+    conversation: Conversation,
     agentColorHex: String?,
     onClick: () -> Unit,
     onDelete: () -> Unit
@@ -212,7 +214,7 @@ fun SwipeToDeleteConversationItem(
 
 @Composable
 fun ConversationItem(
-    conversation: ConversationEntity,
+    conversation: Conversation,
     agentColorHex: String?,
     onClick: () -> Unit
 ) {
@@ -232,6 +234,10 @@ fun ConversationItem(
         } catch (e: Exception) {
             fallbackColor
         }
+        val contentColor = run {
+            val luminance = 0.2126f * avatarColor.red + 0.7152f * avatarColor.green + 0.0722f * avatarColor.blue
+            if (luminance > 0.5f) Color(0xFF0A0E1A) else Color.White
+        }
         
         Box(
             modifier = Modifier
@@ -242,7 +248,7 @@ fun ConversationItem(
         ) {
             Text(
                 text = conversation.title.firstOrNull()?.uppercase() ?: "?",
-                color = Color.White,
+                color = contentColor,
                 style = MaterialTheme.typography.titleLarge
             )
         }

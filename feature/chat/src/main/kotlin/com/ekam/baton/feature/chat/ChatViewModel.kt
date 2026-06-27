@@ -1,79 +1,118 @@
 package com.ekam.baton.feature.chat
 
+import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.ekam.baton.core.data.db.entity.ConversationEntity
-import com.ekam.baton.core.data.db.entity.MessageEntity
-import com.ekam.baton.core.data.db.entity.AgentEntity
+import com.ekam.baton.core.data.model.Agent
+import com.ekam.baton.core.data.model.Conversation
+import com.ekam.baton.core.data.model.Message
 import com.ekam.baton.core.data.repository.ChatRepository
-import com.ekam.baton.core.network.mcp.McpMessageSender
-import dagger.hilt.android.lifecycle.HiltViewModel
+import com.ekam.baton.core.data.repository.MemoryRepository
+import com.ekam.baton.core.network.mcp.AttachmentDto
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.UUID
-import javax.inject.Inject
+import androidx.paging.cachedIn
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.flowOf
 
-import com.ekam.baton.core.data.memory.MemoryInjectionEngine
-import com.ekam.baton.core.data.memory.WorkingMemoryManager
-import com.ekam.baton.core.data.repository.MemoryRepository
-import android.content.Context
-import dagger.hilt.android.qualifiers.ApplicationContext
-
-@HiltViewModel
-class ChatViewModel @Inject constructor(
+class ChatViewModel(
     private val chatRepository: ChatRepository,
-    private val mcpMessageSender: McpMessageSender,
-    private val memoryInjectionEngine: MemoryInjectionEngine,
-    private val workingMemoryManager: WorkingMemoryManager,
     private val memoryRepository: MemoryRepository,
-    @ApplicationContext private val context: Context,
+    private val appPreferences: com.ekam.baton.core.data.preferences.AppPreferences,
+    private val toolAuthManager: com.ekam.baton.core.network.mcp.ToolAuthorizationManager,
+    private val context: Context,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    // Note: This matches the navArgument key in BatonNavGraph.kt
+    companion object {
+        const val MIME_TYPE_OCTET_STREAM = "application/octet-stream"
+        const val DEFAULT_NEW_CHAT_TITLE = "New Chat"
+        const val EPISODIC_MEMORY_INTERVAL = 10
+    }
+
+    val keyboardShortcuts: StateFlow<List<com.ekam.baton.core.data.preferences.KeyboardShortcut>> = appPreferences.keyboardShortcuts
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    fun saveKeyboardShortcuts(shortcuts: List<com.ekam.baton.core.data.preferences.KeyboardShortcut>) {
+        viewModelScope.launch {
+            appPreferences.setKeyboardShortcuts(shortcuts)
+        }
+    }
+
+
     private val conversationId: String? = savedStateHandle["conversationId"]
 
-    val agents: StateFlow<List<AgentEntity>> = chatRepository.getAllAgents()
+    val agents: StateFlow<List<Agent>> = chatRepository.getAllAgents()
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = emptyList()
         )
 
-    val conversations: StateFlow<List<ConversationEntity>> = chatRepository.getAllConversations()
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyList()
-        )
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
-    private val _messages = MutableStateFlow<List<MessageEntity>>(emptyList())
-    val messages: StateFlow<List<MessageEntity>> = _messages.asStateFlow()
+    fun updateSearchQuery(query: String) {
+        _searchQuery.value = query
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val conversations: kotlinx.coroutines.flow.Flow<androidx.paging.PagingData<Conversation>> = _searchQuery
+        .flatMapLatest { query ->
+            chatRepository.getAllConversations(query)
+        }
+        .cachedIn(viewModelScope)
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val messages: kotlinx.coroutines.flow.Flow<androidx.paging.PagingData<Message>> = flowOf(conversationId)
+        .filterNotNull()
+        .flatMapLatest { id ->
+            chatRepository.getMessagesForConversation(id)
+        }
+        .cachedIn(viewModelScope)
 
     private val _isStreaming = MutableStateFlow(false)
     val isStreaming: StateFlow<Boolean> = _isStreaming.asStateFlow()
 
+    private val _uiError = MutableStateFlow<String?>(null)
+    val uiError: StateFlow<String?> = _uiError.asStateFlow()
+
     private val _activeMemoryCount = MutableStateFlow(0)
     val activeMemoryCount: StateFlow<Int> = _activeMemoryCount.asStateFlow()
 
-    // We'll expose currentAgentId so ChatScreen can navigate to MemoryScreen with it
     private val _currentAgentId = MutableStateFlow<String?>(null)
     val currentAgentId: StateFlow<String?> = _currentAgentId.asStateFlow()
 
+    private val _availableTools = MutableStateFlow<List<com.ekam.baton.core.network.mcp.McpTool>>(emptyList())
+    val availableTools: StateFlow<List<com.ekam.baton.core.network.mcp.McpTool>> = _availableTools.asStateFlow()
+
+    val toolAuthRequests = toolAuthManager.authorizationRequests
+
+    fun resolveToolAuth(request: com.ekam.baton.core.network.mcp.ToolAuthorizationRequest, isApproved: Boolean) {
+        request.onResult(isApproved)
+    }
+    
+    fun clearError() {
+        _uiError.value = null
+    }
+
     init {
         conversationId?.let { id ->
-            viewModelScope.launch {
-                chatRepository.getMessagesForConversation(id).collect { msgs ->
-                    _messages.value = msgs
-                }
-            }
             viewModelScope.launch {
                 val conv = chatRepository.getConversationById(id)
                 if (conv != null) {
@@ -83,161 +122,106 @@ class ChatViewModel @Inject constructor(
                     }
                 }
             }
+            viewModelScope.launch {
+                val conv = chatRepository.getConversationById(id)
+                if (conv != null) {
+                    try {
+                        _availableTools.value = chatRepository.getAvailableTools(conv.agentId)
+                    } catch (e: Exception) {
+                        _uiError.value = "Failed to load agent tools: ${e.message}"
+                    }
+                }
+            }
         }
     }
 
     fun sendMessage(content: String, attachments: List<Uri> = emptyList()) {
         val cid = conversationId ?: return
         viewModelScope.launch {
-            // Save User Message
-            val userMsg = MessageEntity(
-                id = UUID.randomUUID().toString(),
-                conversationId = cid,
-                role = "user",
-                content = content,
-                attachments = null
-            )
-            chatRepository.insertMessage(userMsg)
-            
-            // Extract working memory facts post-message
-            workingMemoryManager.extractKeyFacts(cid, content)
-
-            // Update conversation timestamp
-            val conv = chatRepository.getConversationById(cid)
-            if (conv != null) {
-                chatRepository.upsertConversation(
-                    conv.copy(
-                        updatedAt = System.currentTimeMillis(),
-                        messageCount = conv.messageCount + 1,
-                        title = if (conv.messageCount == 0) content.take(30) + "..." else conv.title
-                    )
-                )
-            }
-
-            // Create temporary streaming assistant message
             _isStreaming.value = true
 
-            val tempMessageId = UUID.randomUUID().toString()
-            val assistantMsg = MessageEntity(
-                id = tempMessageId,
-                conversationId = cid,
-                role = "assistant",
-                content = "",
-                isStreaming = true
-            )
-            chatRepository.insertMessage(assistantMsg)
-            
-            val convAfter = chatRepository.getConversationById(cid)
-            if (convAfter != null) {
-                chatRepository.upsertConversation(
-                    convAfter.copy(
-                        updatedAt = System.currentTimeMillis(),
-                        messageCount = convAfter.messageCount + 1
-                    )
-                )
-            }
-            
-            // Call network
-            val agentId = convAfter?.agentId ?: return@launch
-            val agent = agents.value.find { it.id == agentId } ?: return@launch
-            
-            // Inject Memory Context
-            val enrichedContextMessage = memoryInjectionEngine.buildContextBlock(
-                agentId = agentId,
-                conversationId = cid,
-                userMessage = content
-            )
-
-            // Map history
-            val history = chatRepository.getLastNMessages(cid, 20)
-                .filter { it.id != tempMessageId && it.id != userMsg.id }
-                .sortedBy { it.timestamp }
-                .map { com.ekam.baton.core.network.dto.McpMessageDto(role = it.role, content = it.content) }
-
-            // Process attachments
-            val attachmentDtos = mutableListOf<com.ekam.baton.core.network.mcp.AttachmentDto>()
-            for (uri in attachments) {
-                try {
-                    val mimeType = context.contentResolver.getType(uri) ?: "application/octet-stream"
-                    val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-                    if (bytes != null) {
-                        val base64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
-                        attachmentDtos.add(com.ekam.baton.core.network.mcp.AttachmentDto(mimeType, base64))
+            // Process attachments on IO dispatcher
+            val attachmentDtos = withContext(Dispatchers.IO) {
+                attachments.mapNotNull { uri ->
+                    try {
+                        val mimeType = context.contentResolver.getType(uri) ?: MIME_TYPE_OCTET_STREAM
+                        val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                        if (bytes != null) {
+                            val base64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+                            AttachmentDto(mimeType, base64)
+                        } else null
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                        null
                     }
-                } catch (e: Exception) {
-                    e.printStackTrace()
                 }
             }
 
-            mcpMessageSender.sendUserMessage(
-                agentId = agentId,
-                endpointUrl = agent.mcpEndpointUrl,
-                authHeader = null,
-                conversationHistory = history,
-                newUserMessage = enrichedContextMessage,
-                attachments = attachmentDtos
-            ).catch { e ->
-                val finalMsg = chatRepository.getLastNMessages(cid, 1).firstOrNull { it.id == tempMessageId }
-                if (finalMsg != null) {
-                    chatRepository.updateMessage(
-                        finalMsg.copy(
-                            content = finalMsg.content + "\n\nError: ${e.message}",
-                            isStreaming = false,
-                            timestamp = System.currentTimeMillis()
-                        )
-                    )
-                }
+            try {
+                chatRepository.sendMessageWithResponse(cid, content, attachmentDtos).collect()
+            } catch (e: Exception) {
+                // Network errors are mostly handled inside repository by updating the message entity, 
+                // but surfacing general failures here as well.
+                _uiError.value = "Failed to send message: ${e.message}"
+            } finally {
                 _isStreaming.value = false
-            }.collect { chunk ->
-                val currentMsg = chatRepository.getLastNMessages(cid, 1).firstOrNull { it.id == tempMessageId }
-                if (currentMsg != null) {
-                    chatRepository.updateMessage(
-                        currentMsg.copy(
-                            content = currentMsg.content + chunk,
-                            timestamp = System.currentTimeMillis()
-                        )
-                    )
-                }
+                checkEpisodicMemoryGeneration(cid)
             }
-            
-            // Flow complete
-            val finalMsg = chatRepository.getLastNMessages(cid, 1).firstOrNull { it.id == tempMessageId }
-            if (finalMsg != null) {
-                chatRepository.updateMessage(finalMsg.copy(isStreaming = false))
-            }
-            
-            // Trigger episodic memory generation every 10 messages using WorkManager
-            if ((convAfter.messageCount + 1) % 10 == 0) {
-                val workData = androidx.work.workDataOf(
-                    "conversationId" to cid,
-                    "agentId" to agentId
-                )
-                val request = androidx.work.OneTimeWorkRequestBuilder<com.ekam.baton.core.data.memory.EpisodicMemoryWorker>()
-                    .setInputData(workData)
-                    .build()
-                androidx.work.WorkManager.getInstance(context).enqueue(request)
-            }
-            
-            _isStreaming.value = false
         }
     }
-    
+
+    private suspend fun checkEpisodicMemoryGeneration(cid: String) {
+        val conv = chatRepository.getConversationById(cid) ?: return
+        if (conv.messageCount > 0 && conv.messageCount % EPISODIC_MEMORY_INTERVAL == 0) {
+            val workData = androidx.work.workDataOf(
+                "conversationId" to cid,
+                "agentId" to conv.agentId
+            )
+            val request = androidx.work.OneTimeWorkRequestBuilder<com.ekam.baton.core.data.memory.EpisodicMemoryWorker>()
+                .setInputData(workData)
+                .build()
+            androidx.work.WorkManager.getInstance(context).enqueue(request)
+        }
+    }
+
     fun createConversation(agentId: String, onCreated: (String) -> Unit) {
         viewModelScope.launch {
             val newId = UUID.randomUUID().toString()
-            val newConv = ConversationEntity(
+            val newConv = Conversation(
                 id = newId,
                 agentId = agentId,
-                title = "New Chat",
+                title = DEFAULT_NEW_CHAT_TITLE,
             )
-            chatRepository.upsertConversation(newConv)
-            onCreated(newId)
+            try {
+                chatRepository.upsertConversation(newConv)
+                onCreated(newId)
+            } catch (e: Exception) {
+                 _uiError.value = "Failed to create conversation."
+            }
         }
     }
-    
+
     fun deleteConversation(id: String) {
         viewModelScope.launch {
-            chatRepository.deleteConversation(id)
+            try {
+                chatRepository.deleteConversation(id)
+            } catch (e: Exception) {
+                 _uiError.value = "Failed to delete conversation."
+            }
+        }
+    }
+
+    fun executeTool(toolName: String, arguments: kotlinx.serialization.json.JsonObject) {
+        val cid = conversationId ?: return
+        viewModelScope.launch {
+            _isStreaming.value = true
+            try {
+                chatRepository.executeToolManual(cid, toolName, arguments).collect()
+            } catch (e: Exception) {
+                _uiError.value = "Tool execution failed: ${e.message}"
+            } finally {
+                _isStreaming.value = false
+            }
         }
     }
 }

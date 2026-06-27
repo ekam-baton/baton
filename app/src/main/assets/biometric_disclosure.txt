@@ -1,0 +1,18 @@
+BATON BIOMETRIC DISCLOSURE & CONSENT
+Last Updated: June 20, 2026
+
+This Biometric Disclosure explains how BATON utilizes biometric authentication (such as fingerprint scanning or facial recognition) on your device.
+
+1. HOW BIOMETRIC AUTHENTICATION IS MANAGED
+- Native Android System Integration: BATON utilizes the standard Android BiometricPrompt APIs provided by the operating system.
+- Secure Element: All biometric verification, matching, and template storage are performed directly by the hardware-backed Secure Element or Trusted Execution Environment (TEE) of your mobile device.
+- No External Transmission: Under no circumstances does the Application access, capture, view, store, or transmit your biometric records. The Application only receives a cryptographic success or failure signal from the Android OS.
+
+2. YOUR CONSENT
+By enabling "App Lock" in Settings or completing the "Verify & Sign Up" flow, you consent to:
+- The use of your device's biometric authentication framework to restrict access to the Application.
+- The local validation of your credentials via the device's native security systems.
+
+3. MANAGING BIOMETRICS
+- You can turn biometric App Lock on or off at any time by navigating to Settings -> Privacy & Security -> App Lock.
+- To change, update, or remove biometric credentials, you must do so in your Android system settings (Settings -> Security -> Biometrics/Fingerprint).

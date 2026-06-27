@@ -1,5 +1,7 @@
 package com.ekam.baton.feature.agents
 
+import org.koin.compose.viewmodel.koinViewModel
+
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
@@ -38,8 +40,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
-import com.ekam.baton.core.data.db.entity.AgentEntity
+import com.ekam.baton.core.data.model.Agent
 import com.ekam.baton.core.network.tunnel.TunnelValidationResult
 import kotlinx.coroutines.launch
 import org.json.JSONObject
@@ -61,13 +62,14 @@ private val ACCENT_COLORS = listOf(
 fun AddEditAgentScreen(
     agentId: String?,
     onNavigateBack: () -> Unit,
-    viewModel: AgentsViewModel = hiltViewModel()
+    viewModel: AgentsViewModel = koinViewModel()
 ) {
     val agents by viewModel.agents.collectAsState()
     val existingAgent = remember(agents, agentId) { agents.find { it.id == agentId } }
 
     var name by remember { mutableStateOf(existingAgent?.name ?: "") }
     var description by remember { mutableStateOf(existingAgent?.description ?: "") }
+    var providerType by remember { mutableStateOf(existingAgent?.providerType ?: "local_mcp") }
     var endpointUrl by remember { mutableStateOf(existingAgent?.mcpEndpointUrl ?: "") }
     var selectedColor by remember { mutableStateOf(existingAgent?.colorAccent ?: ACCENT_COLORS.first()) }
     
@@ -101,6 +103,10 @@ fun AddEditAgentScreen(
 
     var showDowngradeWarning by remember { mutableStateOf(false) }
     var pendingSecurityMode by remember { mutableStateOf<String?>(null) }
+
+    // Wizard State
+    var currentStep by remember { mutableIntStateOf(0) }
+    val totalSteps = 4
 
     // Load existing config
     LaunchedEffect(existingAgent) {
@@ -142,10 +148,75 @@ fun AddEditAgentScreen(
 
     val isUrlValid = endpointUrl.startsWith("http://") || endpointUrl.startsWith("https://")
     val isSecurityValid = securityMode == "standard" || peerPublicKey.isNotBlank()
-    val isValid = name.isNotBlank() && endpointUrl.isNotBlank() && isUrlValid && isSecurityValid &&
-            (selectedAuthIndex != 2 || (oauthClientId.isNotBlank() && oauthAuthUrl.isNotBlank() && oauthTokenUrl.isNotBlank()))
+    val isValid = name.isNotBlank() && isSecurityValid &&
+            ((providerType == "local_mcp" && endpointUrl.isNotBlank() && isUrlValid && (selectedAuthIndex != 2 || (oauthClientId.isNotBlank() && oauthAuthUrl.isNotBlank() && oauthTokenUrl.isNotBlank()))) ||
+             (providerType == "other_cloud" && endpointUrl.isNotBlank() && isUrlValid && apiKey.isNotBlank()) ||
+             (providerType != "local_mcp" && providerType != "other_cloud" && apiKey.isNotBlank()))
+
+    val canProceedFromStep1 = name.isNotBlank()
+    val canProceedFromStep2 = when (providerType) {
+        "local_mcp" -> endpointUrl.isNotBlank() && isUrlValid
+        "other_cloud" -> endpointUrl.isNotBlank() && isUrlValid && apiKey.isNotBlank()
+        else -> apiKey.isNotBlank()
+    }
 
     val context = LocalContext.current
+
+    val handleSave = {
+        val authType = if (providerType != "local_mcp") "api_key" else when (selectedAuthIndex) {
+            1 -> "api_key"
+            2 -> "oauth"
+            else -> "none"
+        }
+        val authConfig = JSONObject().apply {
+            if (authType == "api_key") put("api_key", apiKey)
+            if (authType == "oauth") {
+                put("client_id", oauthClientId)
+                put("auth_url", oauthAuthUrl)
+                put("token_url", oauthTokenUrl)
+                put("scopes", oauthScopes)
+            }
+        }.toString()
+
+        val securityConfig = JSONObject().apply {
+            if (securityMode != "standard") {
+                put("client_public_key", clientPublicKey)
+                put("client_private_key_enc", clientPrivateKeyEnc)
+                put("client_private_key_iv", clientPrivateKeyIv)
+                put("peer_public_key", peerPublicKey)
+                val pinsList = certPins.split(",").map { it.trim() }.filter { it.isNotBlank() }
+                put("cert_pins", org.json.JSONArray(pinsList))
+            }
+        }.toString()
+
+        val targetAgentId = existingAgent?.id ?: UUID.randomUUID().toString()
+        val agent = Agent(
+            id = targetAgentId,
+            name = name,
+            description = description,
+            providerType = providerType,
+            mcpEndpointUrl = if (providerType == "local_mcp" || providerType == "other_cloud") endpointUrl else "",
+            authType = authType,
+            authConfig = authConfig,
+            colorAccent = selectedColor,
+            createdAt = existingAgent?.createdAt ?: System.currentTimeMillis(),
+            securityMode = securityMode,
+            securityConfig = securityConfig
+        )
+        if (existingAgent == null) viewModel.addAgent(agent) else viewModel.updateAgent(agent)
+
+        if (authType == "oauth") {
+            val config = com.ekam.baton.core.network.auth.OAuthConfig(
+                clientId = oauthClientId,
+                authorizationUrl = oauthAuthUrl,
+                tokenUrl = oauthTokenUrl,
+                scopes = oauthScopes.split(",").map { it.trim() }
+            )
+            val authUrl = viewModel.startOAuthFlow(targetAgentId, config)
+            viewModel.launchAuthBrowser(authUrl)
+        }
+        onNavigateBack()
+    }
 
     Scaffold(
         topBar = {
@@ -156,71 +227,76 @@ fun AddEditAgentScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
-                actions = {
-                    Button(
-                        onClick = {
-                            val authType = when (selectedAuthIndex) {
-                                1 -> "api_key"
-                                2 -> "oauth"
-                                else -> "none"
-                            }
-                            val authConfig = JSONObject().apply {
-                                if (authType == "api_key") put("api_key", apiKey)
-                                if (authType == "oauth") {
-                                    put("client_id", oauthClientId)
-                                    put("auth_url", oauthAuthUrl)
-                                    put("token_url", oauthTokenUrl)
-                                    put("scopes", oauthScopes)
-                                }
-                            }.toString()
-
-                            val securityConfig = JSONObject().apply {
-                                if (securityMode != "standard") {
-                                    put("client_public_key", clientPublicKey)
-                                    put("client_private_key_enc", clientPrivateKeyEnc)
-                                    put("client_private_key_iv", clientPrivateKeyIv)
-                                    put("peer_public_key", peerPublicKey)
-                                    val pinsList = certPins.split(",").map { it.trim() }.filter { it.isNotBlank() }
-                                    put("cert_pins", org.json.JSONArray(pinsList))
-                                }
-                            }.toString()
-
-                            val targetAgentId = existingAgent?.id ?: UUID.randomUUID().toString()
-                            val agent = AgentEntity(
-                                id = targetAgentId,
-                                name = name,
-                                description = description,
-                                mcpEndpointUrl = endpointUrl,
-                                authType = authType,
-                                authConfig = authConfig,
-                                colorAccent = selectedColor,
-                                createdAt = existingAgent?.createdAt ?: System.currentTimeMillis(),
-                                securityMode = securityMode,
-                                securityConfig = securityConfig
-                            )
-                            if (existingAgent == null) viewModel.addAgent(agent) else viewModel.updateAgent(agent)
-
-                            if (authType == "oauth") {
-                                val config = com.ekam.baton.core.network.auth.OAuthConfig(
-                                    clientId = oauthClientId,
-                                    authorizationUrl = oauthAuthUrl,
-                                    tokenUrl = oauthTokenUrl,
-                                    scopes = oauthScopes.split(",").map { it.trim() }
-                                )
-                                val authUrl = viewModel.startOAuthFlow(targetAgentId, config)
-                                viewModel.launchAuthBrowser(context, authUrl)
-                            }
-                            onNavigateBack()
-                        },
-                        enabled = isValid,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(android.graphics.Color.parseColor(selectedColor))),
-                        modifier = Modifier.padding(end = 8.dp)
-                    ) {
-                        Text("Save")
-                    }
-                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
+        },
+        bottomBar = {
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(
+                        onClick = { if (currentStep > 0) currentStep-- else onNavigateBack() },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(if (currentStep == 0) "Cancel" else "Back")
+                    }
+                    
+                    Spacer(modifier = Modifier.width(16.dp))
+                    
+                    // Step Indicator
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        for (i in 0 until totalSteps) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(if (i == currentStep) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
+                            )
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.width(16.dp))
+
+                    if (currentStep < totalSteps - 1) {
+                        val canProceed = when (currentStep) {
+                            0 -> canProceedFromStep1
+                            1 -> canProceedFromStep2
+                            else -> true
+                        }
+                        Button(
+                            onClick = { if (canProceed) currentStep++ },
+                            enabled = canProceed,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Next")
+                        }
+                    } else {
+                        Button(
+                            onClick = handleSave,
+                            enabled = isValid,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(android.graphics.Color.parseColor(selectedColor)),
+                                contentColor = run {
+                                    val c = Color(android.graphics.Color.parseColor(selectedColor))
+                                    val luminance = 0.2126f * c.red + 0.7152f * c.green + 0.0722f * c.blue
+                                    if (luminance > 0.5f) Color(0xFF070B14) else Color.White
+                                }
+                            ),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Save")
+                        }
+                    }
+                }
+            }
         },
         containerColor = Color.Transparent
     ) { innerPadding ->
@@ -232,156 +308,195 @@ fun AddEditAgentScreen(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            
-            // SECTION: IDENTITY
-            PremiumCardGroup(title = "Identity") {
-                PremiumTextField(value = name, onValueChange = { name = it }, label = "AI Name (required)")
-                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                PremiumTextField(value = description, onValueChange = { description = it }, label = "Description (optional)", minLines = 2)
-                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Theme Color", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(modifier = Modifier.height(12.dp))
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        items(ACCENT_COLORS) { colorHex ->
-                            val color = Color(android.graphics.Color.parseColor(colorHex))
-                            Box(
-                                modifier = Modifier
-                                    .size(44.dp)
-                                    .clip(CircleShape)
-                                    .background(color)
-                                    .border(2.dp, if (selectedColor == colorHex) MaterialTheme.colorScheme.onBackground else Color.Transparent, CircleShape)
-                                    .clickable { selectedColor = colorHex },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                if (selectedColor == colorHex) {
-                                    Icon(Icons.Default.Check, contentDescription = "Selected", tint = Color.White, modifier = Modifier.size(24.dp))
+            when (currentStep) {
+                0 -> {
+                    // STEP 1: IDENTITY
+                    PremiumCardGroup(title = "Step 1: Identity") {
+                        PremiumTextField(value = name, onValueChange = { name = it }, label = "AI Name (required)")
+                        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+                        PremiumTextField(value = description, onValueChange = { description = it }, label = "Description (optional)", minLines = 2)
+                        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+                        
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text("Theme Color", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(modifier = Modifier.height(12.dp))
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                items(ACCENT_COLORS) { colorHex ->
+                                    val color = Color(android.graphics.Color.parseColor(colorHex))
+                                    Box(
+                                        modifier = Modifier
+                                            .size(44.dp)
+                                            .clip(CircleShape)
+                                            .background(color)
+                                            .border(2.dp, if (selectedColor == colorHex) MaterialTheme.colorScheme.onBackground else Color.Transparent, CircleShape)
+                                            .clickable { selectedColor = colorHex },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        if (selectedColor == colorHex) {
+                                            Icon(Icons.Default.Check, contentDescription = "Selected", tint = Color.White, modifier = Modifier.size(24.dp))
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
                 }
-            }
-
-            // SECTION: CONNECTION
-            PremiumCardGroup(title = "Connection") {
-                PremiumTextField(
-                    value = endpointUrl,
-                    onValueChange = { endpointUrl = it },
-                    label = "Connection Link (required)",
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                    isError = endpointUrl.isNotBlank() && !isUrlValid
-                )
-                
-                // Testing UI inside Connection
-                var validationResult by remember { mutableStateOf<TunnelValidationResult?>(null) }
-                var isValidating by remember { mutableStateOf(false) }
-                val coroutineScope = rememberCoroutineScope()
-                val tunnelValidator = viewModel.getTunnelValidator()
-
-                Box(modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(8.dp), contentAlignment = Alignment.CenterEnd) {
-                    TextButton(
-                        onClick = {
-                            coroutineScope.launch {
-                                isValidating = true
-                                validationResult = tunnelValidator.validateEndpoint(endpointUrl)
-                                isValidating = false
-                            }
-                        },
-                        enabled = isUrlValid && !isValidating
-                    ) {
-                        if (isValidating) {
-                            CircularProgressIndicator(modifier = Modifier.size(16.dp), color = MaterialTheme.colorScheme.primary)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Testing...")
-                        } else {
-                            Text("Test Link")
-                        }
-                    }
-                }
-
-                validationResult?.let { result ->
-                    val (color, text) = when (result.status) {
-                        com.ekam.baton.core.network.tunnel.Status.VALID -> Color(0xFF32D74B) to "✓ Connected — found ${result.serverName ?: "agent"}"
-                        com.ekam.baton.core.network.tunnel.Status.REACHABLE_NO_MCP -> Color(0xFFFF9F0A) to "⚠ Reachable but no MCP detected. Check agent is running."
-                        com.ekam.baton.core.network.tunnel.Status.UNREACHABLE -> Color(0xFFFF453A) to "✗ Unreachable. Check URL and ensure cloudflared is running."
-                        com.ekam.baton.core.network.tunnel.Status.INVALID_URL -> Color(0xFFFF453A) to "✗ Invalid URL format."
-                    }
-                    Surface(color = color.copy(alpha = 0.1f), modifier = Modifier.fillMaxWidth()) {
+                1 -> {
+                    // STEP 2: CONNECTION
+                    PremiumCardGroup(title = "Step 2: Connection") {
+                        val providers = listOf("Local" to "local_mcp", "Anthropic" to "anthropic", "Gemini" to "gemini", "OpenAI" to "openai", "Other" to "other_cloud")
+                        
                         Column(modifier = Modifier.padding(16.dp)) {
-                            Text(text = text, color = color, style = MaterialTheme.typography.bodyMedium)
-                            if (result.error != null && result.status != com.ekam.baton.core.network.tunnel.Status.INVALID_URL) {
-                                Text(text = result.error!!, color = color.copy(alpha = 0.7f), style = MaterialTheme.typography.bodySmall)
+                            Text("Agent Provider Type", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(modifier = Modifier.height(12.dp))
+                            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                                providers.forEachIndexed { index, (label, value) ->
+                                    SegmentedButton(
+                                        shape = SegmentedButtonDefaults.itemShape(index = index, count = providers.size),
+                                        onClick = { providerType = value },
+                                        selected = providerType == value
+                                    ) { Text(label, style = MaterialTheme.typography.labelSmall) }
+                                }
                             }
                         }
-                    }
-                }
-            }
+                        
+                        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
 
-            // SECTION: ACCESS KEYS
-            PremiumCardGroup(title = "Access Keys") {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                        authOptions.forEachIndexed { index, label ->
-                            SegmentedButton(
-                                shape = SegmentedButtonDefaults.itemShape(index = index, count = authOptions.size),
-                                onClick = { selectedAuthIndex = index },
-                                selected = index == selectedAuthIndex
-                            ) { Text(label) }
-                        }
-                    }
-                }
+                        if (providerType == "local_mcp" || providerType == "other_cloud") {
+                            PremiumTextField(
+                                value = endpointUrl,
+                                onValueChange = { endpointUrl = it },
+                                label = if (providerType == "other_cloud") "API Endpoint URL (required)" else "MCP Endpoint URL (required)",
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                                isError = endpointUrl.isNotBlank() && !isUrlValid
+                            )
+                        
+                        var validationResult by remember { mutableStateOf<TunnelValidationResult?>(null) }
+                        var isValidating by remember { mutableStateOf(false) }
+                        val coroutineScope = rememberCoroutineScope()
+                        val tunnelValidator = viewModel.getTunnelValidator()
 
-                if (selectedAuthIndex == 1) {
-                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                    PremiumTextField(
-                        value = apiKey,
-                        onValueChange = { apiKey = it },
-                        label = "API Key",
-                        visualTransformation = if (isApiKeyVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                        trailingIcon = {
-                            IconButton(onClick = { isApiKeyVisible = !isApiKeyVisible }) {
-                                Icon(if (isApiKeyVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff, contentDescription = "Toggle visibility")
+                        Box(modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp), contentAlignment = Alignment.CenterEnd) {
+                            TextButton(
+                                onClick = {
+                                    coroutineScope.launch {
+                                        isValidating = true
+                                        validationResult = tunnelValidator.validateEndpoint(endpointUrl)
+                                        isValidating = false
+                                    }
+                                },
+                                enabled = isUrlValid && !isValidating
+                            ) {
+                                if (isValidating) {
+                                    CircularProgressIndicator(modifier = Modifier.size(16.dp), color = MaterialTheme.colorScheme.primary)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Testing...")
+                                } else {
+                                    Text("Test Link")
+                                }
                             }
                         }
-                    )
-                } else if (selectedAuthIndex == 2) {
-                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                    PremiumTextField(value = oauthClientId, onValueChange = { oauthClientId = it }, label = "Client ID (required)")
-                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                    PremiumTextField(value = oauthAuthUrl, onValueChange = { oauthAuthUrl = it }, label = "Authorization URL (required)")
-                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                    PremiumTextField(value = oauthTokenUrl, onValueChange = { oauthTokenUrl = it }, label = "Token URL (required)")
-                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                    PremiumTextField(value = oauthScopes, onValueChange = { oauthScopes = it }, label = "Scopes (comma-separated)")
-                }
-            }
 
-            // SECTION: ADVANCED CONFIGURATION
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
-                    .clickable { showAdvanced = !showAdvanced }
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Advanced Configuration", style = MaterialTheme.typography.titleMedium)
-                    Icon(if (showAdvanced) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, contentDescription = "Toggle")
-                }
-                
-                AnimatedVisibility(visible = showAdvanced) {
-                    Column(modifier = Modifier.padding(bottom = 16.dp)) {
+                        validationResult?.let { result ->
+                            val (color, text) = when (result.status) {
+                                com.ekam.baton.core.network.tunnel.Status.VALID -> Color(0xFF32D74B) to "✓ Connected — found ${result.serverName ?: "agent"}"
+                                com.ekam.baton.core.network.tunnel.Status.REACHABLE_NO_MCP -> Color(0xFFFF9F0A) to "⚠ Reachable but no MCP detected. Check agent is running."
+                                com.ekam.baton.core.network.tunnel.Status.UNREACHABLE -> Color(0xFFFF453A) to "✗ Unreachable. Check URL and ensure cloudflared is running."
+                                com.ekam.baton.core.network.tunnel.Status.INVALID_URL -> Color(0xFFFF453A) to "✗ Invalid URL format."
+                            }
+                            Surface(color = color.copy(alpha = 0.1f), modifier = Modifier.fillMaxWidth()) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Text(text = text, color = color, style = MaterialTheme.typography.bodyMedium)
+                                    if (result.error != null && result.status != com.ekam.baton.core.network.tunnel.Status.INVALID_URL) {
+                                        Text(text = result.error!!, color = color.copy(alpha = 0.7f), style = MaterialTheme.typography.bodySmall)
+                                    }
+                                }
+                            }
+                        }
+                        
                         HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
                         
+                        // Help Section
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { 
+                                    // Normally we would navigate here. We'll leave the UI in place for the user.
+                                }
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Info, contentDescription = "Help", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text("Need help setting up a tunnel?", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+                        }
+                        } else {
+                            PremiumTextField(
+                                value = apiKey,
+                                onValueChange = { apiKey = it },
+                                label = "API Key (required)",
+                                visualTransformation = if (isApiKeyVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                                trailingIcon = {
+                                    IconButton(onClick = { isApiKeyVisible = !isApiKeyVisible }) {
+                                        Icon(if (isApiKeyVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff, contentDescription = "Toggle visibility")
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+                2 -> {
+                    // STEP 3: ACCESS KEYS (Only for Local MCP)
+                    if (providerType == "local_mcp") {
+                        PremiumCardGroup(title = "Step 3: Access Keys") {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                                authOptions.forEachIndexed { index, label ->
+                                    SegmentedButton(
+                                        shape = SegmentedButtonDefaults.itemShape(index = index, count = authOptions.size),
+                                        onClick = { selectedAuthIndex = index },
+                                        selected = index == selectedAuthIndex
+                                    ) { Text(label) }
+                                }
+                            }
+                        }
+
+                        if (selectedAuthIndex == 1) {
+                            HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+                            PremiumTextField(
+                                value = apiKey,
+                                onValueChange = { apiKey = it },
+                                label = "API Key",
+                                visualTransformation = if (isApiKeyVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                                trailingIcon = {
+                                    IconButton(onClick = { isApiKeyVisible = !isApiKeyVisible }) {
+                                        Icon(if (isApiKeyVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff, contentDescription = "Toggle visibility")
+                                    }
+                                }
+                            )
+                        } else if (selectedAuthIndex == 2) {
+                            HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+                            PremiumTextField(value = oauthClientId, onValueChange = { oauthClientId = it }, label = "Client ID (required)")
+                            HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+                            PremiumTextField(value = oauthAuthUrl, onValueChange = { oauthAuthUrl = it }, label = "Authorization URL (required)")
+                            HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+                            PremiumTextField(value = oauthTokenUrl, onValueChange = { oauthTokenUrl = it }, label = "Token URL (required)")
+                            HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+                            PremiumTextField(value = oauthScopes, onValueChange = { oauthScopes = it }, label = "Scopes (comma-separated)")
+                        }
+                    }
+                    } else {
+                        // Skip text if cloud provider since API key is in Step 2
+                        Text("Access keys are handled automatically for Cloud Providers via the API key provided in Step 2.",
+                            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(16.dp))
+                    }
+                }
+                3 -> {
+                    // STEP 4: ADVANCED SECURITY
+                    PremiumCardGroup(title = "Step 4: Cryptographic Security (Optional)") {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Text("Connection Security Protocol", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Spacer(modifier = Modifier.height(12.dp))

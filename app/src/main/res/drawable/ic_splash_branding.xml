@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="288dp"
+    android:height="108dp"
+    android:viewportWidth="288"
+    android:viewportHeight="108">
+
+    <group
+        android:translateX="24"
+        android:translateY="34">
+
+        <!-- B -->
+        <group>
+            <path android:fillColor="#FFFFFF" android:pathData="M0,0 h18 c8,0 12,4 12,10 c0,4 -2,7 -6,9 c5,2 8,6 8,11 c0,8 -6,10 -14,10 h-18 v-40 z M10,6 v10 h8 c3,0 4,-2 4,-5 c0,-3 -1,-5 -4,-5 h-8 z M10,22 v12 h10 c3,0 5,-2 5,-6 c0,-4 -2,-6 -5,-6 h-10 z" />
+        </group>
+
+        <!-- A -->
+        <group android:translateX="45">
+            <path android:fillColor="#FFFFFF" android:pathData="M15,0 L30,40 h-10 L17,30 h-14 L0,40 h-10 L15,0 z M14,22 L10,12 L6,22 h8 z" />
+        </group>
+
+        <!-- T -->
+        <group android:translateX="85">
+            <path android:fillColor="#FFFFFF" android:pathData="M0,0 h30 v8 h-10 v32 h-10 v-32 h-10 z" />
+        </group>
+
+        <!-- O -->
+        <group android:translateX="125">
+            <path android:fillColor="#FFFFFF" android:pathData="M15,0 c12,0 20,8 20,20 c0,12 -8,20 -20,20 c-12,0 -20,-8 -20,-20 c0,-12 8,-20 20,-20 z M15,8 c-7,0 -10,5 -10,12 c0,7 3,12 10,12 c7,0 10,-5 10,-12 c0,-7 -3,-12 -10,-12 z" />
+        </group>
+
+        <!-- N -->
+        <group android:translateX="175">
+            <path android:fillColor="#FFFFFF" android:pathData="M0,0 h10 L20,25 v-25 h10 v40 h-10 L10,15 v25 h-10 z" />
+        </group>
+
+    </group>
+
+</vector>

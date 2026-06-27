@@ -2,13 +2,12 @@ plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    alias(libs.plugins.hilt)
-    alias(libs.plugins.ksp)
+alias(libs.plugins.ksp)
 }
 
 android {
     namespace = "com.ekam.baton.feature.memory"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 26
@@ -30,6 +29,8 @@ android {
 }
 
 dependencies {
+    implementation(libs.koin.androidx.compose)
+    implementation(libs.koin.compose.viewmodel)
     implementation(project(":core:ui"))
     implementation(project(":core:data"))
 
@@ -38,15 +39,11 @@ dependencies {
     implementation(libs.bundles.compose.feature)
     implementation(libs.navigation.compose)
     implementation(libs.bundles.lifecycle)
-
-    implementation(libs.hilt.android)
-    ksp(libs.hilt.compiler)
-    implementation(libs.hilt.navigation.compose)
-
-    implementation(libs.kotlinx.coroutines.android)
+implementation(libs.kotlinx.coroutines.android)
 
     testImplementation(libs.junit4)
     testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.bundles.testing.android)
     debugImplementation(libs.compose.ui.tooling)
 }
+

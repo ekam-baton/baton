@@ -1,42 +1,36 @@
 package com.ekam.baton
 
 import android.app.Application
-import dagger.hilt.android.HiltAndroidApp
-
-/**
- * BATON Application class.
- *
- * Annotated with [HiltAndroidApp] to trigger Hilt's code generation and set up
- * the application-level DI component. This must be the first entry point Hilt
- * processes in the app process lifecycle.
- */
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
-import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.ExistingPeriodicWorkPolicy
+import com.ekam.baton.core.data.di.dataModule
+import com.ekam.baton.core.network.di.networkModule
+import org.koin.android.ext.koin.androidContext
+import org.koin.android.ext.koin.androidLogger
+import org.koin.core.context.startKoin
 import java.util.concurrent.TimeUnit
-import javax.inject.Inject
 
-@HiltAndroidApp
 class BatonApplication : Application(), Configuration.Provider {
 
-    @Inject
-    lateinit var workerFactory: HiltWorkerFactory
-
     override val workManagerConfiguration: Configuration
-        get() = Configuration.Builder()
-            .setWorkerFactory(workerFactory)
-            .build()
+        get() = Configuration.Builder().build()
 
-    @Inject
-    lateinit var appLockObserver: AppLockObserver
+    private val appLockObserver = AppLockObserver()
 
     override fun onCreate() {
         super.onCreate()
+        
+        startKoin {
+            androidLogger()
+            androidContext(this@BatonApplication)
+            modules(com.ekam.baton.di.appModule, networkModule, dataModule)
+        }
+
         createNotificationChannel()
         scheduleTunnelMonitor()
         

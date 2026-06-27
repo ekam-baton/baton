@@ -8,7 +8,6 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -16,10 +15,6 @@ import org.junit.Test
 class DtoSerializationTest {
 
     private val json = Json { encodeDefaults = true }
-    private val jsonLenient = Json {
-        encodeDefaults = false
-        ignoreUnknownKeys = true
-    }
 
     // ── McpMessageDto ───────────────────────────────────────────────────
 
@@ -32,62 +27,6 @@ class DtoSerializationTest {
         assertEquals(original, decoded)
         assertTrue(encoded.contains("\"role\":\"user\""))
         assertTrue(encoded.contains("\"content\":\"Hello\""))
-    }
-
-    // ── McpRequestDto ───────────────────────────────────────────────────
-
-    @Test
-    fun `McpRequestDto with null systemPrompt omits it in JSON`() {
-        val dto = McpRequestDto(
-            systemPrompt = null,
-            messages = listOf(McpMessageDto("user", "Hi"))
-        )
-        val encoded = jsonLenient.encodeToString(dto)
-
-        assertFalse(encoded.contains("systemPrompt"))
-        assertTrue(encoded.contains("\"messages\""))
-    }
-
-    @Test
-    fun `McpRequestDto with systemPrompt includes it`() {
-        val dto = McpRequestDto(
-            systemPrompt = "You are helpful.",
-            messages = listOf(McpMessageDto("user", "Hi"))
-        )
-        val encoded = json.encodeToString(dto)
-
-        assertTrue(encoded.contains("\"systemPrompt\":\"You are helpful.\""))
-    }
-
-    @Test
-    fun `McpRequestDto round-trips correctly`() {
-        val original = McpRequestDto(
-            systemPrompt = "Be concise.",
-            messages = listOf(
-                McpMessageDto("user", "Question"),
-                McpMessageDto("assistant", "Answer")
-            )
-        )
-        val decoded = json.decodeFromString<McpRequestDto>(json.encodeToString(original))
-
-        assertEquals(original, decoded)
-        assertEquals(2, decoded.messages.size)
-        assertEquals("user", decoded.messages[0].role)
-        assertEquals("assistant", decoded.messages[1].role)
-    }
-
-    // ── McpResponseDto ──────────────────────────────────────────────────
-
-    @Test
-    fun `McpResponseDto round-trips correctly`() {
-        val original = McpResponseDto(
-            message = McpMessageDto(role = "assistant", content = "Sure thing!")
-        )
-        val decoded = json.decodeFromString<McpResponseDto>(json.encodeToString(original))
-
-        assertEquals(original, decoded)
-        assertEquals("assistant", decoded.message.role)
-        assertEquals("Sure thing!", decoded.message.content)
     }
 
     // ── McpRequest (MCP protocol) ───────────────────────────────────────

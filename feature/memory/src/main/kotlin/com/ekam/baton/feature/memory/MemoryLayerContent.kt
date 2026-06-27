@@ -10,12 +10,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.ekam.baton.core.data.db.entity.MemoryEntity
+import com.ekam.baton.core.data.model.Memory
 
 @Composable
 fun MemoryLayerContent(
     layer: String,
-    memories: List<MemoryEntity>,
+    memories: List<Memory>,
     onToggleActive: (String, Boolean) -> Unit,
     onDelete: (String) -> Unit
 ) {

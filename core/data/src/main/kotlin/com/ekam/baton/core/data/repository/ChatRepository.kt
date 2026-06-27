@@ -8,109 +8,271 @@ import com.ekam.baton.core.data.db.entity.MessageEntity
 import com.ekam.baton.core.data.db.entity.AgentEntity
 import kotlinx.coroutines.flow.Flow
 import com.ekam.baton.core.data.db.dao.MemoryDao
-import com.ekam.baton.core.network.repository.McpNetworkDataSource
-import com.ekam.baton.core.network.dto.McpRequestDto
-import com.ekam.baton.core.network.dto.McpMessageDto
-import com.ekam.baton.core.network.repository.McpNetworkResult
+import com.ekam.baton.core.data.db.dao.AuditDao
+import com.ekam.baton.core.data.db.entity.AuditLogEntity
+import com.ekam.baton.core.data.util.AuditCryptoUtils
+import com.ekam.baton.core.data.memory.MemoryInjectionEngine
+import com.ekam.baton.core.data.memory.WorkingMemoryManager
+import com.ekam.baton.core.network.mcp.McpMessageSender
+import com.ekam.baton.core.network.mcp.AttachmentDto
 import kotlinx.coroutines.flow.firstOrNull
-import javax.inject.Inject
-import javax.inject.Singleton
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.onCompletion
+import kotlinx.coroutines.flow.onEach
+import java.util.UUID
+import com.ekam.baton.core.data.model.Agent
+import com.ekam.baton.core.data.model.Conversation
+import com.ekam.baton.core.data.model.Message
+import com.ekam.baton.core.data.model.toDomainModel
+import com.ekam.baton.core.data.model.toEntity
+import androidx.paging.map
+import kotlinx.coroutines.flow.map
 
-@Singleton
-class ChatRepository @Inject constructor(
+class ChatRepository constructor(
     private val conversationDao: ConversationDao,
     private val messageDao: MessageDao,
     private val agentDao: AgentDao,
     private val memoryDao: MemoryDao,
-    private val mcpNetworkDataSource: McpNetworkDataSource
+    private val auditDao: AuditDao,
+    private val mcpMessageSender: McpMessageSender,
+    private val memoryInjectionEngine: MemoryInjectionEngine,
+    private val workingMemoryManager: WorkingMemoryManager
 ) {
-    fun getAllAgents(): Flow<List<AgentEntity>> {
-        return agentDao.getAllAgents()
+    fun getAllAgents(): Flow<List<Agent>> {
+        return agentDao.getAllAgents().map { list -> list.map { it.toDomainModel() } }
     }
 
-    fun getAllConversations(): Flow<List<ConversationEntity>> {
-        return conversationDao.getAllConversations()
+    fun getAllConversations(query: String = ""): kotlinx.coroutines.flow.Flow<androidx.paging.PagingData<Conversation>> {
+        return androidx.paging.Pager(
+            config = androidx.paging.PagingConfig(pageSize = 20, enablePlaceholders = false)
+        ) {
+            conversationDao.getAllConversations(query)
+        }.flow.map { pagingData ->
+            pagingData.map { it.toDomainModel() }
+        }
     }
 
-    suspend fun getConversationById(id: String): ConversationEntity? {
-        return conversationDao.getConversationById(id)
+    suspend fun getConversationById(id: String): Conversation? {
+        return conversationDao.getConversationById(id)?.toDomainModel()
     }
 
-    suspend fun upsertConversation(conversation: ConversationEntity) {
-        conversationDao.upsertConversation(conversation)
+    suspend fun upsertConversation(conversation: Conversation) {
+        conversationDao.upsertConversation(conversation.toEntity())
     }
 
     suspend fun deleteConversation(id: String) {
         conversationDao.deleteConversation(id)
     }
 
-    fun getMessagesForConversation(conversationId: String): Flow<List<MessageEntity>> {
-        return messageDao.getMessagesForConversation(conversationId)
+    fun getMessagesForConversation(conversationId: String): kotlinx.coroutines.flow.Flow<androidx.paging.PagingData<Message>> {
+        return androidx.paging.Pager(
+            config = androidx.paging.PagingConfig(pageSize = 30, enablePlaceholders = false)
+        ) {
+            messageDao.getMessagesForConversation(conversationId)
+        }.flow.map { pagingData ->
+            pagingData.map { it.toDomainModel() }
+        }
     }
 
     suspend fun insertMessage(message: MessageEntity) {
-        messageDao.insertMessage(message)
+        val lastAudit = auditDao.getLastAuditLog()
+        val prevHash = lastAudit?.hash ?: ""
+        // Minimal JSON string representation for hash payload
+        val payload = """{"id":"${message.id}","conversationId":"${message.conversationId}","role":"${message.role}","content":"${message.content}"}"""
+        val newHash = AuditCryptoUtils.generateHash(payload, prevHash)
+        
+        val hashedMessage = message.copy(previousHash = prevHash, hash = newHash)
+        messageDao.insertMessage(hashedMessage)
+
+        auditDao.insertAuditLog(AuditLogEntity(
+            entityName = "MessageEntity",
+            entityId = hashedMessage.id,
+            action = "INSERT",
+            deviceId = "local_device",
+            payloadJson = payload,
+            previousHash = prevHash,
+            hash = newHash
+        ))
     }
 
     suspend fun updateMessage(message: MessageEntity) {
-        messageDao.updateMessage(message)
+        val lastAudit = auditDao.getLastAuditLog()
+        val prevHash = lastAudit?.hash ?: ""
+        val payload = """{"id":"${message.id}","conversationId":"${message.conversationId}","role":"${message.role}","content":"${message.content}"}"""
+        val newHash = AuditCryptoUtils.generateHash(payload, prevHash)
+
+        val hashedMessage = message.copy(previousHash = prevHash, hash = newHash)
+        messageDao.updateMessage(hashedMessage)
+
+        auditDao.insertAuditLog(AuditLogEntity(
+            entityName = "MessageEntity",
+            entityId = hashedMessage.id,
+            action = "UPDATE",
+            deviceId = "local_device",
+            payloadJson = payload,
+            previousHash = prevHash,
+            hash = newHash
+        ))
     }
 
     suspend fun getLastNMessages(conversationId: String, n: Int): List<MessageEntity> {
         return messageDao.getLastNMessages(conversationId, n)
     }
 
-    suspend fun generateAgentResponse(conversationId: String, agentId: String, temporaryMessageId: String) {
-        val agent = agentDao.getAgentById(agentId) ?: return
-        val tempMsg = messageDao.getMessageById(temporaryMessageId) ?: return
+    suspend fun sendMessageWithResponse(
+        conversationId: String,
+        content: String,
+        attachments: List<AttachmentDto> = emptyList()
+    ): kotlinx.coroutines.flow.Flow<String> {
+        // 1. Save User Message
+        val userMsg = MessageEntity(
+            id = UUID.randomUUID().toString(),
+            conversationId = conversationId,
+            role = "user",
+            content = content,
+            attachments = null
+        )
+        insertMessage(userMsg)
 
-        // 1. Fetch Context (Working Memory)
-        val workingMemories = memoryDao.getMemoriesByLayer("working").firstOrNull() ?: emptyList()
-        val systemPrompt = if (workingMemories.isNotEmpty()) {
-            "Active Session Context:\n" + workingMemories.joinToString("\n") { it.content }
-        } else {
-            null
+        // 2. Extract working memory facts
+        workingMemoryManager.extractKeyFacts(conversationId, content)
+
+        // 3. Update conversation metadata
+        val conv = conversationDao.getConversationById(conversationId)
+        if (conv != null) {
+            conversationDao.upsertConversation(
+                conv.copy(
+                    updatedAt = System.currentTimeMillis(),
+                    messageCount = conv.messageCount + 1,
+                    title = if (conv.messageCount == 0) content.take(30) + "..." else conv.title
+                )
+            )
         }
 
-        // 2. Fetch History (Up to last 20 messages for context window, excluding the temporary one)
-        val historyEntities = messageDao.getLastNMessages(conversationId, 20)
-            .filter { it.id != temporaryMessageId }
+        // 4. Create placeholder for assistant response
+        val tempMessageId = UUID.randomUUID().toString()
+        val assistantMsg = MessageEntity(
+            id = tempMessageId,
+            conversationId = conversationId,
+            role = "assistant",
+            content = "",
+            isStreaming = true
+        )
+        insertMessage(assistantMsg)
+
+        val agentId = conv?.agentId ?: throw IllegalStateException("Conversation has no agent")
+        val agent = agentDao.getAgentById(agentId) ?: throw IllegalStateException("Agent not found")
+
+        // 5. Build Context
+        val enrichedContextMessage = memoryInjectionEngine.buildContextBlock(
+            agentId = agentId,
+            conversationId = conversationId,
+            userMessage = content
+        )
+
+        // 6. Map History
+        val history = messageDao.getLastNMessages(conversationId, 20)
+            .filter { it.id != tempMessageId && it.id != userMsg.id }
             .sortedBy { it.timestamp }
+            .map { com.ekam.baton.core.network.dto.McpMessageDto(role = it.role, content = it.content) }
+
+        // 7. Call Network and return Flow
+        return mcpMessageSender.sendUserMessage(
+            agentId = agentId,
+            endpointUrl = agent.mcpEndpointUrl,
+            authHeader = null,
+            conversationHistory = history,
+            newUserMessage = enrichedContextMessage,
+            attachments = attachments
+        ).catch { e ->
+            val finalMsg = messageDao.getMessageById(tempMessageId)
+            if (finalMsg != null) {
+                updateMessage(
+                    finalMsg.copy(
+                        content = finalMsg.content + "\n\nError: ${e.message}",
+                        isStreaming = false,
+                        timestamp = System.currentTimeMillis()
+                    )
+                )
+            }
+            throw e
+        }.onCompletion {
+            val finalMsg = messageDao.getMessageById(tempMessageId)
+            if (finalMsg != null) {
+                updateMessage(finalMsg.copy(isStreaming = false))
+            }
             
-        val dtoMessages = historyEntities.map { 
-            McpMessageDto(role = it.role, content = it.content) 
-        }
-
-        val requestDto = McpRequestDto(
-            systemPrompt = systemPrompt,
-            messages = dtoMessages
-        )
-
-        // 3. Network Call
-        val result = mcpNetworkDataSource.sendMessage(
-            url = agent.mcpEndpointUrl,
-            authorization = null, // Auth configuration handling can be added later based on agent.authType
-            request = requestDto
-        )
-
-        // 4. Persistence
-        val updatedMessage = when (result) {
-            is McpNetworkResult.Success -> {
-                tempMsg.copy(
-                    content = result.data.message.content,
-                    isStreaming = false,
-                    timestamp = System.currentTimeMillis()
+            // Trigger metadata update again for the response
+            val finalConv = conversationDao.getConversationById(conversationId)
+            if (finalConv != null) {
+                conversationDao.upsertConversation(
+                    finalConv.copy(
+                        updatedAt = System.currentTimeMillis(),
+                        messageCount = finalConv.messageCount + 1
+                    )
                 )
             }
-            is McpNetworkResult.Error -> {
-                tempMsg.copy(
-                    content = "Error communicating with agent: ${result.message}",
-                    isStreaming = false,
-                    timestamp = System.currentTimeMillis()
+        }.onEach { chunk ->
+            val currentMsg = messageDao.getMessageById(tempMessageId)
+            if (currentMsg != null) {
+                updateMessage(
+                    currentMsg.copy(
+                        content = currentMsg.content + chunk,
+                        timestamp = System.currentTimeMillis()
+                    )
                 )
             }
         }
+    }
+
+    suspend fun getMessageById(id: String): MessageEntity? = messageDao.getMessageById(id)
+
+    suspend fun getAvailableTools(agentId: String): List<com.ekam.baton.core.network.mcp.McpTool> {
+        val agent = agentDao.getAgentById(agentId) ?: return emptyList()
+        return mcpMessageSender.getAvailableTools(agentId, agent.mcpEndpointUrl, null)
+    }
+
+    suspend fun executeToolManual(
+        conversationId: String,
+        toolName: String,
+        arguments: kotlinx.serialization.json.JsonObject
+    ): kotlinx.coroutines.flow.Flow<String> {
+        val conv = conversationDao.getConversationById(conversationId) ?: throw IllegalStateException("Conversation not found")
+        val agent = agentDao.getAgentById(conv.agentId) ?: throw IllegalStateException("Agent not found")
         
-        messageDao.updateMessage(updatedMessage)
+        val tempMessageId = UUID.randomUUID().toString()
+        val toolMsg = MessageEntity(
+            id = tempMessageId,
+            conversationId = conversationId,
+            role = "assistant",
+            content = "Executing $toolName...",
+            isStreaming = true
+        )
+        insertMessage(toolMsg)
+
+        return mcpMessageSender.executeTool(
+            agentId = agent.id,
+            endpointUrl = agent.mcpEndpointUrl,
+            authHeader = null,
+            toolName = toolName,
+            arguments = arguments
+        ).catch { e ->
+            val finalMsg = messageDao.getMessageById(tempMessageId)
+            if (finalMsg != null) {
+                updateMessage(finalMsg.copy(content = finalMsg.content + "\n\nError: ${e.message}", isStreaming = false))
+            }
+            throw e
+        }.onCompletion {
+            val finalMsg = messageDao.getMessageById(tempMessageId)
+            if (finalMsg != null) {
+                updateMessage(finalMsg.copy(isStreaming = false))
+            }
+        }.onEach { chunk ->
+            val currentMsg = messageDao.getMessageById(tempMessageId)
+            if (currentMsg != null) {
+                val newContent = if (currentMsg.content.startsWith("Executing")) chunk else currentMsg.content + chunk
+                updateMessage(currentMsg.copy(content = newContent, timestamp = System.currentTimeMillis()))
+            }
+        }
     }
 }

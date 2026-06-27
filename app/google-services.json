@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1234567890",
+    "project_id": "baton-mock-project",
+    "storage_bucket": "baton-mock-project.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1234567890:android:abcdef1234567890",
+        "android_client_info": {
+          "package_name": "com.ekam.baton"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "MOCK_API_KEY_PLEASE_REPLACE_FOR_PRODUCTION"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

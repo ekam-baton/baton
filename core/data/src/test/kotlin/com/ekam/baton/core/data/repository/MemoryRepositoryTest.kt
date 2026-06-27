@@ -2,6 +2,7 @@ package com.ekam.baton.core.data.repository
 
 import com.ekam.baton.core.data.db.dao.MemoryDao
 import com.ekam.baton.core.data.db.entity.MemoryEntity
+import com.ekam.baton.core.data.model.toDomainModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -95,6 +96,11 @@ class FakeMemoryDao : MemoryDao {
                     memories[index] = memories[index].copy(isActive = false)
                 }
             }
+        emit()
+    }
+
+    override suspend fun clearAllMemories() {
+        memories.clear()
         emit()
     }
 }
@@ -241,7 +247,7 @@ class MemoryRepositoryTest {
     @Test
     fun `upsertMemory inserts new memory`() = runTest {
         val m = memory(id = "new-1")
-        repository.upsertMemory(m)
+        repository.upsertMemory(m.toDomainModel())
 
         val all = repository.getAllMemories().first()
         assertEquals(1, all.size)
@@ -250,8 +256,8 @@ class MemoryRepositoryTest {
 
     @Test
     fun `upsertMemory updates existing memory`() = runTest {
-        repository.upsertMemory(memory(id = "u-1", title = "Old"))
-        repository.upsertMemory(memory(id = "u-1", title = "New"))
+        repository.upsertMemory(memory(id = "u-1", title = "Old").toDomainModel())
+        repository.upsertMemory(memory(id = "u-1", title = "New").toDomainModel())
 
         val all = repository.getAllMemories().first()
         assertEquals(1, all.size)
@@ -262,7 +268,7 @@ class MemoryRepositoryTest {
 
     @Test
     fun `deleteMemory removes memory`() = runTest {
-        repository.upsertMemory(memory(id = "del-1"))
+        repository.upsertMemory(memory(id = "del-1").toDomainModel())
         repository.deleteMemory("del-1")
 
         assertTrue(repository.getAllMemories().first().isEmpty())
@@ -270,7 +276,7 @@ class MemoryRepositoryTest {
 
     @Test
     fun `deleteMemory with unknown id is no-op`() = runTest {
-        repository.upsertMemory(memory(id = "keep"))
+        repository.upsertMemory(memory(id = "keep").toDomainModel())
         repository.deleteMemory("ghost")
 
         assertEquals(1, repository.getAllMemories().first().size)
@@ -280,7 +286,7 @@ class MemoryRepositoryTest {
 
     @Test
     fun `toggleMemoryActive sets isActive to false`() = runTest {
-        repository.upsertMemory(memory(id = "t-1", isActive = true))
+        repository.upsertMemory(memory(id = "t-1", isActive = true).toDomainModel())
         repository.toggleMemoryActive("t-1", isActive = false)
 
         val result = repository.getAllMemories().first().first { it.id == "t-1" }
@@ -289,7 +295,7 @@ class MemoryRepositoryTest {
 
     @Test
     fun `toggleMemoryActive sets isActive to true`() = runTest {
-        repository.upsertMemory(memory(id = "t-2", isActive = false))
+        repository.upsertMemory(memory(id = "t-2", isActive = false).toDomainModel())
         repository.toggleMemoryActive("t-2", isActive = true)
 
         val result = repository.getAllMemories().first().first { it.id == "t-2" }

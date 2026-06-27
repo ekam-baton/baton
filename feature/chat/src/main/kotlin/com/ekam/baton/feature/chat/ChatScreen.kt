@@ -1,10 +1,13 @@
 package com.ekam.baton.feature.chat
 
+import org.koin.compose.viewmodel.koinViewModel
+
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -19,9 +22,26 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Keyboard
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.TextRange
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.IntentSenderRequest
+import com.google.mlkit.vision.documentscanner.GmsDocumentScannerOptions
+import com.google.mlkit.vision.documentscanner.GmsDocumentScanning
+import com.google.mlkit.vision.documentscanner.GmsDocumentScanningResult
+import com.ekam.baton.core.data.preferences.KeyboardShortcut
+
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -33,8 +53,9 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
-import com.ekam.baton.core.data.db.entity.MessageEntity
+import com.ekam.baton.core.data.model.Message
+import androidx.paging.compose.collectAsLazyPagingItems
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,13 +63,33 @@ fun ChatScreen(
     conversationId: String,
     onNavigateBack: () -> Unit,
     onNavigateToMemory: (String?) -> Unit,
-    viewModel: ChatViewModel = hiltViewModel()
+    viewModel: ChatViewModel = koinViewModel()
 ) {
-    val messages by viewModel.messages.collectAsState()
-    val isStreaming by viewModel.isStreaming.collectAsState()
-    val activeMemoryCount by viewModel.activeMemoryCount.collectAsState()
-    val currentAgentId by viewModel.currentAgentId.collectAsState()
+    val messages = viewModel.messages.collectAsLazyPagingItems()
+    val isStreaming by viewModel.isStreaming.collectAsStateWithLifecycle()
+    val activeMemoryCount by viewModel.activeMemoryCount.collectAsStateWithLifecycle()
+    val currentAgentId by viewModel.currentAgentId.collectAsStateWithLifecycle()
     
+    val availableTools by viewModel.availableTools.collectAsStateWithLifecycle()
+    val toolAuthRequest by viewModel.toolAuthRequests.collectAsStateWithLifecycle(initialValue = null)
+    
+    var showToolsSheet by remember { mutableStateOf(false) }
+
+    toolAuthRequest?.let { request ->
+        JITAuthorizationDialog(
+            request = request,
+            onResult = { isApproved -> viewModel.resolveToolAuth(request, isApproved) }
+        )
+    }
+
+    if (showToolsSheet) {
+        ToolExecutionBottomSheet(
+            tools = availableTools,
+            onExecuteTool = { toolName, args -> viewModel.executeTool(toolName, args) },
+            onDismiss = { showToolsSheet = false }
+        )
+    }
+
     // For TopAppBar info (agent name, avatar) we would ideally join tables or 
     // fetch the agent. In a real app we might pass agent details or have a ConversationWithAgent model.
     // For now we just use a generic title.
@@ -63,8 +104,29 @@ fun ChatScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { /* TODO: Context menu */ }) {
+                    var showMenu by remember { mutableStateOf(false) }
+                    IconButton(onClick = { showMenu = true }) {
                         Icon(Icons.Default.MoreVert, contentDescription = "Options")
+                    }
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Agent Memory") },
+                            onClick = {
+                                showMenu = false
+                                onNavigateToMemory(currentAgentId)
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Clear Chat") },
+                            onClick = {
+                                viewModel.deleteConversation(conversationId)
+                                showMenu = false
+                                onNavigateBack()
+                            }
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -73,14 +135,20 @@ fun ChatScreen(
             )
         },
         bottomBar = {
+            val keyboardShortcuts by viewModel.keyboardShortcuts.collectAsStateWithLifecycle()
             ChatInputBar(
                 activeMemoryCount = activeMemoryCount,
+                keyboardShortcuts = keyboardShortcuts,
+                hasTools = availableTools.isNotEmpty(),
+                onSaveShortcuts = { updated -> viewModel.saveKeyboardShortcuts(updated) },
                 onMemoryClick = { onNavigateToMemory(currentAgentId) },
+                onToolsClick = { showToolsSheet = true },
                 onSendMessage = { content, attachments ->
                     viewModel.sendMessage(content, attachments)
                 }
             )
         },
+
         containerColor = Color.Transparent,
         contentWindowInsets = WindowInsets.ime.union(WindowInsets.systemBars)
     ) { innerPadding ->
@@ -89,8 +157,8 @@ fun ChatScreen(
         val context = LocalContext.current
         
         // Auto-scroll to bottom when new messages arrive
-        LaunchedEffect(messages.size, isStreaming) {
-            if (messages.isNotEmpty()) {
+        LaunchedEffect(messages.itemCount, isStreaming) {
+            if (messages.itemCount > 0) {
                 listState.animateScrollToItem(0) // 0 is bottom because reversed
             }
         }
@@ -126,19 +194,24 @@ fun ChatScreen(
                 }
             }
 
-            // Messages are ordered ascending in DB, so we reverse them for reverseLayout
-            items(messages.reversed(), key = { it.id }) { message ->
-                MessageBubble(
-                    message = message,
-                    modifier = Modifier.animateItem()
-                )
+            items(
+                count = messages.itemCount,
+                key = { index -> messages[index]?.id ?: index }
+            ) { index ->
+                val message = messages[index]
+                if (message != null) {
+                    MessageBubble(
+                        message = message,
+                        modifier = Modifier.animateItem()
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-fun MessageBubble(message: MessageEntity, modifier: Modifier = Modifier) {
+fun MessageBubble(message: Message, modifier: Modifier = Modifier) {
     val isUser = message.role == "user"
     val isToolResult = message.role == "tool_result"
 
@@ -241,17 +314,79 @@ fun AssistantTypingIndicator() {
 @Composable
 fun ChatInputBar(
     activeMemoryCount: Int,
+    keyboardShortcuts: List<KeyboardShortcut>,
+    hasTools: Boolean,
+    onSaveShortcuts: (List<KeyboardShortcut>) -> Unit,
     onMemoryClick: () -> Unit,
+    onToolsClick: () -> Unit,
     onSendMessage: (String, List<Uri>) -> Unit
 ) {
-    var text by remember { mutableStateOf("") }
+    var text by remember { mutableStateOf(TextFieldValue("")) }
     val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
     var attachments by remember { mutableStateOf(emptyList<Uri>()) }
+    var showShortcutsDialog by remember { mutableStateOf(false) }
+    var showAttachmentSheet by remember { mutableStateOf(false) }
     
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-        if (uri != null) {
-            attachments = attachments + uri
+    // File Picker (Documents/Any)
+    val fileLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
+        if (uris.isNotEmpty()) {
+            attachments = attachments + uris
         }
+    }
+
+    // Photo/Video Gallery Picker
+    val mediaPickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(5)) { uris ->
+        if (uris.isNotEmpty()) {
+            attachments = attachments + uris
+        }
+    }
+
+    // ML Kit Document Scanner
+    val scannerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            val scanResult = GmsDocumentScanningResult.fromActivityResultIntent(result.data)
+            scanResult?.pages?.forEach { page ->
+                attachments = attachments + page.imageUri
+            }
+            scanResult?.pdf?.let { pdf ->
+                attachments = attachments + pdf.uri
+            }
+        }
+    }
+
+    val context = LocalContext.current
+    fun launchScanner() {
+        val options = GmsDocumentScannerOptions.Builder()
+            .setGalleryImportAllowed(true)
+            .setPageLimit(15)
+            .setResultFormats(GmsDocumentScannerOptions.RESULT_FORMAT_JPEG, GmsDocumentScannerOptions.RESULT_FORMAT_PDF)
+            .setScannerMode(GmsDocumentScannerOptions.SCANNER_MODE_FULL)
+            .build()
+        val scanner = GmsDocumentScanning.getClient(options)
+        scanner.getStartScanIntent(context.findActivity()!!)
+            .addOnSuccessListener { intentSender ->
+                scannerLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
+            }
+            .addOnFailureListener { e ->
+                // Handle failure
+            }
+    }
+
+    if (showAttachmentSheet) {
+        AttachmentPickerBottomSheet(
+            onDismissRequest = { showAttachmentSheet = false },
+            onScanDocumentClick = { launchScanner() },
+            onGalleryClick = { mediaPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) },
+            onFilesClick = { fileLauncher.launch("*/*") }
+        )
+    }
+
+    if (showShortcutsDialog) {
+        ShortcutManagerDialog(
+            shortcuts = keyboardShortcuts,
+            onSaveShortcuts = onSaveShortcuts,
+            onDismiss = { showShortcutsDialog = false }
+        )
     }
     
     Column(
@@ -287,19 +422,78 @@ fun ChatInputBar(
             }
         }
         
-        // Context Indicator Chip
-        Surface(
-            color = MaterialTheme.colorScheme.surfaceVariant,
-            shape = CircleShape,
-            modifier = Modifier.padding(start = 12.dp, bottom = 8.dp),
-            onClick = onMemoryClick
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(
-                text = "\uD83E\uDDE0 $activeMemoryCount memories injected",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-            )
+            // Context Indicator Chip
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                shape = CircleShape,
+                modifier = Modifier.padding(start = 12.dp, bottom = 8.dp),
+                onClick = onMemoryClick
+            ) {
+                Text(
+                    text = "\uD83E\uDDE0 $activeMemoryCount memories injected",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                )
+            }
+        }
+
+        // Shortcuts Toolbar
+        LazyRow(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 12.dp, end = 12.dp, bottom = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            items(keyboardShortcuts) { shortcut ->
+                val localHaptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.clickable {
+                        localHaptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        if (shortcut.isImmediate) {
+                            onSendMessage(shortcut.textToInsert, emptyList())
+                        } else {
+                            val currentText = text.text
+                            val selection = text.selection
+                            val textToInsert = shortcut.textToInsert
+                            val newText = currentText.substring(0, selection.min) + textToInsert + currentText.substring(selection.max)
+                            text = TextFieldValue(
+                                text = newText,
+                                selection = TextRange(selection.min + textToInsert.length)
+                            )
+                        }
+                    }
+                ) {
+                    Text(
+                        text = shortcut.label,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                    )
+                }
+            }
+
+            item {
+                IconButton(
+                    onClick = { showShortcutsDialog = true },
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Manage Shortcuts",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
         }
 
         Row(
@@ -318,7 +512,7 @@ fun ChatInputBar(
             verticalAlignment = Alignment.Bottom
         ) {
             IconButton(
-                onClick = { launcher.launch("*/*") },
+                onClick = { showAttachmentSheet = true },
                 modifier = Modifier.size(40.dp)
             ) {
                 Icon(
@@ -328,12 +522,25 @@ fun ChatInputBar(
                 )
             }
 
+            if (hasTools) {
+                IconButton(
+                    onClick = onToolsClick,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Settings, // Using Settings icon for Tools
+                        contentDescription = "Tools",
+                        tint = MaterialTheme.colorScheme.tertiary
+                    )
+                }
+            }
+
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .padding(horizontal = 8.dp, vertical = 10.dp)
             ) {
-                if (text.isEmpty()) {
+                if (text.text.isEmpty()) {
                     Text(
                         text = "Message...",
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
@@ -356,14 +563,14 @@ fun ChatInputBar(
 
             IconButton(
                 onClick = {
-                    if (text.isNotBlank() || attachments.isNotEmpty()) {
+                    if (text.text.isNotBlank() || attachments.isNotEmpty()) {
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        onSendMessage(text, attachments)
-                        text = ""
+                        onSendMessage(text.text, attachments)
+                        text = TextFieldValue("")
                         attachments = emptyList()
                     }
                 },
-                enabled = text.isNotBlank() || attachments.isNotEmpty(),
+                enabled = text.text.isNotBlank() || attachments.isNotEmpty(),
                 modifier = Modifier.size(40.dp),
                 colors = IconButtonDefaults.iconButtonColors(
                     contentColor = MaterialTheme.colorScheme.tertiary,
@@ -374,4 +581,334 @@ fun ChatInputBar(
             }
         }
     }
+}
+
+@Composable
+fun ShortcutManagerDialog(
+    shortcuts: List<KeyboardShortcut>,
+    onSaveShortcuts: (List<KeyboardShortcut>) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var newLabel by remember { mutableStateOf("") }
+    var newText by remember { mutableStateOf("") }
+    var isImmediate by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "Keyboard Shortcuts",
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                if (shortcuts.isNotEmpty()) {
+                    Text(
+                        text = "Current Shortcuts",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    
+                    shortcuts.forEach { shortcut ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    color = MaterialTheme.colorScheme.surfaceVariant,
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = shortcut.label,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = shortcut.textToInsert + if (shortcut.isImmediate) " (Immediate)" else "",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                )
+                            }
+                            IconButton(
+                                onClick = {
+                                    val updated = shortcuts.filter { it != shortcut }
+                                    onSaveShortcuts(updated)
+                                },
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Delete",
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    Text(
+                        text = "No shortcuts configured. Reset to defaults or add below.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                Text(
+                    text = "Add Shortcut",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                OutlinedTextField(
+                    value = newLabel,
+                    onValueChange = { newLabel = it },
+                    label = { Text("Label (e.g. Help)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = newText,
+                    onValueChange = { newText = it },
+                    label = { Text("Text to Insert") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Send immediately",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Switch(
+                        checked = isImmediate,
+                        onCheckedChange = { isImmediate = it }
+                    )
+                }
+
+                Button(
+                    onClick = {
+                        if (newLabel.isNotBlank() && newText.isNotBlank()) {
+                            val updated = shortcuts + KeyboardShortcut(
+                                label = newLabel.trim(),
+                                textToInsert = newText,
+                                isImmediate = isImmediate
+                            )
+                            onSaveShortcuts(updated)
+                            newLabel = ""
+                            newText = ""
+                            isImmediate = false
+                        }
+                    },
+                    enabled = newLabel.isNotBlank() && newText.isNotBlank(),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Add Shortcut")
+                }
+            }
+        },
+        confirmButton = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = {
+                        onSaveShortcuts(listOf(
+                            KeyboardShortcut(label = "Code", textToInsert = "```\n\n```", isImmediate = false),
+                            KeyboardShortcut(label = "Status", textToInsert = "/status", isImmediate = true),
+                            KeyboardShortcut(label = "Clear", textToInsert = "/clear", isImmediate = true),
+                            KeyboardShortcut(label = "Help", textToInsert = "/help", isImmediate = true)
+                        ))
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Reset Defaults")
+                }
+                Button(
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Close")
+                }
+            }
+        },
+        containerColor = MaterialTheme.colorScheme.surface
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ToolExecutionBottomSheet(
+    tools: List<com.ekam.baton.core.network.mcp.McpTool>,
+    onExecuteTool: (String, kotlinx.serialization.json.JsonObject) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var selectedTool by remember { mutableStateOf<com.ekam.baton.core.network.mcp.McpTool?>(null) }
+    var argumentsText by remember { mutableStateOf("") }
+    var jsonError by remember { mutableStateOf(false) }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surface
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = "Agent Capabilities",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+            )
+
+            if (selectedTool == null) {
+                if (tools.isEmpty()) {
+                    Text("No tools are exposed by this Agent.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    tools.forEach { tool ->
+                        Surface(
+                            onClick = { selectedTool = tool },
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(tool.name, style = MaterialTheme.typography.titleMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(tool.description ?: "No description provided", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
+            } else {
+                val tool = selectedTool!!
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { selectedTool = null; argumentsText = ""; jsonError = false }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                    Text("Execute ${tool.name}", style = MaterialTheme.typography.titleMedium)
+                }
+                
+                Text(tool.description ?: "", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                
+                OutlinedTextField(
+                    value = argumentsText,
+                    onValueChange = { argumentsText = it; jsonError = false },
+                    label = { Text("Arguments (JSON)") },
+                    isError = jsonError,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 150.dp),
+                    textStyle = TextStyle(fontFamily = FontFamily.Monospace)
+                )
+                
+                if (jsonError) {
+                    Text("Invalid JSON format", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
+
+                Button(
+                    onClick = {
+                        try {
+                            val args = if (argumentsText.isBlank()) {
+                                kotlinx.serialization.json.JsonObject(emptyMap<String, kotlinx.serialization.json.JsonElement>())
+                            } else {
+                                kotlinx.serialization.json.Json.parseToJsonElement(argumentsText) as kotlinx.serialization.json.JsonObject
+                            }
+                            onExecuteTool(tool.name, args)
+                            onDismiss()
+                        } catch (e: Exception) {
+                            jsonError = true
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Execute")
+                }
+            }
+            Spacer(modifier = Modifier.height(32.dp))
+        }
+    }
+}
+
+@Composable
+fun JITAuthorizationDialog(
+    request: com.ekam.baton.core.network.mcp.ToolAuthorizationRequest,
+    onResult: (Boolean) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = { /* Must be explicitly allowed/denied */ },
+        title = {
+            Text(
+                text = "Authorization Required",
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.error
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("The Agent is requesting to execute a destructive tool. Do you want to allow this action?", style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(8.dp))
+                Text("Tool Name:", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
+                Text(request.toolName, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace)
+                Spacer(Modifier.height(4.dp))
+                Text("Arguments:", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
+                Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = request.arguments.toString(),
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.padding(8.dp)
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onResult(true) },
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+            ) {
+                Text("Allow")
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = { onResult(false) }) {
+                Text("Deny")
+            }
+        },
+        containerColor = MaterialTheme.colorScheme.surface
+    )
+}
+
+fun android.content.Context.findActivity(): android.app.Activity? {
+    var currentContext = this
+    while (currentContext is android.content.ContextWrapper) {
+        if (currentContext is android.app.Activity) {
+            return currentContext
+        }
+        currentContext = currentContext.baseContext
+    }
+    return null
 }

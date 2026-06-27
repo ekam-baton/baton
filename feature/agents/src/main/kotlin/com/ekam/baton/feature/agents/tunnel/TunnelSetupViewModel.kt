@@ -2,16 +2,13 @@ package com.ekam.baton.feature.agents.tunnel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 import com.ekam.baton.core.network.tunnel.TunnelEndpointValidator
 import com.ekam.baton.core.network.tunnel.TunnelValidationResult
 
-@HiltViewModel
-class TunnelSetupViewModel @Inject constructor(
+class TunnelSetupViewModel(
     private val endpointValidator: TunnelEndpointValidator
 ) : ViewModel() {
 

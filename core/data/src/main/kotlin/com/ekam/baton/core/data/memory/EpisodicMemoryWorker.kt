@@ -1,18 +1,16 @@
 package com.ekam.baton.core.data.memory
 
 import android.content.Context
-import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import dagger.assisted.Assisted
-import dagger.assisted.AssistedInject
+import org.koin.core.component.inject
 
-@HiltWorker
-class EpisodicMemoryWorker @AssistedInject constructor(
-    @Assisted context: Context,
-    @Assisted params: WorkerParameters,
-    private val episodicMemoryGenerator: EpisodicMemoryGenerator
-) : CoroutineWorker(context, params) {
+class EpisodicMemoryWorker(
+    appContext: Context,
+    workerParams: WorkerParameters
+) : CoroutineWorker(appContext, workerParams), org.koin.core.component.KoinComponent {
+
+    private val episodicMemoryGenerator: EpisodicMemoryGenerator by inject()
 
     override suspend fun doWork(): Result {
         val conversationId = inputData.getString("conversationId") ?: return Result.failure()

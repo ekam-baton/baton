@@ -11,12 +11,16 @@
         - Status/nav bar transparency is applied at runtime by Activity.enableEdgeToEdge();
           no XML item needed here.
     -->
-    <style name="Theme.Baton" parent="android:Theme.Material.Light.NoActionBar">
-        <item name="android:windowBackground">#070B14</item>
+    <style name="Theme.Baton" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="android:windowBackground">#0F1623</item>
         <item name="android:windowAnimationStyle">@null</item>
     </style>
 
-    <!-- Splash theme — identical until a proper splash screen drawable is added. -->
-    <style name="Theme.Baton.Splash" parent="Theme.Baton" />
+    <!-- Splash theme using the AndroidX SplashScreen library -->
+    <style name="Theme.Baton.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#0F1623</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.Baton</item>
+    </style>
 
 </resources>

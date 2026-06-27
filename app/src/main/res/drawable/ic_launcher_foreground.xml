@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Conductor's Baton -->
+    <group
+        android:translateX="54"
+        android:translateY="54">
+
+        <!-- The Stick (White) -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M -0.5,-32 L 0.5,-32 L 1.5,8 L -1.5,8 Z" />
+
+        <!-- The Metal Ring (White) -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M -2.5,8 L 2.5,8 L 2.5,10 L -2.5,10 Z" />
+
+        <!-- The Cork Handle (White) -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M -2.5,10 L 2.5,10 C 4,14 4,18 2.5,22 a 2.5,2.5 0 0 1 -5,0 C -4,18 -4,14 -2.5,10 Z" />
+    </group>
+
+</vector>

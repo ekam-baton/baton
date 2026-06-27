@@ -15,12 +15,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
-import com.ekam.baton.core.data.db.entity.AgentEntity
+import com.ekam.baton.core.data.model.Agent
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddEditMemoryBottomSheet(
-    agents: List<AgentEntity>,
+    agents: List<Agent>,
     onSave: (layer: String, agentId: String?, title: String, content: String, tags: List<String>) -> Unit,
     onDismissRequest: () -> Unit,
     sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -184,17 +184,28 @@ fun AddEditMemoryBottomSheet(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Save Button
-            Button(
-                onClick = {
-                    if (title.isNotBlank() && content.isNotBlank()) {
-                        onSave(selectedLayer, selectedAgentId, title, content, tags)
-                    }
-                },
+            // Action Buttons
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                enabled = title.isNotBlank() && content.isNotBlank()
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text("Save Memory")
+                OutlinedButton(
+                    onClick = onDismissRequest,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Cancel")
+                }
+                Button(
+                    onClick = {
+                        if (title.isNotBlank() && content.isNotBlank()) {
+                            onSave(selectedLayer, selectedAgentId, title, content, tags)
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                    enabled = title.isNotBlank() && content.isNotBlank()
+                ) {
+                    Text("Save Memory")
+                }
             }
         }
     }

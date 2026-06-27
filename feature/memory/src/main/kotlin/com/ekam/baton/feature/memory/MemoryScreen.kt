@@ -1,6 +1,9 @@
 package com.ekam.baton.feature.memory
 
+import org.koin.compose.viewmodel.koinViewModel
+
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -11,16 +14,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MemoryScreen(
-    viewModel: MemoryViewModel = hiltViewModel()
+    viewModel: MemoryViewModel = koinViewModel()
 ) {
-    val memoriesByLayer by viewModel.memoriesByLayer.collectAsState()
-    val agents by viewModel.agents.collectAsState()
-    val searchQuery by viewModel.searchQuery.collectAsState()
+    val memoriesByLayer by viewModel.memoriesByLayer.collectAsStateWithLifecycle()
+    val agents by viewModel.agents.collectAsStateWithLifecycle()
+    val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
 
     var selectedTabIndex by remember { mutableStateOf(0) }
     var isSearchExpanded by remember { mutableStateOf(false) }
@@ -57,7 +60,7 @@ fun MemoryScreen(
                     )
                 )
                 
-                val currentFilter = viewModel.agentFilter.collectAsState().value
+                val currentFilter = viewModel.agentFilter.collectAsStateWithLifecycle().value
                 if (currentFilter != null) {
                     val agentName = agents.find { it.id == currentFilter }?.name ?: "Agent"
                     Surface(
@@ -75,23 +78,25 @@ fun MemoryScreen(
                     }
                 }
 
-                TabRow(
-                    selectedTabIndex = selectedTabIndex,
-                    containerColor = Color.Transparent,
-                    contentColor = MaterialTheme.colorScheme.tertiary,
-                    divider = { HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant) }
-                ) {
-                    tabs.forEachIndexed { index, title ->
-                        Tab(
-                            selected = selectedTabIndex == index,
-                            onClick = { selectedTabIndex = index },
-                            text = { 
-                                Text(
-                                    title.replaceFirstChar { it.uppercase() },
-                                    color = if (selectedTabIndex == index) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant
-                                ) 
-                            }
-                        )
+                Box(modifier = Modifier.height(48.dp)) {
+                    TabRow(
+                        selectedTabIndex = selectedTabIndex,
+                        containerColor = Color.Transparent,
+                        contentColor = MaterialTheme.colorScheme.tertiary,
+                        divider = { HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant) }
+                    ) {
+                        tabs.forEachIndexed { index, title ->
+                            Tab(
+                                selected = selectedTabIndex == index,
+                                onClick = { selectedTabIndex = index },
+                                text = { 
+                                    Text(
+                                        title.replaceFirstChar { it.uppercase() },
+                                        color = if (selectedTabIndex == index) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant
+                                    ) 
+                                }
+                            )
+                        }
                     }
                 }
             }

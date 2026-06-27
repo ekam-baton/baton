@@ -15,5 +15,9 @@ data class MemoryEntity(
     val lastAccessedAt: Long,
     val relevanceScore: Float, // 0.0-1.0
     val tags: String, // JSON array of string tags
-    val isActive: Boolean = true
+    val isActive: Boolean = true,
+    @androidx.room.ColumnInfo(name = "previous_hash", defaultValue = "")
+    val previousHash: String = "",
+    @androidx.room.ColumnInfo(name = "hash", defaultValue = "")
+    val hash: String = ""
 )

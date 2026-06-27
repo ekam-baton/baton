@@ -2,13 +2,12 @@ plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    alias(libs.plugins.hilt)
-    alias(libs.plugins.ksp)
+alias(libs.plugins.ksp)
 }
 
 android {
     namespace = "com.ekam.baton.feature.chat"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 26
@@ -30,6 +29,8 @@ android {
 }
 
 dependencies {
+    implementation(libs.koin.androidx.compose)
+    implementation(libs.koin.compose.viewmodel)
     implementation(project(":core:ui"))
     implementation(project(":core:data"))
     implementation(project(":core:network"))
@@ -39,16 +40,15 @@ dependencies {
     implementation(libs.bundles.compose.feature)
     implementation(libs.navigation.compose)
     implementation(libs.bundles.lifecycle)
-
-    implementation(libs.hilt.android)
-    ksp(libs.hilt.compiler)
-    implementation(libs.hilt.navigation.compose)
-
-    implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.paging.compose)
+implementation(libs.kotlinx.coroutines.android)
     implementation(libs.work.runtime.ktx)
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.play.services.mlkit.document.scanner)
 
     testImplementation(libs.junit4)
     testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.bundles.testing.android)
     debugImplementation(libs.compose.ui.tooling)
 }
+

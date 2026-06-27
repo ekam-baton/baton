@@ -12,6 +12,11 @@ import com.ekam.baton.core.data.db.dao.MemoryDao
 
 import com.ekam.baton.core.data.db.entity.MemoryEntity
 
+import com.ekam.baton.core.data.db.entity.AuditLogEntity
+import com.ekam.baton.core.data.db.dao.AuditDao
+import com.ekam.baton.core.data.db.entity.AgentActionLogEntity
+import com.ekam.baton.core.data.db.dao.AgentActionLogDao
+
 /**
  * BATON Room database.
  *
@@ -22,8 +27,8 @@ import com.ekam.baton.core.data.db.entity.MemoryEntity
  * argument `room.schemaLocation` — schemas are version-controlled for audit.
  */
 @Database(
-    entities    = [ConversationEntity::class, AgentEntity::class, MessageEntity::class, MemoryEntity::class],
-    version     = 5,
+    entities    = [ConversationEntity::class, AgentEntity::class, MessageEntity::class, MemoryEntity::class, AuditLogEntity::class, AgentActionLogEntity::class],
+    version     = 8,
     exportSchema = true,
 )
 abstract class BatonDatabase : RoomDatabase() {
@@ -32,6 +37,8 @@ abstract class BatonDatabase : RoomDatabase() {
     abstract fun conversationDao(): ConversationDao
     abstract fun messageDao(): MessageDao
     abstract fun memoryDao(): MemoryDao
+    abstract fun auditDao(): AuditDao
+    abstract fun agentActionLogDao(): AgentActionLogDao
 
     companion object {
         const val DATABASE_NAME = "baton.db"

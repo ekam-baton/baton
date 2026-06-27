@@ -33,5 +33,11 @@ data class ConversationEntity(
     val isPinned: Boolean = false,
 
     @ColumnInfo(name = "message_count")
-    val messageCount: Int = 0
+    val messageCount: Int = 0,
+
+    @ColumnInfo(name = "previous_hash", defaultValue = "")
+    val previousHash: String = "",
+
+    @ColumnInfo(name = "hash", defaultValue = "")
+    val hash: String = ""
 )

@@ -1,0 +1,28 @@
+BATON TERMS OF SERVICE
+Last Updated: June 20, 2026
+
+Please read these Terms of Service ("Terms") carefully before using the BATON mobile application ("Application"). By installing or using the Application, you agree to be bound by these Terms.
+
+1. SCOPE OF SERVICE
+BATON is an orchestration client interface that allows users to communicate with local and remote AI models via Model Context Protocol (MCP) tunnels. The Application does not host or operate the AI models or endpoints themselves.
+
+2. ELIGIBILITY & REGISTRATION
+To use the Application, you must complete the onboarding profile setup by providing a valid Email Address and Phone Number. You are responsible for configuring secure biometric authentication on your device to protect access to the Application.
+
+3. USER-CONFIGURED ENDPOINTS (MCP)
+- Responsibility: You are solely responsible for the configuration, hosting, safety, and security of any Model Context Protocol (MCP) endpoints or tunnels connected to the Application.
+- Network Usage: Connecting the Application to third-party endpoints may consume mobile data or broadband network bandwidth. You are responsible for all carrier and network charges.
+
+4. DISCLAIMER OF WARRANTIES
+- THE APPLICATION IS PROVIDED ON AN "AS IS" AND "AS AVAILABLE" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+- WE DO NOT GUARANTEE THE ACCURACY, RELIABILITY, SECURITY, OR AVAILABILITY OF THE APPLICATION OR ANY AI RESPONSES SECURED FROM EXTERNAL MCP SERVICES.
+
+5. LIMITATION OF LIABILITY
+- TO THE MAXIMUM EXTENT PERMITTED BY LAW, IN NO EVENT SHALL THE DEVELOPERS, MAINTAINERS, OR DISTRIBUTORS OF BATON BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR ANY LOSS OF PROFITS, DATA, OR USE arising out of your use or inability to use the Application.
+- ALL ACTIONS TAKEN AND DECISIONS MADE BASED ON AI GENERATED MESSAGES WITHIN THE CHAT INTERFACE ARE SOLELY AT YOUR OWN RISK.
+
+6. GOVERNING LAW
+These Terms shall be governed and construed in accordance with the laws of your jurisdiction, without regard to its conflict of law provisions.
+
+7. CHANGES TO TERMS
+We reserve the right, at our sole discretion, to modify or replace these Terms at any time. Continued use of the Application constitutes acceptance of the new Terms.

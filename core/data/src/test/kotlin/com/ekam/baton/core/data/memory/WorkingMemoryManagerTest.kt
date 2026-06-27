@@ -74,6 +74,11 @@ private class WorkingMemoryFakeDao : MemoryDao {
         }
         emit()
     }
+
+    override suspend fun clearAllMemories() {
+        memories.clear()
+        emit()
+    }
 }
 
 class WorkingMemoryManagerTest {

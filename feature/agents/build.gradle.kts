@@ -2,13 +2,12 @@ plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    alias(libs.plugins.hilt)
-    alias(libs.plugins.ksp)
+alias(libs.plugins.ksp)
 }
 
 android {
     namespace = "com.ekam.baton.feature.agents"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 26
@@ -30,6 +29,9 @@ android {
 }
 
 dependencies {
+    implementation(libs.koin.androidx.compose)
+    implementation(libs.koin.compose.viewmodel)
+    implementation(libs.koin.core)
     implementation(project(":core:ui"))
     implementation(project(":core:data"))
     implementation(project(":core:network"))
@@ -37,22 +39,22 @@ dependencies {
     val composeBom = platform(libs.compose.bom)
     implementation(composeBom)
     implementation(libs.bundles.compose.feature)
+    implementation(libs.compose.material.icons.extended)
     implementation(libs.navigation.compose)
     implementation(libs.bundles.lifecycle)
     implementation(libs.coil.compose)
 
-    implementation(libs.hilt.android)
-    ksp(libs.hilt.compiler)
-    ksp(libs.hilt.compiler.ext)
-    implementation(libs.hilt.navigation.compose)
-    implementation(libs.hilt.work)
-    implementation(libs.work.runtime.ktx)
+implementation(libs.work.runtime.ktx)
 
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
+
+    implementation("com.google.zxing:core:3.5.3")
+    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
 
     testImplementation(libs.junit4)
     testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.bundles.testing.android)
     debugImplementation(libs.compose.ui.tooling)
 }
+

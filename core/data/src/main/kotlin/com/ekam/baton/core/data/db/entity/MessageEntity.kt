@@ -36,5 +36,11 @@ data class MessageEntity(
     val toolCallJson: String? = null, // raw MCP tool call/result JSON if applicable
 
     @ColumnInfo(name = "token_count")
-    val tokenCount: Int? = null
+    val tokenCount: Int? = null,
+
+    @ColumnInfo(name = "previous_hash", defaultValue = "")
+    val previousHash: String = "",
+
+    @ColumnInfo(name = "hash", defaultValue = "")
+    val hash: String = ""
 )
