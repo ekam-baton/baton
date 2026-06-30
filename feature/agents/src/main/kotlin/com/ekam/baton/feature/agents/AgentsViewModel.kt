@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.first
 
 import com.ekam.baton.core.network.tunnel.TunnelEndpointValidator
 
@@ -33,7 +34,22 @@ class AgentsViewModel(
         return securityManager.generateClientKeys()
     }
 
-    val discoveredAgents: StateFlow<List<com.ekam.baton.core.network.mdns.DiscoveredAgent>> = mdnsDiscoveryManager.discoveredAgents
+    val discoveredAgents: StateFlow<List<com.ekam.baton.core.network.mdns.DiscoveredAgent>> = kotlinx.coroutines.flow.combine(
+        mdnsDiscoveryManager.discoveredAgents,
+        agentRepository.getAllAgents()
+    ) { discovered, saved ->
+        discovered.filter { d ->
+            saved.none { s -> 
+                val normalizedSaved = s.mcpEndpointUrl.trim().removeSuffix("/")
+                val normalizedDiscovered = d.url.trim().removeSuffix("/")
+                normalizedSaved.equals(normalizedDiscovered, ignoreCase = true)
+            }
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
 
     init {
         mdnsDiscoveryManager.startDiscovery()
@@ -60,6 +76,17 @@ class AgentsViewModel(
     fun addAgent(agent: Agent) {
         viewModelScope.launch {
             try {
+                val savedList = agentRepository.getAllAgents().first()
+                val isDuplicate = savedList.any { 
+                    it.mcpEndpointUrl.trim().removeSuffix("/").equals(
+                        agent.mcpEndpointUrl.trim().removeSuffix("/"), 
+                        ignoreCase = true
+                    ) 
+                }
+                if (isDuplicate) {
+                    _uiEvents.send(AgentsUiEvent.ShowError("Agent with this endpoint is already saved"))
+                    return@launch
+                }
                 agentRepository.upsertAgent(agent)
             } catch (e: Exception) {
                 _uiEvents.send(AgentsUiEvent.ShowError("Failed to add agent"))
