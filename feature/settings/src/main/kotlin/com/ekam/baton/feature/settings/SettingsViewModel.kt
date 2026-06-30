@@ -13,7 +13,6 @@ import com.ekam.baton.core.data.model.Agent
 import com.ekam.baton.core.data.preferences.SessionManager
 import com.ekam.baton.core.data.preferences.SubscriptionManager
 import com.ekam.baton.core.data.repository.WipeDataManager
-
 import com.ekam.baton.core.data.db.dao.AuditDao
 
 class SettingsViewModel(
@@ -22,8 +21,7 @@ class SettingsViewModel(
     private val wipeDataManager: WipeDataManager,
     private val sessionManager: SessionManager,
     private val subscriptionManager: SubscriptionManager,
-    private val auditDao: AuditDao,
-    private val httpClient: io.ktor.client.HttpClient
+    private val auditDao: AuditDao
 ) : ViewModel() {
 
     val agents: StateFlow<List<Agent>> = agentRepository.getAllAgents()
@@ -183,20 +181,6 @@ class SettingsViewModel(
             android.widget.Toast.makeText(context, "Audit Ledger exported to ${file.absolutePath}", android.widget.Toast.LENGTH_LONG).show()
         } catch (e: Exception) {
             android.widget.Toast.makeText(context, "Export failed: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
-        }
-    }
-
-    fun submitFeedback(type: String, description: String) = viewModelScope.launch {
-        try {
-            val url = backendUrl.value.removeSuffix("/") + "/feedback"
-            httpClient.post(url) {
-                io.ktor.client.request.setBody(
-                    mapOf("type" to type, "description" to description)
-                )
-                io.ktor.client.request.header("Content-Type", "application/json")
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
         }
     }
 }

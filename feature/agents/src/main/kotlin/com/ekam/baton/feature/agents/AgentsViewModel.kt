@@ -12,9 +12,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.receiveAsFlow
 
-import com.ekam.baton.core.network.auth.OAuthFlowManager
-import com.ekam.baton.core.network.auth.OAuthConfig
-
 import com.ekam.baton.core.network.tunnel.TunnelEndpointValidator
 
 sealed class AgentsUiEvent {
@@ -24,9 +21,9 @@ sealed class AgentsUiEvent {
 
 class AgentsViewModel(
     private val agentRepository: AgentRepository,
-    private val oauthFlowManager: OAuthFlowManager,
     private val tunnelValidator: TunnelEndpointValidator,
-    private val securityManager: com.ekam.baton.core.network.security.ConnectionSecurityManager
+    private val securityManager: com.ekam.baton.core.network.security.ConnectionSecurityManager,
+    private val mdnsDiscoveryManager: com.ekam.baton.core.network.mdns.MdnsDiscoveryManager
 ) : ViewModel() {
 
     private val _uiEvents = Channel<AgentsUiEvent>()
@@ -34,6 +31,17 @@ class AgentsViewModel(
 
     fun generateClientKeys(): com.ekam.baton.core.network.security.ClientKeyDetails {
         return securityManager.generateClientKeys()
+    }
+
+    val discoveredAgents: StateFlow<List<com.ekam.baton.core.network.mdns.DiscoveredAgent>> = mdnsDiscoveryManager.discoveredAgents
+
+    init {
+        mdnsDiscoveryManager.startDiscovery()
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        mdnsDiscoveryManager.stopDiscovery()
     }
 
     private val _isLoading = kotlinx.coroutines.flow.MutableStateFlow(true)
@@ -77,10 +85,6 @@ class AgentsViewModel(
                 _uiEvents.send(AgentsUiEvent.ShowError("Failed to delete agent"))
             }
         }
-    }
-
-    fun startOAuthFlow(agentId: String, config: OAuthConfig): String {
-        return oauthFlowManager.buildAuthUrlAndStartFlow(agentId, config)
     }
 
     fun launchAuthBrowser(authUrl: String) {

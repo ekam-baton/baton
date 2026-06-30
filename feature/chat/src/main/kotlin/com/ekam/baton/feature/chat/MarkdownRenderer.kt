@@ -1,5 +1,7 @@
 package com.ekam.baton.feature.chat
 
+import androidx.compose.foundation.text.selection.SelectionContainer
+
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -61,7 +63,8 @@ fun MarkdownRenderer(
     val context = LocalContext.current
     val clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
 
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    SelectionContainer(modifier = modifier) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         blocks.forEach { part ->
             when (part) {
                 is MarkdownPart.Text -> {
@@ -139,4 +142,5 @@ fun MarkdownRenderer(
             }
         }
     }
+}
 }

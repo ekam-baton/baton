@@ -47,6 +47,11 @@ fun SignupScreen(
     var activeLegalContent by remember { mutableStateOf<String?>(null) }
 
     fun showLegal(title: String, fileName: String) {
+        if (fileName.contains("/") || fileName.contains("\\") || fileName.contains("..")) {
+            activeLegalTitle = "Error"
+            activeLegalContent = "Security Violation: Invalid file path."
+            return
+        }
         try {
             val content = context.assets.open(fileName).bufferedReader().use { it.readText() }
             activeLegalTitle = title
@@ -151,10 +156,10 @@ fun SignupScreen(
             // Icon / Branding (Baton Logo)
             Box(
                 contentAlignment = Alignment.Center,
-                modifier = Modifier.size(100.dp)
+                modifier = Modifier.size(120.dp)
             ) {
                 androidx.compose.foundation.Image(
-                    painter = painterResource(id = com.ekam.baton.R.drawable.ic_launcher_foreground),
+                    painter = painterResource(id = com.ekam.baton.R.drawable.ic_logo),
                     contentDescription = "Baton Logo",
                     modifier = Modifier.fillMaxSize()
                 )

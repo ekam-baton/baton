@@ -7,9 +7,11 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.navigation.NavHostController
@@ -65,6 +67,18 @@ internal fun BatonAppShell(
 ) {
     val authState by authViewModel.authState.collectAsStateWithLifecycle()
     val accessGranted by mainViewModel.isAccessGranted.collectAsStateWithLifecycle()
+    
+    var showSplash by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(true) }
+
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(1500)
+        showSplash = false
+    }
+
+    if (showSplash) {
+        com.ekam.baton.ui.auth.BatonSplashScreen()
+        return
+    }
 
     when (authState) {
         AuthState.Unregistered -> {
@@ -104,7 +118,9 @@ internal fun BatonAppShell(
                 ) { innerPadding ->
                     BatonNavGraph(
                         navController = navController,
-                        modifier      = Modifier.padding(innerPadding),
+                        modifier      = Modifier
+                            .padding(innerPadding)
+                            .consumeWindowInsets(innerPadding),
                     )
                 }
             }

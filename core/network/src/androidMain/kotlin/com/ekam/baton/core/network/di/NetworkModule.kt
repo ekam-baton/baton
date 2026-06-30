@@ -1,7 +1,6 @@
 package com.ekam.baton.core.network.di
 
 import com.ekam.baton.core.network.BuildConfig
-import com.ekam.baton.core.network.auth.AuthInterceptor
 import com.ekam.baton.core.network.security.AgentSecurityConfigProvider
 import com.ekam.baton.core.network.security.ConnectionSecurityManager
 import com.ekam.baton.core.network.security.SecurityInterceptor
@@ -39,10 +38,9 @@ val networkModule = module {
         OkHttpClient.Builder()
             .addInterceptor(get<SecurityInterceptor>())
             .addInterceptor(get<HttpLoggingInterceptor>())
-            .addInterceptor(get<AuthInterceptor>())
             .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(0, TimeUnit.MILLISECONDS)
-            .writeTimeout(60, TimeUnit.SECONDS)
+            .readTimeout(0, TimeUnit.MILLISECONDS)   // Unlimited for SSE streaming
+            .writeTimeout(0, TimeUnit.MILLISECONDS)  // FIX: Unlimited for 1GB file uploads
             .build()
     }
 
@@ -81,14 +79,12 @@ val networkModule = module {
 
     single<McpTransport> { HttpSseMcpTransport(get(), get()) }
     single { McpConnectionManager(get()) }
-    single { McpMessageSender(get(), get(), get()) }
+    single { McpMessageSender(get(), get(), get(), get<android.content.Context>()) }
     single { ToolAuthorizationManager() }
     single { com.ekam.baton.core.network.security.ConnectionSecurityManager(get<android.content.Context>()) }
-    single { com.ekam.baton.core.network.auth.TokenStore(get<android.content.Context>()) }
-    single { com.ekam.baton.core.network.auth.OAuthFlowManager(get(), get()) }
-    single { com.ekam.baton.core.network.auth.AuthInterceptor(get(), get()) }
     single { com.ekam.baton.core.network.tunnel.TunnelEndpointValidator(get()) }
     single { com.ekam.baton.core.network.tunnel.ConnectionPoolManager() }
     single { com.ekam.baton.core.network.tunnel.A2AWebRtcTransport(get<android.content.Context>(), get()) }
+    single { com.ekam.baton.core.network.mdns.MdnsDiscoveryManager(get<android.content.Context>()) }
 }
 

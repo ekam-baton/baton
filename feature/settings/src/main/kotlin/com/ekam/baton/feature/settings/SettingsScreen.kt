@@ -41,7 +41,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 fun SettingsScreen(
     onNavigateToTunnelSetup: () -> Unit = {},
     onNavigateToMemory: () -> Unit = {},
-    onNavigateToFeedback: () -> Unit = {},
     viewModel: SettingsViewModel = koinViewModel()
 ) {
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
@@ -66,6 +65,11 @@ fun SettingsScreen(
     var activeLegalContent by remember { mutableStateOf<String?>(null) }
 
     fun showLegal(title: String, fileName: String) {
+        if (fileName.contains("/") || fileName.contains("\\") || fileName.contains("..")) {
+            activeLegalTitle = "Error"
+            activeLegalContent = "Security Violation: Invalid file path."
+            return
+        }
         try {
             val content = context.assets.open(fileName).bufferedReader().use { it.readText() }
             activeLegalTitle = title
@@ -396,16 +400,6 @@ fun SettingsScreen(
             // SECTION: About
             item {
                 SettingsSectionHeader("About")
-                ListItem(
-                    headlineContent = { Text("Report a Bug / Feedback") },
-                    supportingContent = { Text("Send feedback to the Baton development team") },
-                    leadingContent = { Icon(Icons.Default.BugReport, contentDescription = null) },
-                    modifier = Modifier.clickable { 
-                        if (enableHapticFeedback) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        onNavigateToFeedback() 
-                    },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                )
                 ListItem(
                     headlineContent = { Text("App version") },
                     supportingContent = { Text("1.0.0-alpha") }, // Would come from BuildConfig in real app
