@@ -78,3 +78,24 @@ android {
         buildConfig = true
     }
 }
+
+tasks.register<Exec>("compileRustJni") {
+    group = "build"
+    description = "Compiles the baton-crypto-android Rust library for all Android ABIs using cargo-ndk"
+    workingDir = file("../../baton-crypto-android")
+    executable = "cargo"
+    args("ndk",
+         "-t", "arm64-v8a",
+         "-t", "armeabi-v7a",
+         "-t", "x86",
+         "-t", "x86_64",
+         "-o", "${projectDir}/src/androidMain/jniLibs",
+         "build", "--release"
+    )
+}
+
+tasks.matching { 
+    it.name.startsWith("compile") && it.name.contains("Kotlin")
+}.configureEach {
+    dependsOn("compileRustJni")
+}
