@@ -64,6 +64,10 @@ class ChatRepository constructor(
         return conversationDao.getConversationById(id)?.toDomainModel()
     }
 
+    suspend fun getConversationByAgentId(agentId: String): Conversation? {
+        return conversationDao.getConversationByAgentId(agentId)?.toDomainModel()
+    }
+
     suspend fun upsertConversation(conversation: Conversation) {
         conversationDao.upsertConversation(conversation.toEntity())
     }
