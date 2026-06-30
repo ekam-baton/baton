@@ -13,7 +13,7 @@ android {
 
     defaultConfig {
         applicationId = "com.ekam.baton"
-        minSdk = 26
+        minSdk = 34
         targetSdk = 36
         versionCode = 1
         versionName = "1.0.0"
@@ -24,8 +24,18 @@ android {
         }
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file("release.jks")
+            storePassword = "BatonSecure123!"
+            keyAlias = "baton"
+            keyPassword = "BatonSecure123!"
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(

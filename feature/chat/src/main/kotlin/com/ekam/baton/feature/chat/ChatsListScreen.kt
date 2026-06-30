@@ -15,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -35,6 +36,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 @Composable
 fun ChatsListScreen(
     onNavigateToChat: (String) -> Unit,
+    onNavigateToCall: (String) -> Unit,
     viewModel: ChatViewModel = koinViewModel()
 ) {
     val conversations = viewModel.conversations.collectAsLazyPagingItems()
@@ -118,6 +120,7 @@ fun ChatsListScreen(
                                 conversation = conversation,
                                 agentColorHex = agents.find { it.id == conversation.agentId }?.colorAccent,
                                 onClick = { onNavigateToChat(conversation.id) },
+                                onCallClick = { onNavigateToCall(conversation.title) },
                                 onDelete = { viewModel.deleteConversation(conversation.id) }
                             )
                         }
@@ -170,6 +173,7 @@ fun SwipeToDeleteConversationItem(
     conversation: Conversation,
     agentColorHex: String?,
     onClick: () -> Unit,
+    onCallClick: () -> Unit,
     onDelete: () -> Unit
 ) {
     val dismissState = rememberSwipeToDismissBoxState(
@@ -207,7 +211,8 @@ fun SwipeToDeleteConversationItem(
         ConversationItem(
             conversation = conversation,
             agentColorHex = agentColorHex,
-            onClick = onClick
+            onClick = onClick,
+            onCallClick = onCallClick
         )
     }
 }
@@ -216,7 +221,8 @@ fun SwipeToDeleteConversationItem(
 fun ConversationItem(
     conversation: Conversation,
     agentColorHex: String?,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onCallClick: () -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -296,6 +302,10 @@ fun ConversationItem(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+        }
+        
+        IconButton(onClick = onCallClick) {
+            Icon(Icons.Default.Phone, contentDescription = "Call", tint = MaterialTheme.colorScheme.primary)
         }
     }
 }

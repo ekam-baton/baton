@@ -42,6 +42,14 @@ class ChatRepository constructor(
         return agentDao.getAllAgents().map { list -> list.map { it.toDomainModel() } }
     }
 
+    suspend fun getAgentById(id: String): Agent? {
+        return agentDao.getAgentById(id)?.toDomainModel()
+    }
+
+    suspend fun upsertAgent(agent: Agent) {
+        agentDao.upsertAgent(agent.toEntity())
+    }
+
     fun getAllConversations(query: String = ""): kotlinx.coroutines.flow.Flow<androidx.paging.PagingData<Conversation>> {
         return androidx.paging.Pager(
             config = androidx.paging.PagingConfig(pageSize = 20, enablePlaceholders = false)
@@ -77,10 +85,15 @@ class ChatRepository constructor(
     suspend fun insertMessage(message: MessageEntity) {
         val lastAudit = auditDao.getLastAuditLog()
         val prevHash = lastAudit?.hash ?: ""
-        // Minimal JSON string representation for hash payload
-        val payload = """{"id":"${message.id}","conversationId":"${message.conversationId}","role":"${message.role}","content":"${message.content}"}"""
+        // FIX: Use JSONObject to safely escape user content and prevent JSON injection
+        val payload = org.json.JSONObject().apply {
+            put("id", message.id)
+            put("conversationId", message.conversationId)
+            put("role", message.role)
+            put("content", message.content)
+        }.toString()
         val newHash = AuditCryptoUtils.generateHash(payload, prevHash)
-        
+
         val hashedMessage = message.copy(previousHash = prevHash, hash = newHash)
         messageDao.insertMessage(hashedMessage)
 
@@ -98,7 +111,13 @@ class ChatRepository constructor(
     suspend fun updateMessage(message: MessageEntity) {
         val lastAudit = auditDao.getLastAuditLog()
         val prevHash = lastAudit?.hash ?: ""
-        val payload = """{"id":"${message.id}","conversationId":"${message.conversationId}","role":"${message.role}","content":"${message.content}"}"""
+        // FIX: Use JSONObject to safely escape user content and prevent JSON injection
+        val payload = org.json.JSONObject().apply {
+            put("id", message.id)
+            put("conversationId", message.conversationId)
+            put("role", message.role)
+            put("content", message.content)
+        }.toString()
         val newHash = AuditCryptoUtils.generateHash(payload, prevHash)
 
         val hashedMessage = message.copy(previousHash = prevHash, hash = newHash)
@@ -124,13 +143,19 @@ class ChatRepository constructor(
         content: String,
         attachments: List<AttachmentDto> = emptyList()
     ): kotlinx.coroutines.flow.Flow<String> {
-        // 1. Save User Message
+        val attachmentsJson = if (attachments.isNotEmpty()) {
+            kotlinx.serialization.json.Json.encodeToString(
+                kotlinx.serialization.builtins.ListSerializer(AttachmentDto.serializer()), 
+                attachments
+            )
+        } else null
+
         val userMsg = MessageEntity(
             id = UUID.randomUUID().toString(),
             conversationId = conversationId,
             role = "user",
             content = content,
-            attachments = null
+            attachments = attachmentsJson
         )
         insertMessage(userMsg)
 

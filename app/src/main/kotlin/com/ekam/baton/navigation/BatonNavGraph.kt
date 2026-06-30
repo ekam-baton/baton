@@ -15,6 +15,7 @@ import com.ekam.baton.feature.agents.AgentsScreen
 import com.ekam.baton.feature.agents.AddEditAgentScreen
 import com.ekam.baton.feature.chat.ChatsListScreen
 import com.ekam.baton.feature.chat.ChatScreen
+import com.ekam.baton.feature.chat.CallScreen
 import com.ekam.baton.feature.memory.MemoryScreen
 import com.ekam.baton.feature.settings.SettingsScreen
 
@@ -77,6 +78,9 @@ fun BatonNavGraph(
                 ChatsListScreen(
                     onNavigateToChat = { conversationId -> 
                         navController.navigate("chats/$conversationId") 
+                    },
+                    onNavigateToCall = { agentName ->
+                        navController.navigate("call/$agentName")
                     }
                 )
             }
@@ -91,9 +95,22 @@ fun BatonNavGraph(
                         onNavigateBack = { navController.popBackStack() },
                         onNavigateToMemory = { agentId -> 
                             navController.navigate("memory")
+                        },
+                        onNavigateToCall = { agentName ->
+                            navController.navigate("call/$agentName")
                         }
                     )
                 }
+            }
+            composable(
+                route = "call/{agentName}",
+                arguments = listOf(navArgument("agentName") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val agentName = backStackEntry.arguments?.getString("agentName") ?: "Agent"
+                CallScreen(
+                    agentName = agentName,
+                    onEndCall = { navController.popBackStack() }
+                )
             }
         }
         
@@ -101,13 +118,35 @@ fun BatonNavGraph(
         navigation(startDestination = "agents", route = Screen.Agents.route) {
             composable("agents") {
                 AgentsScreen(
-                    onAddAgentClick = { navController.navigate("agents/add") },
+                    onAddAgentClick = { url, name -> 
+                        if (url != null && name != null) {
+                            val encodedUrl = android.util.Base64.encodeToString(url.toByteArray(), android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP)
+                            val encodedName = android.util.Base64.encodeToString(name.toByteArray(), android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP)
+                            navController.navigate("agents/add?url=$encodedUrl&name=$encodedName")
+                        } else {
+                            navController.navigate("agents/add")
+                        }
+                    },
                     onEditAgentClick = { agentId -> navController.navigate("agents/edit/$agentId") }
                 )
             }
-            composable("agents/add") {
+            composable(
+                route = "agents/add?url={url}&name={name}",
+                arguments = listOf(
+                    navArgument("url") { type = NavType.StringType; nullable = true; defaultValue = null },
+                    navArgument("name") { type = NavType.StringType; nullable = true; defaultValue = null }
+                )
+            ) { backStackEntry ->
+                val discoveredUrl = backStackEntry.arguments?.getString("url")?.let { 
+                    String(android.util.Base64.decode(it, android.util.Base64.URL_SAFE)) 
+                }
+                val discoveredName = backStackEntry.arguments?.getString("name")?.let { 
+                    String(android.util.Base64.decode(it, android.util.Base64.URL_SAFE)) 
+                }
                 AddEditAgentScreen(
                     agentId = null,
+                    discoveredUrl = discoveredUrl,
+                    discoveredName = discoveredName,
                     onNavigateBack = { navController.popBackStack() }
                 )
             }
@@ -142,19 +181,8 @@ fun BatonNavGraph(
                 },
                 onNavigateToMemory = {
                     navController.navigate("memory")
-                },
-                onNavigateToFeedback = {
-                    navController.navigate("feedback")
                 }
             ) 
-        }
-
-        composable("feedback") {
-            val settingsViewModel: com.ekam.baton.feature.settings.SettingsViewModel = org.koin.compose.viewmodel.koinViewModel()
-            com.ekam.baton.feature.settings.FeedbackScreen(
-                onNavigateBack = { navController.popBackStack() },
-                onSubmitFeedback = { type, desc -> settingsViewModel.submitFeedback(type, desc) }
-            )
         }
     }
 }

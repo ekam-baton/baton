@@ -10,7 +10,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        minSdk = 26
+        minSdk = 34
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -39,8 +39,9 @@ dependencies {
     implementation(libs.bundles.compose.feature)
     implementation(libs.navigation.compose)
     implementation(libs.bundles.lifecycle)
-implementation(libs.accompanist.permissions)
+    implementation(libs.accompanist.permissions)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.ktor.client.core)
 
     testImplementation(libs.junit4)
     testImplementation(libs.kotlinx.coroutines.test)

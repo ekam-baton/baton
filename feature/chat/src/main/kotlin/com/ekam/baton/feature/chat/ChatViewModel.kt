@@ -92,11 +92,18 @@ class ChatViewModel(
     private val _uiError = MutableStateFlow<String?>(null)
     val uiError: StateFlow<String?> = _uiError.asStateFlow()
 
+    /** FIX: Upload progress (0.0–1.0), null when not uploading */
+    private val _uploadProgress = MutableStateFlow<Float?>(null)
+    val uploadProgress: StateFlow<Float?> = _uploadProgress.asStateFlow()
+
     private val _activeMemoryCount = MutableStateFlow(0)
     val activeMemoryCount: StateFlow<Int> = _activeMemoryCount.asStateFlow()
 
     private val _currentAgentId = MutableStateFlow<String?>(null)
     val currentAgentId: StateFlow<String?> = _currentAgentId.asStateFlow()
+
+    private val _currentAgent = MutableStateFlow<Agent?>(null)
+    val currentAgent: StateFlow<Agent?> = _currentAgent.asStateFlow()
 
     private val _availableTools = MutableStateFlow<List<com.ekam.baton.core.network.mcp.McpTool>>(emptyList())
     val availableTools: StateFlow<List<com.ekam.baton.core.network.mcp.McpTool>> = _availableTools.asStateFlow()
@@ -111,12 +118,26 @@ class ChatViewModel(
         _uiError.value = null
     }
 
+    fun updateAgentEndpoint(newUrl: String) {
+        val current = _currentAgent.value ?: return
+        viewModelScope.launch {
+            try {
+                val updatedAgent = current.copy(mcpEndpointUrl = newUrl)
+                chatRepository.upsertAgent(updatedAgent)
+                _currentAgent.value = updatedAgent
+            } catch (e: Exception) {
+                _uiError.value = "Failed to update agent endpoint: ${e.message}"
+            }
+        }
+    }
+
     init {
         conversationId?.let { id ->
             viewModelScope.launch {
                 val conv = chatRepository.getConversationById(id)
                 if (conv != null) {
                     _currentAgentId.value = conv.agentId
+                    _currentAgent.value = chatRepository.getAgentById(conv.agentId)
                     memoryRepository.getMemoriesForAgent(conv.agentId).collect { memories ->
                         _activeMemoryCount.value = memories.count { it.isActive }
                     }
@@ -137,6 +158,8 @@ class ChatViewModel(
 
     fun sendMessage(content: String, attachments: List<Uri> = emptyList()) {
         val cid = conversationId ?: return
+        // FIX: Prevent double-submission while a response is already streaming
+        if (_isStreaming.value) return
         viewModelScope.launch {
             _isStreaming.value = true
 
@@ -145,11 +168,23 @@ class ChatViewModel(
                 attachments.mapNotNull { uri ->
                     try {
                         val mimeType = context.contentResolver.getType(uri) ?: MIME_TYPE_OCTET_STREAM
-                        val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-                        if (bytes != null) {
-                            val base64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
-                            AttachmentDto(mimeType, base64)
-                        } else null
+                        var name: String? = null
+                        var size: Long? = null
+                        context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                            val nameIndex = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                            val sizeIndex = cursor.getColumnIndex(android.provider.OpenableColumns.SIZE)
+                            if (cursor.moveToFirst()) {
+                                name = if (nameIndex != -1) cursor.getString(nameIndex) else null
+                                size = if (sizeIndex != -1 && !cursor.isNull(sizeIndex)) cursor.getLong(sizeIndex) else null
+                            }
+                        }
+                        AttachmentDto(
+                            mimeType = mimeType,
+                            dataBase64 = null,
+                            fileName = name,
+                            fileSize = size,
+                            uri = uri.toString()
+                        )
                     } catch (e: Exception) {
                         e.printStackTrace()
                         null
@@ -158,7 +193,11 @@ class ChatViewModel(
             }
 
             try {
-                chatRepository.sendMessageWithResponse(cid, content, attachmentDtos).collect()
+                chatRepository.sendMessageWithResponse(
+                    conversationId = cid,
+                    content = content,
+                    attachments = attachmentDtos
+                ).collect()
             } catch (e: Exception) {
                 // Network errors are mostly handled inside repository by updating the message entity, 
                 // but surfacing general failures here as well.

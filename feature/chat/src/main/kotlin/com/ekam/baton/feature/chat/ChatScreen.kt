@@ -8,6 +8,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -26,6 +27,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.clickable
@@ -63,17 +65,31 @@ fun ChatScreen(
     conversationId: String,
     onNavigateBack: () -> Unit,
     onNavigateToMemory: (String?) -> Unit,
+    onNavigateToCall: (String) -> Unit,
     viewModel: ChatViewModel = koinViewModel()
 ) {
     val messages = viewModel.messages.collectAsLazyPagingItems()
     val isStreaming by viewModel.isStreaming.collectAsStateWithLifecycle()
     val activeMemoryCount by viewModel.activeMemoryCount.collectAsStateWithLifecycle()
     val currentAgentId by viewModel.currentAgentId.collectAsStateWithLifecycle()
+    val currentAgent by viewModel.currentAgent.collectAsStateWithLifecycle()
     
     val availableTools by viewModel.availableTools.collectAsStateWithLifecycle()
     val toolAuthRequest by viewModel.toolAuthRequests.collectAsStateWithLifecycle(initialValue = null)
     
     var showToolsSheet by remember { mutableStateOf(false) }
+    var showAgentDetails by remember { mutableStateOf(false) }
+    var replyingTo by remember { mutableStateOf<Message?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val uiError by viewModel.uiError.collectAsStateWithLifecycle()
+
+    // FIX: Show errors in a Snackbar and clear them after display
+    LaunchedEffect(uiError) {
+        uiError?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearError()
+        }
+    }
 
     toolAuthRequest?.let { request ->
         JITAuthorizationDialog(
@@ -90,20 +106,64 @@ fun ChatScreen(
         )
     }
 
+    if (showAgentDetails && currentAgent != null) {
+        var editUrl by remember(currentAgent) { mutableStateOf(currentAgent?.mcpEndpointUrl ?: "") }
+        
+        AlertDialog(
+            onDismissRequest = { showAgentDetails = false },
+            title = { Text(currentAgent?.name ?: "Agent Details") },
+            text = {
+                Column {
+                    Text("Agent ID: ${currentAgent?.id}", style = MaterialTheme.typography.bodyMedium)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = editUrl,
+                        onValueChange = { editUrl = it },
+                        label = { Text("Endpoint URL") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { 
+                    viewModel.updateAgentEndpoint(editUrl)
+                    showAgentDetails = false 
+                }) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAgentDetails = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     // For TopAppBar info (agent name, avatar) we would ideally join tables or 
     // fetch the agent. In a real app we might pass agent details or have a ConversationWithAgent model.
     // For now we just use a generic title.
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("Chat") },
+                title = { 
+                    Text(
+                        text = currentAgent?.name ?: "Chat",
+                        modifier = Modifier.clickable { showAgentDetails = true }
+                    ) 
+                },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 actions = {
+                    IconButton(onClick = { onNavigateToCall("Agent") }) {
+                        Icon(Icons.Default.Phone, contentDescription = "Call Agent")
+                    }
                     var showMenu by remember { mutableStateOf(false) }
                     IconButton(onClick = { showMenu = true }) {
                         Icon(Icons.Default.MoreVert, contentDescription = "Options")
@@ -140,26 +200,37 @@ fun ChatScreen(
                 activeMemoryCount = activeMemoryCount,
                 keyboardShortcuts = keyboardShortcuts,
                 hasTools = availableTools.isNotEmpty(),
+                replyingTo = replyingTo,
+                onClearReply = { replyingTo = null },
                 onSaveShortcuts = { updated -> viewModel.saveKeyboardShortcuts(updated) },
                 onMemoryClick = { onNavigateToMemory(currentAgentId) },
                 onToolsClick = { showToolsSheet = true },
                 onSendMessage = { content, attachments ->
-                    viewModel.sendMessage(content, attachments)
+                    val replyPrefix = replyingTo?.content?.let { orig ->
+                        // FIX: Only append "..." if the content was actually truncated
+                        val truncated = orig.take(50)
+                        val ellipsis = if (orig.length > 50) "..." else ""
+                        "[Replying to: \"$truncated$ellipsis\"]\n"
+                    } ?: ""
+                    val finalContent = replyPrefix + content
+                    viewModel.sendMessage(finalContent, attachments)
+                    replyingTo = null
                 }
             )
         },
 
         containerColor = Color.Transparent,
-        contentWindowInsets = WindowInsets.ime.union(WindowInsets.systemBars)
+        contentWindowInsets = WindowInsets(0.dp)
     ) { innerPadding ->
         
         val listState = rememberLazyListState()
         val context = LocalContext.current
         
-        // Auto-scroll to bottom when new messages arrive
-        LaunchedEffect(messages.itemCount, isStreaming) {
+        // FIX: Only auto-scroll on new message count changes, NOT on isStreaming transitions
+        // This prevents jumping the user back to bottom when streaming stops
+        LaunchedEffect(messages.itemCount) {
             if (messages.itemCount > 0) {
-                listState.animateScrollToItem(0) // 0 is bottom because reversed
+                listState.animateScrollToItem(0)
             }
         }
 
@@ -202,7 +273,8 @@ fun ChatScreen(
                 if (message != null) {
                     MessageBubble(
                         message = message,
-                        modifier = Modifier.animateItem()
+                        modifier = Modifier.animateItem(),
+                        onReply = { replyingTo = it }
                     )
                 }
             }
@@ -211,59 +283,215 @@ fun ChatScreen(
 }
 
 @Composable
-fun MessageBubble(message: Message, modifier: Modifier = Modifier) {
+fun MessageBubble(message: Message, modifier: Modifier = Modifier, onReply: ((Message) -> Unit)? = null) {
     val isUser = message.role == "user"
     val isToolResult = message.role == "tool_result"
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
 
-    Box(
-        modifier = modifier.fillMaxWidth(),
-        contentAlignment = if (isUser) Alignment.CenterEnd else Alignment.CenterStart
-    ) {
-        if (isUser) {
-            // User Bubble
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(20.dp, 20.dp, 4.dp, 20.dp))
-                    .background(MaterialTheme.colorScheme.tertiary)
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
-            ) {
-                MarkdownRenderer(
-                    text = message.content,
-                    textColor = MaterialTheme.colorScheme.onTertiary
-                )
+    val dismissState = androidx.compose.material3.rememberSwipeToDismissBoxState(
+        confirmValueChange = { dismissValue ->
+            if (dismissValue == androidx.compose.material3.SwipeToDismissBoxValue.StartToEnd) {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                onReply?.invoke(message)
             }
-        } else if (isToolResult) {
-            // Tool Result Bubble
+            false // always snap back
+        }
+    )
+
+    androidx.compose.material3.SwipeToDismissBox(
+        state = dismissState,
+        enableDismissFromEndToStart = false,
+        enableDismissFromStartToEnd = onReply != null,
+        backgroundContent = {
+            val color by androidx.compose.animation.animateColorAsState(
+                if (dismissState.targetValue == androidx.compose.material3.SwipeToDismissBoxValue.StartToEnd) 
+                    MaterialTheme.colorScheme.primaryContainer 
+                else Color.Transparent, label = "swipeColor"
+            )
             Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(4.dp, 20.dp, 20.dp, 20.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .padding(12.dp)
+                Modifier.fillMaxSize().background(color).padding(horizontal = 20.dp),
+                contentAlignment = Alignment.CenterStart
             ) {
-                Text(
-                    text = message.content,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                    maxLines = 3,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                )
-            }
-        } else {
-            // Assistant Bubble
-            Box(
-                modifier = Modifier
-                    .border(
-                        width = 1.dp,
-                        color = MaterialTheme.colorScheme.outlineVariant,
-                        shape = RoundedCornerShape(4.dp, 20.dp, 20.dp, 20.dp)
+                if (dismissState.targetValue == androidx.compose.material3.SwipeToDismissBoxValue.StartToEnd) {
+                    Icon(
+                        androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Reply",
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer
                     )
-                    .background(Color.Transparent, RoundedCornerShape(4.dp, 20.dp, 20.dp, 20.dp))
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
-            ) {
-                MarkdownRenderer(
-                    text = message.content,
-                    textColor = MaterialTheme.colorScheme.onBackground
-                )
+                }
+            }
+        },
+        modifier = modifier
+    ) {
+        Box(
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = if (isUser) Alignment.CenterEnd else Alignment.CenterStart
+        ) {
+            val attachments = remember(message.attachments) {
+                try {
+                    val attachmentsJson = message.attachments
+                    if (!attachmentsJson.isNullOrEmpty()) {
+                        kotlinx.serialization.json.Json { ignoreUnknownKeys = true }.decodeFromString<List<com.ekam.baton.core.network.mcp.AttachmentDto>>(attachmentsJson)
+                    } else emptyList()
+                } catch (e: Exception) { emptyList() }
+            }
+
+            if (isUser) {
+                // User Bubble
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(20.dp, 20.dp, 4.dp, 20.dp))
+                        .background(MaterialTheme.colorScheme.tertiary)
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                ) {
+                    Column {
+                        attachments.forEach { attachment ->
+                            val mimeType = attachment.mimeType.lowercase()
+                            when {
+                                mimeType.startsWith("image/") -> {
+                                    coil.compose.AsyncImage(
+                                        model = attachment.uri ?: attachment.dataBase64,
+                                        contentDescription = "Attachment",
+                                        modifier = Modifier
+                                            .fillMaxWidth(0.7f)
+                                            .heightIn(max = 300.dp)
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .padding(bottom = 8.dp),
+                                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                    )
+                                }
+                                mimeType == "application/pdf" -> {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth(0.7f)
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                                            .padding(12.dp)
+                                            .padding(bottom = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Box(
+                                            modifier = Modifier.size(40.dp).clip(CircleShape).background(Color(0xFFE53935)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text("PDF", color = Color.White, style = MaterialTheme.typography.labelSmall)
+                                        }
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Column {
+                                            Text(
+                                                text = attachment.fileName ?: "Document.pdf",
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                maxLines = 1,
+                                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                            )
+                                            Text(
+                                                text = "${(attachment.fileSize ?: 0) / 1024} KB",
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                                style = MaterialTheme.typography.bodySmall
+                                            )
+                                        }
+                                    }
+                                }
+                                mimeType.contains("excel") || mimeType.contains("spreadsheet") -> {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth(0.7f)
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                                            .padding(12.dp)
+                                            .padding(bottom = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Box(
+                                            modifier = Modifier.size(40.dp).clip(CircleShape).background(Color(0xFF4CAF50)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text("XLS", color = Color.White, style = MaterialTheme.typography.labelSmall)
+                                        }
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Column {
+                                            Text(
+                                                text = attachment.fileName ?: "Spreadsheet.xlsx",
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                maxLines = 1,
+                                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                            )
+                                            Text(
+                                                text = "${(attachment.fileSize ?: 0) / 1024} KB",
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                                style = MaterialTheme.typography.bodySmall
+                                            )
+                                        }
+                                    }
+                                }
+                                else -> {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth(0.7f)
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                                            .padding(12.dp)
+                                            .padding(bottom = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(androidx.compose.material.icons.Icons.Default.AttachFile, contentDescription = "File", modifier = Modifier.size(24.dp))
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Column {
+                                            Text(
+                                                text = attachment.fileName ?: "File",
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                maxLines = 1,
+                                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if (message.content.isNotEmpty()) {
+                            MarkdownRenderer(
+                                text = message.content,
+                                textColor = MaterialTheme.colorScheme.onTertiary
+                            )
+                        }
+                    }
+                }
+            } else if (isToolResult) {
+                // Tool Result Bubble
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(4.dp, 20.dp, 20.dp, 20.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .padding(12.dp)
+                ) {
+                    Text(
+                        text = message.content,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                        maxLines = 3,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                    )
+                }
+            } else {
+                // Assistant Bubble
+                Box(
+                    modifier = Modifier
+                        .border(
+                            width = 1.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant,
+                            shape = RoundedCornerShape(4.dp, 20.dp, 20.dp, 20.dp)
+                        )
+                        .background(Color.Transparent, RoundedCornerShape(4.dp, 20.dp, 20.dp, 20.dp))
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                ) {
+                    MarkdownRenderer(
+                        text = message.content,
+                        textColor = MaterialTheme.colorScheme.onBackground
+                    )
+                }
             }
         }
     }
@@ -319,6 +547,8 @@ fun ChatInputBar(
     onSaveShortcuts: (List<KeyboardShortcut>) -> Unit,
     onMemoryClick: () -> Unit,
     onToolsClick: () -> Unit,
+    replyingTo: Message?,
+    onClearReply: () -> Unit,
     onSendMessage: (String, List<Uri>) -> Unit
 ) {
     var text by remember { mutableStateOf(TextFieldValue("")) }
@@ -327,8 +557,8 @@ fun ChatInputBar(
     var showShortcutsDialog by remember { mutableStateOf(false) }
     var showAttachmentSheet by remember { mutableStateOf(false) }
     
-    // File Picker (Documents/Any)
-    val fileLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
+    // File Picker (Documents/Any safe type)
+    val fileLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         if (uris.isNotEmpty()) {
             attachments = attachments + uris
         }
@@ -377,7 +607,7 @@ fun ChatInputBar(
             onDismissRequest = { showAttachmentSheet = false },
             onScanDocumentClick = { launchScanner() },
             onGalleryClick = { mediaPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) },
-            onFilesClick = { fileLauncher.launch("*/*") }
+            onFilesClick = { fileLauncher.launch(arrayOf("application/pdf", "image/jpeg", "image/png", "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")) }
         )
     }
 
@@ -393,8 +623,28 @@ fun ChatInputBar(
         modifier = Modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surface)
+            .imePadding()
             .padding(8.dp)
     ) {
+        if (replyingTo != null) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 4.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .padding(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(text = if (replyingTo.role == "user") "You" else "Agent", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                    Text(text = replyingTo.content, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
+                }
+                IconButton(onClick = onClearReply) {
+                    Icon(Icons.Default.Clear, contentDescription = "Clear reply", modifier = Modifier.size(16.dp))
+                }
+            }
+        }
         // Attachments preview
         if (attachments.isNotEmpty()) {
             Row(
@@ -422,35 +672,48 @@ fun ChatInputBar(
             }
         }
         
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            // Context Indicator Chip
-            Surface(
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                shape = CircleShape,
-                modifier = Modifier.padding(start = 12.dp, bottom = 8.dp),
-                onClick = onMemoryClick
-            ) {
-                Text(
-                    text = "\uD83E\uDDE0 $activeMemoryCount memories injected",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                )
-            }
-        }
-
-        // Shortcuts Toolbar
+        // Combined Shortcuts and Context Toolbar
         LazyRow(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 12.dp, end = 12.dp, bottom = 8.dp),
+                .padding(start = 12.dp, end = 12.dp, bottom = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            item {
+                // Small Memory Button
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = CircleShape,
+                    modifier = Modifier.clickable { onMemoryClick() }
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                    ) {
+                        Text("🧠", style = MaterialTheme.typography.labelSmall)
+                        if (activeMemoryCount > 0) {
+                            Spacer(Modifier.width(4.dp))
+                            Text("$activeMemoryCount", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            }
+
+            item {
+                IconButton(
+                    onClick = { showShortcutsDialog = true },
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Manage Shortcuts",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+
             items(keyboardShortcuts) { shortcut ->
                 val localHaptic = androidx.compose.ui.platform.LocalHapticFeedback.current
                 Surface(
@@ -477,20 +740,6 @@ fun ChatInputBar(
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                    )
-                }
-            }
-
-            item {
-                IconButton(
-                    onClick = { showShortcutsDialog = true },
-                    modifier = Modifier.size(28.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Settings,
-                        contentDescription = "Manage Shortcuts",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
-                        modifier = Modifier.size(16.dp)
                     )
                 }
             }
