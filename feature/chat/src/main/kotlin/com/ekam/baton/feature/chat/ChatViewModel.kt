@@ -225,13 +225,18 @@ class ChatViewModel(
 
     fun createConversation(agentId: String, onCreated: (String) -> Unit) {
         viewModelScope.launch {
-            val newId = UUID.randomUUID().toString()
-            val newConv = Conversation(
-                id = newId,
-                agentId = agentId,
-                title = DEFAULT_NEW_CHAT_TITLE,
-            )
             try {
+                val existing = chatRepository.getConversationByAgentId(agentId)
+                if (existing != null) {
+                    onCreated(existing.id)
+                    return@launch
+                }
+                val newId = UUID.randomUUID().toString()
+                val newConv = Conversation(
+                    id = newId,
+                    agentId = agentId,
+                    title = DEFAULT_NEW_CHAT_TITLE,
+                )
                 chatRepository.upsertConversation(newConv)
                 onCreated(newId)
             } catch (e: Exception) {
