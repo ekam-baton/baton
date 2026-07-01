@@ -274,6 +274,8 @@ fun ChatScreen(
                     hasTools = availableTools.isNotEmpty(),
                     replyingTo = replyingTo,
                     onClearReply = { replyingTo = null },
+                    isStreaming = isStreaming,
+                    agentActivityStatus = agentActivityStatus,
                     onSaveShortcuts = { updated -> viewModel.saveKeyboardShortcuts(updated) },
                     onMemoryClick = { onNavigateToMemory(currentAgentId) },
                     onToolsClick = { showToolsSheet = true },
@@ -574,6 +576,8 @@ fun ChatInputBar(
     onToolsClick: () -> Unit,
     replyingTo: Message?,
     onClearReply: () -> Unit,
+    isStreaming: Boolean,
+    agentActivityStatus: String?,
     onSendMessage: (String, List<Uri>) -> Unit
 ) {
     var text by remember { mutableStateOf(TextFieldValue("")) }
@@ -702,7 +706,50 @@ fun ChatInputBar(
                 }
             }
         }
-        
+        if (isStreaming) {
+            val statusText = agentActivityStatus ?: "Agent is working..."
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 4.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                    .border(
+                        width = 0.5.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+                    val pulseAlpha by infiniteTransition.animateFloat(
+                        initialValue = 0.4f,
+                        targetValue = 1.0f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(1000, easing = LinearEasing),
+                            repeatMode = RepeatMode.Reverse
+                        ),
+                        label = "pulseAlpha"
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF3D8EFF).copy(alpha = pulseAlpha))
+                    )
+                    Text(
+                        text = statusText,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+
         // Combined Shortcuts and Context Toolbar
         LazyRow(
             modifier = Modifier
