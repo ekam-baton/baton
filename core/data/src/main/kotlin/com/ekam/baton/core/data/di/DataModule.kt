@@ -31,10 +31,17 @@ val dataModule = module {
             )
         } catch (e: Exception) {
             e.printStackTrace()
-            // 1. Delete physical shared preferences XML file
+            // 1. Delete the shared preferences using system APIs
+            try {
+                context.deleteSharedPreferences("secret_shared_prefs")
+            } catch (ignored: Exception) {}
             try {
                 val file = java.io.File(context.filesDir.parent, "shared_prefs/secret_shared_prefs.xml")
                 if (file.exists()) file.delete()
+                val bakFile = java.io.File(context.filesDir.parent, "shared_prefs/secret_shared_prefs.xml.bak")
+                if (bakFile.exists()) bakFile.delete()
+                val bakFile2 = java.io.File(context.filesDir.parent, "shared_prefs/secret_shared_prefs.bak")
+                if (bakFile2.exists()) bakFile2.delete()
             } catch (ignored: Exception) {}
 
             // 2. Clear corrupted key from Android Keystore
@@ -43,17 +50,23 @@ val dataModule = module {
                 keyStore.deleteEntry(MasterKey.DEFAULT_MASTER_KEY_ALIAS)
             } catch (ignored: Exception) {}
 
-            // 3. Retry creating preference store with a fresh master key
-            val freshMasterKey = MasterKey.Builder(context)
-                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-                .build()
-            EncryptedSharedPreferences.create(
-                context,
-                "secret_shared_prefs",
-                freshMasterKey,
-                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-            )
+            // 3. Retry creating preference store with a fresh master key, or fall back to standard preferences if it fails again
+            try {
+                val freshMasterKey = MasterKey.Builder(context)
+                    .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                    .build()
+                EncryptedSharedPreferences.create(
+                    context,
+                    "secret_shared_prefs",
+                    freshMasterKey,
+                    EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+                )
+            } catch (fallbackEx: Exception) {
+                fallbackEx.printStackTrace()
+                // Bulletproof Fallback: Use standard SharedPreferences to avoid crashing the app
+                context.getSharedPreferences("secret_shared_prefs_fallback", Context.MODE_PRIVATE)
+            }
         }
 
         var dbPassphrase = sharedPreferences.getString("db_passphrase", null)
