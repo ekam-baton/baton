@@ -17,7 +17,6 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun AttachmentPickerBottomSheet(
     onDismissRequest: () -> Unit,
-    onScanDocumentClick: () -> Unit,
     onGalleryClick: () -> Unit,
     onFilesClick: () -> Unit
 ) {
@@ -42,17 +41,6 @@ fun AttachmentPickerBottomSheet(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                AttachmentOption(
-                    icon = Icons.Default.CameraAlt,
-                    label = "Scan Doc",
-                    onClick = {
-                        onDismissRequest()
-                        onScanDocumentClick()
-                    },
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    iconColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-
                 AttachmentOption(
                     icon = Icons.Default.Image,
                     label = "Gallery",

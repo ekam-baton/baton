@@ -148,14 +148,6 @@ fun AddEditAgentScreen(
         }
     }
 
-    // QR scanner launcher — filled by scanning the terminal QR code
-    val qrScanLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
-        result.contents?.takeIf { it.isNotBlank() }?.let { scanned ->
-            endpointUrl = scanned
-            expandedSection = 2 // Auto-expand connection details section
-        }
-    }
-
     val isUrlValid = endpointUrl.startsWith("http://") || endpointUrl.startsWith("https://") || endpointUrl.startsWith("ws://") || endpointUrl.startsWith("wss://")
     val isSecurityValid = securityMode == "standard" || peerPublicKey.isNotBlank()
     val isValid = name.isNotBlank() && isSecurityValid && endpointUrl.isNotBlank() && isUrlValid
@@ -261,51 +253,6 @@ fun AddEditAgentScreen(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            if (agentId == null) {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f)),
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            qrScanLauncher.launch(
-                                com.journeyapps.barcodescanner.ScanOptions().apply {
-                                    setPrompt("Scan Baton Agent Connection QR")
-                                    setBeepEnabled(true)
-                                    setOrientationLocked(true)
-                                    setCaptureActivity(CustomScannerActivity::class.java)
-                                }
-                            )
-                        }
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.QrCodeScanner,
-                            contentDescription = "Scan QR Code",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(32.dp)
-                        )
-                        Column {
-                            Text(
-                                text = "Scan QR Code to Connect",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "Scan the QR code displayed in your terminal to instantly configure the connection endpoint.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-            }
             
             // SECTION 1: ENVIRONMENT & SETUP GUIDE
             PremiumAccordionGroup(
@@ -414,39 +361,14 @@ fun AddEditAgentScreen(
                 HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
 
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(modifier = Modifier.weight(1f)) {
-                        PremiumTextField(
-                            value = endpointUrl,
-                            onValueChange = { endpointUrl = it },
-                            label = "Endpoint URL (http://, https://, ws://)",
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                            isError = endpointUrl.isNotBlank() && !isUrlValid
-                        )
-                    }
-                    IconButton(
-                        onClick = {
-                            qrScanLauncher.launch(
-                                ScanOptions().apply {
-                                    setPrompt("Scan Baton Agent Connection QR")
-                                    setBeepEnabled(true)
-                                    setOrientationLocked(true)
-                                    setCaptureActivity(CustomScannerActivity::class.java)
-                                }
-                            )
-                        },
-                        modifier = Modifier.padding(start = 4.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.QrCodeScanner,
-                            contentDescription = "Scan QR Code",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
+                PremiumTextField(
+                    value = endpointUrl,
+                    onValueChange = { endpointUrl = it },
+                    label = "Endpoint URL (http://, https://, ws://)",
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                    isError = endpointUrl.isNotBlank() && !isUrlValid,
+                    modifier = Modifier.fillMaxWidth()
+                )
                 var validationResult by remember { mutableStateOf<TunnelValidationResult?>(null) }
                 var isValidating by remember { mutableStateOf(false) }
                 val coroutineScope = rememberCoroutineScope()
