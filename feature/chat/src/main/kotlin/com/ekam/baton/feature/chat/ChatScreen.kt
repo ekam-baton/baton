@@ -39,9 +39,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.IntentSenderRequest
-import com.google.mlkit.vision.documentscanner.GmsDocumentScannerOptions
-import com.google.mlkit.vision.documentscanner.GmsDocumentScanning
-import com.google.mlkit.vision.documentscanner.GmsDocumentScanningResult
 import com.ekam.baton.core.data.preferences.KeyboardShortcut
 
 import androidx.compose.ui.Alignment
@@ -585,41 +582,9 @@ fun ChatInputBar(
         }
     }
 
-    // ML Kit Document Scanner
-    val scannerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
-        if (result.resultCode == android.app.Activity.RESULT_OK) {
-            val scanResult = GmsDocumentScanningResult.fromActivityResultIntent(result.data)
-            scanResult?.pages?.forEach { page ->
-                attachments = attachments + page.imageUri
-            }
-            scanResult?.pdf?.let { pdf ->
-                attachments = attachments + pdf.uri
-            }
-        }
-    }
-
-    val context = LocalContext.current
-    fun launchScanner() {
-        val options = GmsDocumentScannerOptions.Builder()
-            .setGalleryImportAllowed(true)
-            .setPageLimit(15)
-            .setResultFormats(GmsDocumentScannerOptions.RESULT_FORMAT_JPEG, GmsDocumentScannerOptions.RESULT_FORMAT_PDF)
-            .setScannerMode(GmsDocumentScannerOptions.SCANNER_MODE_FULL)
-            .build()
-        val scanner = GmsDocumentScanning.getClient(options)
-        scanner.getStartScanIntent(context.findActivity()!!)
-            .addOnSuccessListener { intentSender ->
-                scannerLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
-            }
-            .addOnFailureListener { e ->
-                // Handle failure
-            }
-    }
-
     if (showAttachmentSheet) {
         AttachmentPickerBottomSheet(
             onDismissRequest = { showAttachmentSheet = false },
-            onScanDocumentClick = { launchScanner() },
             onGalleryClick = { mediaPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) },
             onFilesClick = { fileLauncher.launch(arrayOf("application/pdf", "image/jpeg", "image/png", "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")) }
         )
