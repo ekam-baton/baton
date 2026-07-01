@@ -62,19 +62,22 @@ fun AgentsScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Agents") },
-                actions = {
-                    IconButton(onClick = { onAddAgentClick(null, null) }) {
-                        Icon(Icons.Default.Add, contentDescription = "Add Agent")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
-                    titleContentColor = MaterialTheme.colorScheme.onBackground,
-                    actionIconContentColor = MaterialTheme.colorScheme.onBackground
+            Column {
+                TopAppBar(
+                    title = { Text("Agents") },
+                    actions = {
+                        IconButton(onClick = { onAddAgentClick(null, null) }) {
+                            Icon(Icons.Default.Add, contentDescription = "Add Agent")
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.75f),
+                        titleContentColor = MaterialTheme.colorScheme.onBackground,
+                        actionIconContentColor = MaterialTheme.colorScheme.onBackground
+                    )
                 )
-            )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), thickness = 0.5.dp)
+            }
         },
         containerColor = Color.Transparent
     ) { innerPadding ->
