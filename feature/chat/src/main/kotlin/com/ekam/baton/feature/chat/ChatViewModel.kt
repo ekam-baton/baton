@@ -92,6 +92,9 @@ class ChatViewModel(
     private val _uiError = MutableStateFlow<String?>(null)
     val uiError: StateFlow<String?> = _uiError.asStateFlow()
 
+    private val _agentActivityStatus = MutableStateFlow<String?>(null)
+    val agentActivityStatus: StateFlow<String?> = _agentActivityStatus.asStateFlow()
+
     /** FIX: Upload progress (0.0–1.0), null when not uploading */
     private val _uploadProgress = MutableStateFlow<Float?>(null)
     val uploadProgress: StateFlow<Float?> = _uploadProgress.asStateFlow()
@@ -155,13 +158,13 @@ class ChatViewModel(
             }
         }
     }
-
     fun sendMessage(content: String, attachments: List<Uri> = emptyList()) {
         val cid = conversationId ?: return
         // FIX: Prevent double-submission while a response is already streaming
         if (_isStreaming.value) return
         viewModelScope.launch {
             _isStreaming.value = true
+            _agentActivityStatus.value = if (attachments.isNotEmpty()) "Preparing media attachments..." else "Injecting working memory..."
 
             // Process attachments on IO dispatcher
             val attachmentDtos = withContext(Dispatchers.IO) {
@@ -192,7 +195,10 @@ class ChatViewModel(
                 }
             }
 
+            _agentActivityStatus.value = "Opening secure E2EE channel..."
+
             try {
+                _agentActivityStatus.value = "Thinking..."
                 chatRepository.sendMessageWithResponse(
                     conversationId = cid,
                     content = content,
@@ -203,8 +209,10 @@ class ChatViewModel(
                 // but surfacing general failures here as well.
                 _uiError.value = "Failed to send message: ${e.message}"
             } finally {
-                _isStreaming.value = false
+                _agentActivityStatus.value = "Extracting key facts..."
                 checkEpisodicMemoryGeneration(cid)
+                _isStreaming.value = false
+                _agentActivityStatus.value = null
             }
         }
     }
@@ -259,12 +267,14 @@ class ChatViewModel(
         val cid = conversationId ?: return
         viewModelScope.launch {
             _isStreaming.value = true
+            _agentActivityStatus.value = "Executing tool $toolName..."
             try {
                 chatRepository.executeToolManual(cid, toolName, arguments).collect()
             } catch (e: Exception) {
                 _uiError.value = "Tool execution failed: ${e.message}"
             } finally {
                 _isStreaming.value = false
+                _agentActivityStatus.value = null
             }
         }
     }

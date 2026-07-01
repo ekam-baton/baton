@@ -73,6 +73,7 @@ fun ChatScreen(
     val activeMemoryCount by viewModel.activeMemoryCount.collectAsStateWithLifecycle()
     val currentAgentId by viewModel.currentAgentId.collectAsStateWithLifecycle()
     val currentAgent by viewModel.currentAgent.collectAsStateWithLifecycle()
+    val agentActivityStatus by viewModel.agentActivityStatus.collectAsStateWithLifecycle()
     
     val availableTools by viewModel.availableTools.collectAsStateWithLifecycle()
     val toolAuthRequest by viewModel.toolAuthRequests.collectAsStateWithLifecycle(initialValue = null)
@@ -261,7 +262,7 @@ fun ChatScreen(
         ) {
             if (isStreaming) {
                 item {
-                    AssistantTypingIndicator()
+                    AgentActivityBubble(statusText = agentActivityStatus ?: "Thinking...")
                 }
             }
 
@@ -498,7 +499,7 @@ fun MessageBubble(message: Message, modifier: Modifier = Modifier, onReply: ((Me
 }
 
 @Composable
-fun AssistantTypingIndicator() {
+fun AgentActivityBubble(statusText: String) {
     Box(
         modifier = Modifier.fillMaxWidth(),
         contentAlignment = Alignment.CenterStart
@@ -510,30 +511,43 @@ fun AssistantTypingIndicator() {
                     color = MaterialTheme.colorScheme.outlineVariant,
                     shape = RoundedCornerShape(4.dp, 20.dp, 20.dp, 20.dp)
                 )
-                .background(Color.Transparent, RoundedCornerShape(4.dp, 20.dp, 20.dp, 20.dp))
+                .background(
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                    shape = RoundedCornerShape(4.dp, 20.dp, 20.dp, 20.dp)
+                )
                 .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
             Row(
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                val infiniteTransition = rememberInfiniteTransition()
-                for (i in 0 until 3) {
-                    val alpha by infiniteTransition.animateFloat(
-                        initialValue = 0.3f,
-                        targetValue = 1f,
-                        animationSpec = infiniteRepeatable(
-                            animation = tween(durationMillis = 600, delayMillis = i * 200, easing = LinearEasing),
-                            repeatMode = RepeatMode.Reverse
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(3.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val infiniteTransition = rememberInfiniteTransition()
+                    for (i in 0 until 3) {
+                        val alpha by infiniteTransition.animateFloat(
+                            initialValue = 0.3f,
+                            targetValue = 1f,
+                            animationSpec = infiniteRepeatable(
+                                animation = tween(durationMillis = 600, delayMillis = i * 200, easing = LinearEasing),
+                                repeatMode = RepeatMode.Reverse
+                            )
                         )
-                    )
-                    Box(
-                        modifier = Modifier
-                            .size(6.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.onBackground.copy(alpha = alpha))
-                    )
+                        Box(
+                            modifier = Modifier
+                                .size(5.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = alpha))
+                        )
+                    }
                 }
+                Text(
+                    text = statusText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }
