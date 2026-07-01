@@ -104,7 +104,7 @@ val dataModule = module {
             }
         }
 
-        Room.databaseBuilder(
+        val builder = Room.databaseBuilder(
             context,
             BatonDatabase::class.java,
             BatonDatabase.DATABASE_NAME,
@@ -112,7 +112,29 @@ val dataModule = module {
             .openHelperFactory(factory)
             .addMigrations(MIGRATION_6_7, MIGRATION_7_8)
             .fallbackToDestructiveMigration()
-            .build()
+
+        try {
+            val db = builder.build()
+            // Force open the database to trigger key validation
+            db.openHelper.writableDatabase
+            db
+        } catch (e: Exception) {
+            e.printStackTrace()
+            // Key is incorrect or file is corrupted. Delete the database files and rebuild.
+            try {
+                context.deleteDatabase(BatonDatabase.DATABASE_NAME)
+            } catch (ignored: Exception) {}
+
+            val freshBuilder = Room.databaseBuilder(
+                context,
+                BatonDatabase::class.java,
+                BatonDatabase.DATABASE_NAME,
+            )
+                .openHelperFactory(factory)
+                .addMigrations(MIGRATION_6_7, MIGRATION_7_8)
+                .fallbackToDestructiveMigration()
+            freshBuilder.build()
+        }
     }
 
     single<AgentDao> { get<BatonDatabase>().agentDao() }
