@@ -643,11 +643,11 @@ fun ChatInputBar(
             .imePadding()
     ) {
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), thickness = 0.5.dp)
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(2.dp))
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 6.dp)
+                .padding(horizontal = 8.dp, vertical = 2.dp)
         ) {
             if (replyingTo != null) {
             Row(
@@ -699,7 +699,7 @@ fun ChatInputBar(
         LazyRow(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 12.dp, end = 12.dp, bottom = 6.dp),
+                .padding(start = 12.dp, end = 12.dp, bottom = 2.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -780,7 +780,7 @@ fun ChatInputBar(
                     color = MaterialTheme.colorScheme.outlineVariant,
                     shape = RoundedCornerShape(24.dp)
                 )
-                .padding(horizontal = 8.dp, vertical = 8.dp),
+                .padding(horizontal = 8.dp, vertical = 4.dp),
             verticalAlignment = Alignment.Bottom
         ) {
             IconButton(
