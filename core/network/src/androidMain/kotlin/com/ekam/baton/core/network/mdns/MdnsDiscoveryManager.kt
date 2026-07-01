@@ -36,7 +36,7 @@ class MdnsDiscoveryManager(private val context: Context) {
 
             override fun onServiceFound(service: NsdServiceInfo) {
                 Log.d(TAG, "Service discovery success: $service")
-                if (service.serviceType == SERVICE_TYPE) {
+                if (service.serviceType.contains("_baton._tcp")) {
                     nsdManager.resolveService(service, object : NsdManager.ResolveListener {
                         override fun onResolveFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {
                             Log.e(TAG, "Resolve failed: $errorCode")
