@@ -149,51 +149,54 @@ fun ChatScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(
-                title = { 
-                    Text(
-                        text = currentAgent?.name ?: "Chat",
-                        modifier = Modifier.clickable { showAgentDetails = true }
-                    ) 
-                },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { onNavigateToCall("Agent") }) {
-                        Icon(Icons.Default.Phone, contentDescription = "Call Agent")
-                    }
-                    var showMenu by remember { mutableStateOf(false) }
-                    IconButton(onClick = { showMenu = true }) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "Options")
-                    }
-                    DropdownMenu(
-                        expanded = showMenu,
-                        onDismissRequest = { showMenu = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Agent Memory") },
-                            onClick = {
-                                showMenu = false
-                                onNavigateToMemory(currentAgentId)
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Clear Chat") },
-                            onClick = {
-                                viewModel.deleteConversation(conversationId)
-                                showMenu = false
-                                onNavigateBack()
-                            }
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
+            Column {
+                TopAppBar(
+                    title = { 
+                        Text(
+                            text = currentAgent?.name ?: "Chat",
+                            modifier = Modifier.clickable { showAgentDetails = true }
+                        ) 
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = { onNavigateToCall("Agent") }) {
+                            Icon(Icons.Default.Phone, contentDescription = "Call Agent")
+                        }
+                        var showMenu by remember { mutableStateOf(false) }
+                        IconButton(onClick = { showMenu = true }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "Options")
+                        }
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Agent Memory") },
+                                onClick = {
+                                    showMenu = false
+                                    onNavigateToMemory(currentAgentId)
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Clear Chat") },
+                                onClick = {
+                                    viewModel.deleteConversation(conversationId)
+                                    showMenu = false
+                                    onNavigateBack()
+                                }
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.75f)
+                    )
                 )
-            )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), thickness = 0.5.dp)
+            }
         },
         bottomBar = {
             val keyboardShortcuts by viewModel.keyboardShortcuts.collectAsStateWithLifecycle()
@@ -636,11 +639,17 @@ fun ChatInputBar(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface)
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.75f))
             .imePadding()
-            .padding(8.dp)
     ) {
-        if (replyingTo != null) {
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), thickness = 0.5.dp)
+        Spacer(modifier = Modifier.height(8.dp))
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 6.dp)
+        ) {
+            if (replyingTo != null) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -842,6 +851,7 @@ fun ChatInputBar(
             ) {
                 Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send")
             }
+        }
         }
     }
 }
