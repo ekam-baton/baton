@@ -18,17 +18,43 @@ val dataModule = module {
 
     single {
         val context = androidContext()
-        val masterKey = MasterKey.Builder(context)
-            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .build()
+        val sharedPreferences = try {
+            val masterKey = MasterKey.Builder(context)
+                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                .build()
+            EncryptedSharedPreferences.create(
+                context,
+                "secret_shared_prefs",
+                masterKey,
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            )
+        } catch (e: Exception) {
+            e.printStackTrace()
+            // 1. Delete physical shared preferences XML file
+            try {
+                val file = java.io.File(context.filesDir.parent, "shared_prefs/secret_shared_prefs.xml")
+                if (file.exists()) file.delete()
+            } catch (ignored: Exception) {}
 
-        val sharedPreferences = EncryptedSharedPreferences.create(
-            context,
-            "secret_shared_prefs",
-            masterKey,
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-        )
+            // 2. Clear corrupted key from Android Keystore
+            try {
+                val keyStore = java.security.KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+                keyStore.deleteEntry(MasterKey.DEFAULT_MASTER_KEY_ALIAS)
+            } catch (ignored: Exception) {}
+
+            // 3. Retry creating preference store with a fresh master key
+            val freshMasterKey = MasterKey.Builder(context)
+                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                .build()
+            EncryptedSharedPreferences.create(
+                context,
+                "secret_shared_prefs",
+                freshMasterKey,
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            )
+        }
 
         var dbPassphrase = sharedPreferences.getString("db_passphrase", null)
         if (dbPassphrase == null) {
