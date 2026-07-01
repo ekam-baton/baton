@@ -1,10 +1,12 @@
 BATON PRIVACY POLICY
-Last Updated: June 20, 2026
+Last Updated: July 1, 2026
 
 This Privacy Policy explains how BATON ("we", "us", or "our") handles user information. BATON is a secure, personal AI assistant interface designed with user privacy and local-first data storage as sovereign principles.
 
+This policy is published in compliance with the Information Technology Act, 2000, the Information Technology (Intermediary Guidelines and Digital Media Ethics Code) Rules, 2021 (as amended in 2026), and the Digital Personal Data Protection (DPDP) Act, 2023.
+
 1. DATA WE COLLECT
-For onboarding, profile setup, and secure communication tracking, we collect the following information:
+For onboarding, profile setup, and secure communication tracking, we collect the following information with your free, specific, informed, unconditional, and unambiguous consent as required under the DPDP Act, 2023:
 - Email Address
 - Phone Number
 No password is required, as the application relies on hardware-backed biometric authentication.
@@ -19,12 +21,23 @@ No password is required, as the application relies on hardware-backed biometric 
 - Third-Party Policies: We do not control and are not responsible for the privacy practices of your custom MCP endpoints, hosting providers, or the AI models running on them. You must review the policies of those third-party providers.
 
 4. USER CONTROL AND DATA WIPE
-You have absolute control over your data:
-- Memory Retention: You can configure the retention period of memory logs inside settings.
+You have absolute control over your data. In accordance with the DPDP Act, 2023, you have the right to:
+- Access, correct, erase, and port your personal data at any time.
+- Withdraw consent at any time, after which we shall cease processing your data.
+- Memory Retention: You can configure the retention period of memory logs inside Settings.
 - Wiping Data: You can immediately erase all database records, chat histories, agent definitions, and signup profile data at any time by navigating to Settings -> Privacy & Security -> Clear all data.
+To exercise your data rights or withdraw consent, contact our Grievance Officer (Section 7).
 
 5. BIOMETRIC DATA
 BATON utilizes your device's biometric sensors to secure app access. We do not collect, store, or transmit your biometric records (fingerprints or face scans). Please refer to our Biometric Disclosure statement for more details.
 
-6. CONTACT US
-For questions regarding this privacy policy or our local-first storage design, please contact the repository maintainers.
+6. POLICY REMINDERS
+In compliance with IT Rules, 2021 (as amended), we will periodically remind you of this Privacy Policy, Terms of Service, and the consequences of non-compliance. These reminders will be sent at least once every three months. Continued use of the Application after receiving such reminders constitutes your acknowledgment of these policies.
+
+7. GRIEVANCE REDRESSAL
+In compliance with Rule 3(2) of the Information Technology (Intermediary Guidelines and Digital Media Ethics Code) Rules, 2021, we have appointed a Grievance Officer to address any complaints or concerns regarding the processing of your personal data.
+
+Grievance Officer: Rishabh (Developer, BATON)
+Contact Email: grievance@baton-app.in
+Grievance Mechanism: To file a grievance, send an email to the above address with the subject line "BATON Privacy Grievance". We shall acknowledge your complaint within 24 hours and resolve it within 15 (fifteen) days of receipt, in accordance with applicable law.
+

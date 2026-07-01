@@ -24,7 +24,8 @@ class AgentsViewModel(
     private val agentRepository: AgentRepository,
     private val tunnelValidator: TunnelEndpointValidator,
     private val securityManager: com.ekam.baton.core.network.security.ConnectionSecurityManager,
-    private val mdnsDiscoveryManager: com.ekam.baton.core.network.mdns.MdnsDiscoveryManager
+    private val mdnsDiscoveryManager: com.ekam.baton.core.network.mdns.MdnsDiscoveryManager,
+    private val mcpMessageSender: com.ekam.baton.core.network.mcp.McpMessageSender
 ) : ViewModel() {
 
     private val _uiEvents = Channel<AgentsUiEvent>()
@@ -87,7 +88,25 @@ class AgentsViewModel(
                     _uiEvents.send(AgentsUiEvent.ShowError("Agent with this endpoint is already saved"))
                     return@launch
                 }
-                agentRepository.upsertAgent(agent)
+                
+                // Pair with the agent to exchange keys and get the relay_url
+                val keys = securityManager.generateClientKeys()
+                val pairResult = mcpMessageSender.pairWithAgent(agent.mcpEndpointUrl, keys.publicKeyHex)
+                
+                val finalAgent = if (pairResult.isSuccess) {
+                    val pair = pairResult.getOrNull()
+                    if (pair != null) {
+                        agent.copy(relayUrl = pair.first, relayToken = pair.second)
+                    } else {
+                        agent
+                    }
+                } else {
+                    // It failed to pair, probably not a Baton a2a-router or not reachable.
+                    // We still save it, but without a relayUrl.
+                    agent
+                }
+
+                agentRepository.upsertAgent(finalAgent)
             } catch (e: Exception) {
                 _uiEvents.send(AgentsUiEvent.ShowError("Failed to add agent"))
             }

@@ -104,13 +104,27 @@ val dataModule = module {
             }
         }
 
+        val MIGRATION_8_9 = object : androidx.room.migration.Migration(8, 9) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Add relay_url column for remote fallback routing
+                db.execSQL("ALTER TABLE agents ADD COLUMN relay_url TEXT DEFAULT NULL")
+            }
+        }
+
+        val MIGRATION_9_10 = object : androidx.room.migration.Migration(9, 10) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Add relay_token column for remote fallback authentication
+                db.execSQL("ALTER TABLE agents ADD COLUMN relay_token TEXT DEFAULT NULL")
+            }
+        }
+
         val builder = Room.databaseBuilder(
             context,
             BatonDatabase::class.java,
             BatonDatabase.DATABASE_NAME,
         )
             .openHelperFactory(factory)
-            .addMigrations(MIGRATION_6_7, MIGRATION_7_8)
+            .addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
             .fallbackToDestructiveMigration()
 
         try {
@@ -131,7 +145,7 @@ val dataModule = module {
                 BatonDatabase.DATABASE_NAME,
             )
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_6_7, MIGRATION_7_8)
+                .addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
                 .fallbackToDestructiveMigration()
             freshBuilder.build()
         }

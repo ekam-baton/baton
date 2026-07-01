@@ -29,6 +29,9 @@ data class AgentEntity(
     @ColumnInfo(name = "mcp_endpoint_url")
     val mcpEndpointUrl: String,
 
+    @ColumnInfo(name = "relay_url")
+    val relayUrl: String? = null,
+
     @ColumnInfo(name = "auth_type")
     val authType: String, // enum string: "none", "oauth", "api_key", "bearer"
 
@@ -58,6 +61,9 @@ data class AgentEntity(
 
     @ColumnInfo(name = "security_config", defaultValue = "{}")
     val securityConfig: String = "{}", // JSON blob storing security settings and keys
+
+    @ColumnInfo(name = "relay_token")
+    val relayToken: String? = null,
 
     @ColumnInfo(name = "previous_hash", defaultValue = "")
     val previousHash: String = "",
