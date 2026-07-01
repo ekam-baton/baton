@@ -233,6 +233,7 @@ fun ChatScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(top = innerPadding.calculateTopPadding())
+                .imePadding()
         ) {
             LazyColumn(
                 state = listState,
@@ -652,7 +653,6 @@ fun ChatInputBar(
         modifier = Modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surface)
-            .imePadding()
     ) {
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), thickness = 0.5.dp)
         Spacer(modifier = Modifier.height(2.dp))
