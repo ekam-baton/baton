@@ -198,31 +198,6 @@ fun ChatScreen(
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), thickness = 0.5.dp)
             }
         },
-        bottomBar = {
-            val keyboardShortcuts by viewModel.keyboardShortcuts.collectAsStateWithLifecycle()
-            ChatInputBar(
-                activeMemoryCount = activeMemoryCount,
-                keyboardShortcuts = keyboardShortcuts,
-                hasTools = availableTools.isNotEmpty(),
-                replyingTo = replyingTo,
-                onClearReply = { replyingTo = null },
-                onSaveShortcuts = { updated -> viewModel.saveKeyboardShortcuts(updated) },
-                onMemoryClick = { onNavigateToMemory(currentAgentId) },
-                onToolsClick = { showToolsSheet = true },
-                onSendMessage = { content, attachments ->
-                    val replyPrefix = replyingTo?.content?.let { orig ->
-                        // FIX: Only append "..." if the content was actually truncated
-                        val truncated = orig.take(50)
-                        val ellipsis = if (orig.length > 50) "..." else ""
-                        "[Replying to: \"$truncated$ellipsis\"]\n"
-                    } ?: ""
-                    val finalContent = replyPrefix + content
-                    viewModel.sendMessage(finalContent, attachments)
-                    replyingTo = null
-                }
-            )
-        },
-
         containerColor = Color.Transparent,
         contentWindowInsets = WindowInsets(0.dp)
     ) { innerPadding ->
@@ -254,33 +229,66 @@ fun ChatScreen(
             }
         }
 
-        LazyColumn(
-            state = listState,
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.Bottom),
-            reverseLayout = true
+                .padding(top = innerPadding.calculateTopPadding())
         ) {
-            if (isStreaming) {
-                item {
-                    AgentActivityBubble(statusText = agentActivityStatus ?: "Thinking...")
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(bottom = 76.dp),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.Bottom),
+                reverseLayout = true
+            ) {
+                if (isStreaming) {
+                    item {
+                        AgentActivityBubble(statusText = agentActivityStatus ?: "Thinking...")
+                    }
+                }
+
+                items(
+                    count = messages.itemCount,
+                    key = { index -> messages[index]?.id ?: index }
+                ) { index ->
+                    val message = messages[index]
+                    if (message != null) {
+                        MessageBubble(
+                            message = message,
+                            modifier = Modifier.animateItem(),
+                            onReply = { replyingTo = it }
+                        )
+                    }
                 }
             }
 
-            items(
-                count = messages.itemCount,
-                key = { index -> messages[index]?.id ?: index }
-            ) { index ->
-                val message = messages[index]
-                if (message != null) {
-                    MessageBubble(
-                        message = message,
-                        modifier = Modifier.animateItem(),
-                        onReply = { replyingTo = it }
-                    )
-                }
+            val keyboardShortcuts by viewModel.keyboardShortcuts.collectAsStateWithLifecycle()
+            Box(
+                modifier = Modifier.align(Alignment.BottomCenter)
+            ) {
+                ChatInputBar(
+                    activeMemoryCount = activeMemoryCount,
+                    keyboardShortcuts = keyboardShortcuts,
+                    hasTools = availableTools.isNotEmpty(),
+                    replyingTo = replyingTo,
+                    onClearReply = { replyingTo = null },
+                    onSaveShortcuts = { updated -> viewModel.saveKeyboardShortcuts(updated) },
+                    onMemoryClick = { onNavigateToMemory(currentAgentId) },
+                    onToolsClick = { showToolsSheet = true },
+                    onSendMessage = { content, attachments ->
+                        val replyPrefix = replyingTo?.content?.let { orig ->
+                            // FIX: Only append "..." if the content was actually truncated
+                            val truncated = orig.take(50)
+                            val ellipsis = if (orig.length > 50) "..." else ""
+                            "[Replying to: \"$truncated$ellipsis\"]\n"
+                        } ?: ""
+                        val finalContent = replyPrefix + content
+                        viewModel.sendMessage(finalContent, attachments)
+                        replyingTo = null
+                    }
+                )
             }
         }
     }
