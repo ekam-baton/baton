@@ -22,13 +22,25 @@ data class McpSession(
 )
 
 class McpConnectionManager constructor(
-    private val transport: McpTransport
+    private val httpTransport: HttpSseMcpTransport,
+    private val webSocketTransport: McpWebSocketTransport
 ) {
     private val sessions = ConcurrentHashMap<String, McpSession>()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mutex = Mutex()
 
     private val MAX_IDLE_TIME_MS = 5 * 60 * 1000L
+
+    private fun getTransport(endpointUrl: String): McpTransport {
+        return if (endpointUrl.startsWith("ws://") || endpointUrl.startsWith("wss://")) {
+            webSocketTransport
+        } else {
+            httpTransport
+        }
+    }
+
+    // FIX: Expose getTransport so McpMessageSender can use it
+    fun getTransportForUrl(endpointUrl: String): McpTransport = getTransport(endpointUrl)
 
     init {
         scope.launch {
@@ -45,7 +57,7 @@ class McpConnectionManager constructor(
                         toEvict.add(session.agentId)
                     } else {
                         // Network I/O happens outside the lock — safe to suspend here
-                        val isAlive = transport.ping(session.endpointUrl)
+                        val isAlive = getTransport(session.endpointUrl).ping(session.endpointUrl)
                         if (!isAlive) toEvict.add(session.agentId)
                     }
                 }
@@ -79,6 +91,7 @@ class McpConnectionManager constructor(
             }
         }
 
+        val transport = getTransport(endpointUrl)
         val initResult = transport.initialize(endpointUrl, authHeader)
         if (initResult.isFailure) {
             return Result.failure(initResult.exceptionOrNull() ?: Exception("Init failed"))

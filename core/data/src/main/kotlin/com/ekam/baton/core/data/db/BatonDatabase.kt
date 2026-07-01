@@ -28,7 +28,7 @@ import com.ekam.baton.core.data.db.dao.AgentActionLogDao
  */
 @Database(
     entities    = [ConversationEntity::class, AgentEntity::class, MessageEntity::class, MemoryEntity::class, AuditLogEntity::class, AgentActionLogEntity::class],
-    version     = 8,
+    version     = 10,
     exportSchema = true,
 )
 abstract class BatonDatabase : RoomDatabase() {

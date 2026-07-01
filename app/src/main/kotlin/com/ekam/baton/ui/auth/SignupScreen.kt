@@ -67,6 +67,8 @@ fun SignupScreen(
     var emailError by remember { mutableStateOf<String?>(null) }
     var phoneError by remember { mutableStateOf<String?>(null) }
     var generalError by remember { mutableStateOf<String?>(null) }
+    // DPDP Act, 2023: Consent must be explicit, affirmative, and un-ticked by default.
+    var hasExplicitConsent by remember { mutableStateOf(false) }
 
     fun validate(): Boolean {
         var isValid = true
@@ -287,10 +289,13 @@ fun SignupScreen(
 
                     Button(
                         onClick = { handleSignup() },
+                        enabled = hasExplicitConsent,
                         shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.tertiary,
-                            contentColor = MaterialTheme.colorScheme.onTertiary
+                            contentColor = MaterialTheme.colorScheme.onTertiary,
+                            disabledContainerColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.35f),
+                            disabledContentColor = MaterialTheme.colorScheme.onTertiary.copy(alpha = 0.4f)
                         ),
                         modifier = Modifier
                             .fillMaxWidth()
@@ -305,56 +310,72 @@ fun SignupScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    Column(
+                    // DPDP Act, 2023 – Explicit, affirmative consent block.
+                    // Consent must be un-ticked by default and the user must actively check it.
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                        verticalAlignment = Alignment.Top
                     ) {
-                        Text(
-                            text = "By signing up, you agree to our",
-                            fontSize = 11.sp,
-                            color = Color(0xFF7A8B9E)
+                        Checkbox(
+                            checked = hasExplicitConsent,
+                            onCheckedChange = { hasExplicitConsent = it },
+                            colors = CheckboxDefaults.colors(
+                                checkedColor = MaterialTheme.colorScheme.tertiary,
+                                uncheckedColor = Color(0xFF7A8B9E),
+                                checkmarkColor = MaterialTheme.colorScheme.onTertiary
+                            ),
+                            modifier = Modifier.size(20.dp)
                         )
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            TextButton(
-                                onClick = { showLegal("Terms of Service", "terms_of_service.txt") },
-                                contentPadding = PaddingValues(0.dp),
-                                modifier = Modifier.height(28.dp)
+                        Spacer(modifier = Modifier.width(10.dp))
+                        // Wrap the legal text so it wraps cleanly next to the checkbox
+                        Column {
+                            Text(
+                                text = "I have read and explicitly agree to the:",
+                                fontSize = 11.sp,
+                                color = Color(0xFF7A8B9E)
+                            )
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(
-                                    text = "Terms",
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.tertiary,
-                                    textDecoration = TextDecoration.Underline
-                                )
-                            }
-                            Text(text = "•", fontSize = 11.sp, color = Color(0xFF7A8B9E))
-                            TextButton(
-                                onClick = { showLegal("Privacy Policy", "privacy_policy.txt") },
-                                contentPadding = PaddingValues(0.dp),
-                                modifier = Modifier.height(28.dp)
-                            ) {
-                                Text(
-                                    text = "Privacy",
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.tertiary,
-                                    textDecoration = TextDecoration.Underline
-                                )
-                            }
-                            Text(text = "•", fontSize = 11.sp, color = Color(0xFF7A8B9E))
-                            TextButton(
-                                onClick = { showLegal("Biometric Disclosure", "biometric_disclosure.txt") },
-                                contentPadding = PaddingValues(0.dp),
-                                modifier = Modifier.height(28.dp)
-                            ) {
-                                Text(
-                                    text = "Biometrics",
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.tertiary,
-                                    textDecoration = TextDecoration.Underline
-                                )
+                                TextButton(
+                                    onClick = { showLegal("Terms of Service", "terms_of_service.txt") },
+                                    contentPadding = PaddingValues(0.dp),
+                                    modifier = Modifier.height(28.dp)
+                                ) {
+                                    Text(
+                                        text = "Terms",
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.tertiary,
+                                        textDecoration = TextDecoration.Underline
+                                    )
+                                }
+                                Text(text = "•", fontSize = 11.sp, color = Color(0xFF7A8B9E))
+                                TextButton(
+                                    onClick = { showLegal("Privacy Policy", "privacy_policy.txt") },
+                                    contentPadding = PaddingValues(0.dp),
+                                    modifier = Modifier.height(28.dp)
+                                ) {
+                                    Text(
+                                        text = "Privacy Policy",
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.tertiary,
+                                        textDecoration = TextDecoration.Underline
+                                    )
+                                }
+                                Text(text = "•", fontSize = 11.sp, color = Color(0xFF7A8B9E))
+                                TextButton(
+                                    onClick = { showLegal("Biometric Disclosure", "biometric_disclosure.txt") },
+                                    contentPadding = PaddingValues(0.dp),
+                                    modifier = Modifier.height(28.dp)
+                                ) {
+                                    Text(
+                                        text = "Biometrics",
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.tertiary,
+                                        textDecoration = TextDecoration.Underline
+                                    )
+                                }
                             }
                         }
                     }

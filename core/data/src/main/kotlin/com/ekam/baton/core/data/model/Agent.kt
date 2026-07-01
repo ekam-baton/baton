@@ -11,6 +11,7 @@ data class Agent(
     val avatarUri: String? = null,
     val providerType: String = "local_mcp",
     val mcpEndpointUrl: String,
+    val relayUrl: String? = null,
     val authType: String,
     val authConfig: String,
     val isActive: Boolean = true,
@@ -20,7 +21,8 @@ data class Agent(
     val securityMode: String = "disabled",
     val securityConfig: String = "",
     val isAuthenticated: Boolean = false,
-    val lastAuthAt: Long? = null
+    val lastAuthAt: Long? = null,
+    val relayToken: String? = null
 )
 
 fun AgentEntity.toDomainModel() = Agent(
@@ -30,6 +32,7 @@ fun AgentEntity.toDomainModel() = Agent(
     avatarUri = avatarUri,
     providerType = providerType,
     mcpEndpointUrl = mcpEndpointUrl,
+    relayUrl = relayUrl,
     authType = authType,
     authConfig = authConfig,
     isActive = isActive,
@@ -39,7 +42,8 @@ fun AgentEntity.toDomainModel() = Agent(
     securityMode = securityMode,
     securityConfig = securityConfig,
     isAuthenticated = isAuthenticated,
-    lastAuthAt = lastAuthAt
+    lastAuthAt = lastAuthAt,
+    relayToken = relayToken
 )
 
 fun Agent.toEntity() = AgentEntity(
@@ -49,6 +53,7 @@ fun Agent.toEntity() = AgentEntity(
     avatarUri = avatarUri,
     providerType = providerType,
     mcpEndpointUrl = mcpEndpointUrl,
+    relayUrl = relayUrl,
     authType = authType,
     authConfig = authConfig,
     isActive = isActive,
@@ -58,5 +63,6 @@ fun Agent.toEntity() = AgentEntity(
     securityMode = securityMode,
     securityConfig = securityConfig,
     isAuthenticated = isAuthenticated,
-    lastAuthAt = lastAuthAt
+    lastAuthAt = lastAuthAt,
+    relayToken = relayToken
 )

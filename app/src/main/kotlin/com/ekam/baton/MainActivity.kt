@@ -39,9 +39,15 @@ class MainActivity : AppCompatActivity() {
 
     private val mainViewModel: MainViewModel by viewModel()
 
+    // Holds a deep-link URL to navigate to once the nav graph is ready
+    private var pendingDeepLinkUrl: String? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // Extract deep link URL from baton://connect?url=... intent
+        pendingDeepLinkUrl = extractBatonDeepLinkUrl(intent)
 
         setContent {
             val accentColor by mainViewModel.accentColor.collectAsStateWithLifecycle()
@@ -50,12 +56,36 @@ class MainActivity : AppCompatActivity() {
                 accentColor = Color(accentColor)
             ) {
                 val navController = rememberNavController()
+                // Navigate to Add Agent screen when the app is opened via deep link
+                androidx.compose.runtime.LaunchedEffect(pendingDeepLinkUrl) {
+                    pendingDeepLinkUrl?.let { url ->
+                        val encoded = android.util.Base64.encodeToString(
+                            url.toByteArray(), android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP
+                        )
+                        navController.navigate("agents/add?url=$encoded")
+                        pendingDeepLinkUrl = null
+                    }
+                }
                 BatonAppShell(
                     navController = navController,
                     mainViewModel = mainViewModel
                 )
             }
         }
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        // Handle deep link if app is already running
+        pendingDeepLinkUrl = extractBatonDeepLinkUrl(intent)
+    }
+
+    private fun extractBatonDeepLinkUrl(intent: android.content.Intent?): String? {
+        val data = intent?.data ?: return null
+        if (data.scheme == "baton" && data.host == "connect") {
+            return data.getQueryParameter("url")
+        }
+        return null
     }
 }
 

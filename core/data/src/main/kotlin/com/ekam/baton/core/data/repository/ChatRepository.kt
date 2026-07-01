@@ -212,7 +212,9 @@ class ChatRepository constructor(
             authHeader = null,
             conversationHistory = history,
             newUserMessage = enrichedContextMessage,
-            attachments = attachments
+            attachments = attachments,
+            relayUrl = agent.relayUrl,
+            relayToken = agent.relayToken
         ).catch { e ->
             val finalMsg = messageDao.getMessageById(tempMessageId)
             if (finalMsg != null) {
@@ -284,7 +286,9 @@ class ChatRepository constructor(
             endpointUrl = agent.mcpEndpointUrl,
             authHeader = null,
             toolName = toolName,
-            arguments = arguments
+            arguments = arguments,
+            relayUrl = agent.relayUrl,
+            relayToken = agent.relayToken
         ).catch { e ->
             val finalMsg = messageDao.getMessageById(tempMessageId)
             if (finalMsg != null) {
