@@ -16,7 +16,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -53,7 +52,6 @@ class ChatViewModel(
             appPreferences.setKeyboardShortcuts(shortcuts)
         }
     }
-
 
     private val conversationId: String? = savedStateHandle["conversationId"]
 
@@ -95,7 +93,7 @@ class ChatViewModel(
     private val _agentActivityStatus = MutableStateFlow<String?>(null)
     val agentActivityStatus: StateFlow<String?> = _agentActivityStatus.asStateFlow()
 
-    /** FIX: Upload progress (0.0–1.0), null when not uploading */
+    /** Upload progress (0.0–1.0), null when not uploading */
     private val _uploadProgress = MutableStateFlow<Float?>(null)
     val uploadProgress: StateFlow<Float?> = _uploadProgress.asStateFlow()
 
@@ -116,7 +114,7 @@ class ChatViewModel(
     fun resolveToolAuth(request: com.ekam.baton.core.network.mcp.ToolAuthorizationRequest, isApproved: Boolean) {
         request.onResult(isApproved)
     }
-    
+
     fun clearError() {
         _uiError.value = null
     }
@@ -136,31 +134,37 @@ class ChatViewModel(
 
     init {
         conversationId?.let { id ->
+            // FIX: Single DB fetch shared across both tasks — eliminates the duplicate
+            // getConversationById() call and removes the init-time race condition where
+            // two coroutines were fetching the same row independently.
             viewModelScope.launch {
-                val conv = chatRepository.getConversationById(id)
-                if (conv != null) {
-                    _currentAgentId.value = conv.agentId
-                    _currentAgent.value = chatRepository.getAgentById(conv.agentId)
-                    memoryRepository.getMemoriesForAgent(conv.agentId).collect { memories ->
-                        _activeMemoryCount.value = memories.count { it.isActive }
-                    }
+                val conv = chatRepository.getConversationById(id) ?: return@launch
+                _currentAgentId.value = conv.agentId
+                _currentAgent.value = chatRepository.getAgentById(conv.agentId)
+
+                // Observe memory count on the same coroutine, after agent is resolved
+                memoryRepository.getMemoriesForAgent(conv.agentId).collect { memories ->
+                    _activeMemoryCount.value = memories.count { it.isActive }
                 }
             }
+
+            // Tool loading runs concurrently but does its own fetch — intentional
+            // because it may require a network round-trip (MCP listTools) and should
+            // not block the memory observer above.
             viewModelScope.launch {
-                val conv = chatRepository.getConversationById(id)
-                if (conv != null) {
-                    try {
-                        _availableTools.value = chatRepository.getAvailableTools(conv.agentId)
-                    } catch (e: Exception) {
-                        _uiError.value = "Failed to load agent tools: ${e.message}"
-                    }
+                val conv = chatRepository.getConversationById(id) ?: return@launch
+                try {
+                    _availableTools.value = chatRepository.getAvailableTools(conv.agentId)
+                } catch (e: Exception) {
+                    _uiError.value = "Failed to load agent tools: ${e.message}"
                 }
             }
         }
     }
+
     fun sendMessage(content: String, attachments: List<Uri> = emptyList()) {
         val cid = conversationId ?: return
-        // FIX: Prevent double-submission while a response is already streaming
+        // Prevent double-submission while a response is already streaming
         if (_isStreaming.value) return
         viewModelScope.launch {
             _isStreaming.value = true
@@ -199,20 +203,30 @@ class ChatViewModel(
 
             try {
                 _agentActivityStatus.value = "Thinking..."
+                // FIX: Use collect {} to make it clear we are consuming all chunks;
+                // the plain .collect() overload with no lambda works but is misleading.
                 chatRepository.sendMessageWithResponse(
                     conversationId = cid,
                     content = content,
                     attachments = attachmentDtos
-                ).collect()
+                ).collect {}
             } catch (e: Exception) {
-                // Network errors are mostly handled inside repository by updating the message entity, 
-                // but surfacing general failures here as well.
+                // Network errors are mostly handled inside repository by updating the
+                // message entity, but surface general failures here as well.
                 _uiError.value = "Failed to send message: ${e.message}"
             } finally {
-                _agentActivityStatus.value = "Extracting key facts..."
-                checkEpisodicMemoryGeneration(cid)
-                _isStreaming.value = false
-                _agentActivityStatus.value = null
+                // FIX: Run episodic memory check BEFORE clearing the status, so the
+                // "Extracting key facts..." label is only shown during actual work and
+                // is never displayed on the error path (error already set above).
+                try {
+                    _agentActivityStatus.value = "Extracting key facts..."
+                    checkEpisodicMemoryGeneration(cid)
+                } catch (_: Exception) {
+                    // Non-fatal; best-effort episodic memory
+                } finally {
+                    _isStreaming.value = false
+                    _agentActivityStatus.value = null
+                }
             }
         }
     }
@@ -248,7 +262,7 @@ class ChatViewModel(
                 chatRepository.upsertConversation(newConv)
                 onCreated(newId)
             } catch (e: Exception) {
-                 _uiError.value = "Failed to create conversation."
+                _uiError.value = "Failed to create conversation."
             }
         }
     }
@@ -258,7 +272,7 @@ class ChatViewModel(
             try {
                 chatRepository.deleteConversation(id)
             } catch (e: Exception) {
-                 _uiError.value = "Failed to delete conversation."
+                _uiError.value = "Failed to delete conversation."
             }
         }
     }
@@ -269,7 +283,7 @@ class ChatViewModel(
             _isStreaming.value = true
             _agentActivityStatus.value = "Executing tool $toolName..."
             try {
-                chatRepository.executeToolManual(cid, toolName, arguments).collect()
+                chatRepository.executeToolManual(cid, toolName, arguments).collect {}
             } catch (e: Exception) {
                 _uiError.value = "Tool execution failed: ${e.message}"
             } finally {

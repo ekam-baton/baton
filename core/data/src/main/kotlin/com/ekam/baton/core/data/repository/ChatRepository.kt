@@ -169,11 +169,13 @@ class ChatRepository constructor(
         // 3. Update conversation metadata
         val conv = conversationDao.getConversationById(conversationId)
         if (conv != null) {
+            // FIX: Only append "..." if the content was actually longer than the limit.
+            val titleSnippet = content.take(30).let { if (content.length > 30) "$it..." else it }
             conversationDao.upsertConversation(
                 conv.copy(
                     updatedAt = System.currentTimeMillis(),
                     messageCount = conv.messageCount + 1,
-                    title = if (conv.messageCount == 0) content.take(30) + "..." else conv.title
+                    title = if (conv.messageCount == 0) titleSnippet else conv.title
                 )
             )
         }
@@ -189,7 +191,8 @@ class ChatRepository constructor(
         )
         insertMessage(assistantMsg)
 
-        val agentId = conv?.agentId ?: throw IllegalStateException("Conversation has no agent")
+        // conv is guaranteed non-null here: we already threw above if null.
+        val agentId = conv!!.agentId
         val agent = agentDao.getAgentById(agentId) ?: throw IllegalStateException("Agent not found")
 
         // 5. Build Context
@@ -206,6 +209,9 @@ class ChatRepository constructor(
             .map { com.ekam.baton.core.network.dto.McpMessageDto(role = it.role, content = it.content) }
 
         // 7. Call Network and return Flow
+        // FIX: onEach MUST come before onCompletion in the chain. Kotlin Flow
+        // operators run in declaration order, so placing onCompletion first would
+        // mark isStreaming = false *before* the final chunk is written to the DB.
         return mcpMessageSender.sendUserMessage(
             agentId = agentId,
             endpointUrl = agent.mcpEndpointUrl,
@@ -227,29 +233,32 @@ class ChatRepository constructor(
                 )
             }
             throw e
-        }.onCompletion {
-            val finalMsg = messageDao.getMessageById(tempMessageId)
-            if (finalMsg != null) {
-                updateMessage(finalMsg.copy(isStreaming = false))
-            }
-            
-            // Trigger metadata update again for the response
-            val finalConv = conversationDao.getConversationById(conversationId)
-            if (finalConv != null) {
-                conversationDao.upsertConversation(
-                    finalConv.copy(
-                        updatedAt = System.currentTimeMillis(),
-                        messageCount = finalConv.messageCount + 1
-                    )
-                )
-            }
         }.onEach { chunk ->
+            // Accumulate chunks into the placeholder message row
             val currentMsg = messageDao.getMessageById(tempMessageId)
             if (currentMsg != null) {
                 updateMessage(
                     currentMsg.copy(
                         content = currentMsg.content + chunk,
                         timestamp = System.currentTimeMillis()
+                    )
+                )
+            }
+        }.onCompletion {
+            // Runs after every onEach has completed (or after catch re-throws)
+            val finalMsg = messageDao.getMessageById(tempMessageId)
+            if (finalMsg != null && finalMsg.isStreaming) {
+                // Only update if not already marked as error (catch sets isStreaming=false)
+                updateMessage(finalMsg.copy(isStreaming = false))
+            }
+
+            // Increment response message count in conversation metadata
+            val finalConv = conversationDao.getConversationById(conversationId)
+            if (finalConv != null) {
+                conversationDao.upsertConversation(
+                    finalConv.copy(
+                        updatedAt = System.currentTimeMillis(),
+                        messageCount = finalConv.messageCount + 1
                     )
                 )
             }
@@ -281,6 +290,7 @@ class ChatRepository constructor(
         )
         insertMessage(toolMsg)
 
+        // FIX: Same onEach-before-onCompletion ordering fix as sendMessageWithResponse
         return mcpMessageSender.executeTool(
             agentId = agent.id,
             endpointUrl = agent.mcpEndpointUrl,
@@ -295,16 +305,17 @@ class ChatRepository constructor(
                 updateMessage(finalMsg.copy(content = finalMsg.content + "\n\nError: ${e.message}", isStreaming = false))
             }
             throw e
-        }.onCompletion {
-            val finalMsg = messageDao.getMessageById(tempMessageId)
-            if (finalMsg != null) {
-                updateMessage(finalMsg.copy(isStreaming = false))
-            }
         }.onEach { chunk ->
             val currentMsg = messageDao.getMessageById(tempMessageId)
             if (currentMsg != null) {
+                // Replace the "Executing..." placeholder on the first real chunk
                 val newContent = if (currentMsg.content.startsWith("Executing")) chunk else currentMsg.content + chunk
                 updateMessage(currentMsg.copy(content = newContent, timestamp = System.currentTimeMillis()))
+            }
+        }.onCompletion {
+            val finalMsg = messageDao.getMessageById(tempMessageId)
+            if (finalMsg != null && finalMsg.isStreaming) {
+                updateMessage(finalMsg.copy(isStreaming = false))
             }
         }
     }

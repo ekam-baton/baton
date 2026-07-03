@@ -204,11 +204,15 @@ fun ChatScreen(
         
         val listState = rememberLazyListState()
         val context = LocalContext.current
-        
-        // FIX: Only auto-scroll on new message count changes, NOT on isStreaming transitions
-        // This prevents jumping the user back to bottom when streaming stops
-        LaunchedEffect(messages.itemCount) {
-            if (messages.itemCount > 0) {
+
+        // Only auto-scroll when the item count grows (new message added).
+        // derivedStateOf gates recomposition so we only react to count changes,
+        // not to every internal LazyList state update.
+        val shouldScrollToBottom by remember {
+            derivedStateOf { messages.itemCount }
+        }
+        LaunchedEffect(shouldScrollToBottom) {
+            if (shouldScrollToBottom > 0) {
                 listState.animateScrollToItem(0)
             }
         }
@@ -252,7 +256,12 @@ fun ChatScreen(
 
                 items(
                     count = messages.itemCount,
-                    key = { index -> messages[index]?.id ?: index }
+                    // FIX: Use the stable string message ID as the key. Falling back to
+                    // `index` is unstable — paging shifts can change an item's index
+                    // without changing its content, causing spurious animations/recompositions.
+                    // When a page isn't loaded yet we use a deterministic placeholder key
+                    // prefixed with "placeholder_" so it never collides with a real ID.
+                    key = { index -> messages.peek(index)?.id ?: "placeholder_$index" }
                 ) { index ->
                     val message = messages[index]
                     if (message != null) {
@@ -539,7 +548,8 @@ fun AgentActivityBubble(statusText: String) {
                     horizontalArrangement = Arrangement.spacedBy(3.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    val infiniteTransition = rememberInfiniteTransition()
+                    // FIX: Add label to rememberInfiniteTransition for tooling/debugging clarity
+                val infiniteTransition = rememberInfiniteTransition(label = "typingDots")
                     for (i in 0 until 3) {
                         val alpha by infiniteTransition.animateFloat(
                             initialValue = 0.3f,
@@ -547,7 +557,8 @@ fun AgentActivityBubble(statusText: String) {
                             animationSpec = infiniteRepeatable(
                                 animation = tween(durationMillis = 600, delayMillis = i * 200, easing = LinearEasing),
                                 repeatMode = RepeatMode.Reverse
-                            )
+                            ),
+                            label = "dot${i}Alpha"
                         )
                         Box(
                             modifier = Modifier
@@ -623,12 +634,17 @@ fun ChatInputBar(
             .setScannerMode(GmsDocumentScannerOptions.SCANNER_MODE_FULL)
             .build()
         val scanner = GmsDocumentScanning.getClient(options)
-        scanner.getStartScanIntent(context.findActivity()!!)
+        // FIX: findActivity() can return null if called from a non-Activity context;
+        // guard against it rather than force-unwrapping with !!.
+        val activity = context.findActivity() ?: return
+        scanner.getStartScanIntent(activity)
             .addOnSuccessListener { intentSender ->
                 scannerLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
             }
             .addOnFailureListener { e ->
-                // Handle failure
+                // Scanner unavailable — the ViewModel/snackbar will surface this
+                // once we wire the error channel through; log for now.
+                android.util.Log.e("ChatScreen", "Document scanner failed to start", e)
             }
     }
 
@@ -681,14 +697,16 @@ fun ChatInputBar(
             }
         }
         // Attachments preview
+        // FIX: Use LazyRow instead of Row + forEach so that a large number of
+        // attachments doesn't cause unbounded Row measurement / recomposition.
         if (attachments.isNotEmpty()) {
-            Row(
+            LazyRow(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                attachments.forEach { uri ->
+                items(attachments, key = { it.toString() }) { uri ->
                     Surface(
                         color = MaterialTheme.colorScheme.secondaryContainer,
                         shape = RoundedCornerShape(8.dp),
@@ -700,7 +718,7 @@ fun ChatInputBar(
                         ) {
                             Icon(Icons.Default.AttachFile, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(4.dp))
-                            Text("File attached", style = MaterialTheme.typography.labelSmall)
+                            Text(uri.lastPathSegment ?: "Attachment", style = MaterialTheme.typography.labelSmall, maxLines = 1)
                         }
                     }
                 }
@@ -795,7 +813,9 @@ fun ChatInputBar(
                 }
             }
 
-            items(keyboardShortcuts) { shortcut ->
+            // FIX: Supply a stable key so shortcuts don't animate/recompose on
+            // unrelated list changes (e.g. memory count update above).
+            items(keyboardShortcuts, key = { it.label }) { shortcut ->
                 val localHaptic = androidx.compose.ui.platform.LocalHapticFeedback.current
                 Surface(
                     color = MaterialTheme.colorScheme.surfaceVariant,
