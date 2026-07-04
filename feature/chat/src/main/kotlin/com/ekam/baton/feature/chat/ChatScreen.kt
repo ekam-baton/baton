@@ -192,10 +192,46 @@ fun ChatScreen(
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                        scrolledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)
                     )
                 )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), thickness = 0.5.dp)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f), thickness = 0.5.dp)
+            }
+        },
+        bottomBar = {
+            val keyboardShortcuts by viewModel.keyboardShortcuts.collectAsStateWithLifecycle()
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f))
+                    .imePadding()
+            ) {
+                AnimatedVisibility(visible = isStreaming) {
+                    AgentActivityBubble(statusText = agentActivityStatus ?: "Thinking...")
+                }
+                ChatInputBar(
+                    activeMemoryCount = activeMemoryCount,
+                    keyboardShortcuts = keyboardShortcuts,
+                    hasTools = availableTools.isNotEmpty(),
+                    replyingTo = replyingTo,
+                    onClearReply = { replyingTo = null },
+                    isStreaming = isStreaming,
+                    agentActivityStatus = agentActivityStatus,
+                    onSaveShortcuts = { updated -> viewModel.saveKeyboardShortcuts(updated) },
+                    onMemoryClick = { onNavigateToMemory(currentAgentId) },
+                    onToolsClick = { showToolsSheet = true },
+                    onSendMessage = { content, attachments ->
+                        val replyPrefix = replyingTo?.content?.let { orig ->
+                            val truncated = orig.take(50)
+                            val ellipsis = if (orig.length > 50) "..." else ""
+                            "[Replying to: \"$truncated$ellipsis\"]\n"
+                        } ?: ""
+                        val finalContent = replyPrefix + content
+                        viewModel.sendMessage(finalContent, attachments)
+                        replyingTo = null
+                    }
+                )
             }
         },
         containerColor = Color.Transparent,
@@ -205,9 +241,6 @@ fun ChatScreen(
         val listState = rememberLazyListState()
         val context = LocalContext.current
 
-        // Only auto-scroll when the item count grows (new message added).
-        // derivedStateOf gates recomposition so we only react to count changes,
-        // not to every internal LazyList state update.
         val shouldScrollToBottom by remember {
             derivedStateOf { messages.itemCount }
         }
@@ -217,7 +250,6 @@ fun ChatScreen(
             }
         }
 
-        // Manage background streaming service
         LaunchedEffect(isStreaming) {
             val intent = Intent(context, Class.forName("com.ekam.baton.BatonStreamingService")).apply {
                 action = if (isStreaming) "com.ekam.baton.START_STREAMING" else "com.ekam.baton.STOP_STREAMING"
@@ -236,31 +268,18 @@ fun ChatScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = innerPadding.calculateTopPadding())
-                .imePadding()
+                .padding(innerPadding)
         ) {
             LazyColumn(
                 state = listState,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(bottom = 128.dp),
-                contentPadding = PaddingValues(16.dp),
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(top = 16.dp, start = 16.dp, end = 16.dp, bottom = 4.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.Bottom),
                 reverseLayout = true
             ) {
-                if (isStreaming) {
-                    item {
-                        AgentActivityBubble(statusText = agentActivityStatus ?: "Thinking...")
-                    }
-                }
-
+            ) {
                 items(
                     count = messages.itemCount,
-                    // FIX: Use the stable string message ID as the key. Falling back to
-                    // `index` is unstable — paging shifts can change an item's index
-                    // without changing its content, causing spurious animations/recompositions.
-                    // When a page isn't loaded yet we use a deterministic placeholder key
-                    // prefixed with "placeholder_" so it never collides with a real ID.
                     key = { index -> messages.peek(index)?.id ?: "placeholder_$index" }
                 ) { index ->
                     val message = messages[index]
@@ -272,35 +291,6 @@ fun ChatScreen(
                         )
                     }
                 }
-            }
-
-            val keyboardShortcuts by viewModel.keyboardShortcuts.collectAsStateWithLifecycle()
-            Box(
-                modifier = Modifier.align(Alignment.BottomCenter)
-            ) {
-                ChatInputBar(
-                    activeMemoryCount = activeMemoryCount,
-                    keyboardShortcuts = keyboardShortcuts,
-                    hasTools = availableTools.isNotEmpty(),
-                    replyingTo = replyingTo,
-                    onClearReply = { replyingTo = null },
-                    isStreaming = isStreaming,
-                    agentActivityStatus = agentActivityStatus,
-                    onSaveShortcuts = { updated -> viewModel.saveKeyboardShortcuts(updated) },
-                    onMemoryClick = { onNavigateToMemory(currentAgentId) },
-                    onToolsClick = { showToolsSheet = true },
-                    onSendMessage = { content, attachments ->
-                        val replyPrefix = replyingTo?.content?.let { orig ->
-                            // FIX: Only append "..." if the content was actually truncated
-                            val truncated = orig.take(50)
-                            val ellipsis = if (orig.length > 50) "..." else ""
-                            "[Replying to: \"$truncated$ellipsis\"]\n"
-                        } ?: ""
-                        val finalContent = replyPrefix + content
-                        viewModel.sendMessage(finalContent, attachments)
-                        replyingTo = null
-                    }
-                )
             }
         }
     }
@@ -524,56 +514,47 @@ fun MessageBubble(message: Message, modifier: Modifier = Modifier, onReply: ((Me
 @Composable
 fun AgentActivityBubble(statusText: String) {
     Box(
-        modifier = Modifier.fillMaxWidth(),
-        contentAlignment = Alignment.CenterStart
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        contentAlignment = Alignment.Center
     ) {
-        Box(
+        Row(
             modifier = Modifier
-                .border(
-                    width = 1.dp,
-                    color = MaterialTheme.colorScheme.outlineVariant,
-                    shape = RoundedCornerShape(4.dp, 20.dp, 20.dp, 20.dp)
-                )
-                .background(
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                    shape = RoundedCornerShape(4.dp, 20.dp, 20.dp, 20.dp)
-                )
-                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f))
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(3.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(3.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // FIX: Add label to rememberInfiniteTransition for tooling/debugging clarity
                 val infiniteTransition = rememberInfiniteTransition(label = "typingDots")
-                    for (i in 0 until 3) {
-                        val alpha by infiniteTransition.animateFloat(
-                            initialValue = 0.3f,
-                            targetValue = 1f,
-                            animationSpec = infiniteRepeatable(
-                                animation = tween(durationMillis = 600, delayMillis = i * 200, easing = LinearEasing),
-                                repeatMode = RepeatMode.Reverse
-                            ),
-                            label = "dot${i}Alpha"
-                        )
-                        Box(
-                            modifier = Modifier
-                                .size(5.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primary.copy(alpha = alpha))
-                        )
-                    }
+                for (i in 0 until 3) {
+                    val alpha by infiniteTransition.animateFloat(
+                        initialValue = 0.3f,
+                        targetValue = 1f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(durationMillis = 600, delayMillis = i * 200, easing = LinearEasing),
+                            repeatMode = RepeatMode.Reverse
+                        ),
+                        label = "dot${i}Alpha"
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(5.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = alpha))
+                    )
                 }
-                Text(
-                    text = statusText,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
+            Text(
+                text = statusText,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -668,10 +649,10 @@ fun ChatInputBar(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface)
+            .background(Color.Transparent)
     ) {
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), thickness = 0.5.dp)
-        Spacer(modifier = Modifier.height(2.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f), thickness = 0.5.dp)
+        Spacer(modifier = Modifier.height(4.dp))
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -724,52 +705,7 @@ fun ChatInputBar(
                 }
             }
         }
-        val statusText = if (isStreaming) {
-            agentActivityStatus ?: "Agent is working..."
-        } else {
-            "Agent standby"
-        }
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 4.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
-                .border(
-                    width = 0.5.dp,
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
-                    shape = RoundedCornerShape(12.dp)
-                )
-                .padding(horizontal = 12.dp, vertical = 8.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-                val pulseAlpha by infiniteTransition.animateFloat(
-                    initialValue = 0.4f,
-                    targetValue = 1.0f,
-                    animationSpec = infiniteRepeatable(
-                        animation = tween(1000, easing = LinearEasing),
-                        repeatMode = RepeatMode.Reverse
-                    ),
-                    label = "pulseAlpha"
-                )
-                val dotColor = if (isStreaming) Color(0xFF3D8EFF) else Color(0xFF5C6F84)
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .clip(CircleShape)
-                        .background(if (isStreaming) dotColor.copy(alpha = pulseAlpha) else dotColor)
-                )
-                Text(
-                    text = statusText,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
+
 
         // Combined Shortcuts and Context Toolbar
         LazyRow(
@@ -849,13 +785,9 @@ fun ChatInputBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp)
                 .background(
-                    color = MaterialTheme.colorScheme.background,
-                    shape = RoundedCornerShape(24.dp)
-                )
-                .border(
-                    width = 1.dp,
-                    color = MaterialTheme.colorScheme.outlineVariant,
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
                     shape = RoundedCornerShape(24.dp)
                 )
                 .padding(horizontal = 8.dp, vertical = 4.dp),
