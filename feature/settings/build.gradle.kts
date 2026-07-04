@@ -34,6 +34,9 @@ dependencies {
     implementation(project(":core:ui"))
     implementation(project(":core:data"))
 
+    // Play Billing (for settings screen UI access to BillingManager)
+    implementation(libs.play.billing)
+
     val composeBom = platform(libs.compose.bom)
     implementation(composeBom)
     implementation(libs.bundles.compose.feature)

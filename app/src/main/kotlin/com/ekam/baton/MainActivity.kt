@@ -147,10 +147,18 @@ internal fun BatonAppShell(
                     modifier       = Modifier.fillMaxSize(),
                     containerColor = Color(0xFF070B14),
                     bottomBar = {
-                        BatonBottomBar(
-                            navController = navController,
-                            currentRoute  = currentRoute,
+                        val isRootRoute = currentRoute in listOf(
+                            "chats_list",
+                            "agents",
+                            "a2a_root",
+                            "settings"
                         )
+                        if (isRootRoute) {
+                            BatonBottomBar(
+                                navController = navController,
+                                currentRoute  = currentRoute,
+                            )
+                        }
                     },
                 ) { innerPadding ->
                     BatonNavGraph(

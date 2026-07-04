@@ -161,6 +161,8 @@ val dataModule = module {
     single { com.ekam.baton.core.data.preferences.AppPreferences(androidContext()) }
     single { com.ekam.baton.core.data.preferences.SessionManager(get()) }
     single { com.ekam.baton.core.data.preferences.SubscriptionManager() }
+    
+    single { com.ekam.baton.core.data.billing.BillingManager(androidContext(), get()) }
 
     single { com.ekam.baton.core.data.repository.AgentRepository(get()) }
     single { com.ekam.baton.core.data.repository.MemoryRepository(get(), get()) }
@@ -173,6 +175,10 @@ val dataModule = module {
 
     single<com.ekam.baton.core.network.security.AgentSecurityConfigProvider> {
         com.ekam.baton.core.data.repository.AgentSecurityConfigProviderImpl(get())
+    }
+
+    single<com.ekam.baton.core.network.security.LocalNetworkPolicyProvider> {
+        com.ekam.baton.core.data.repository.LocalNetworkPolicyProviderImpl(get())
     }
 
     single<com.ekam.baton.core.network.BackendUrlProvider> {

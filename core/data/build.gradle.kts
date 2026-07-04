@@ -62,6 +62,9 @@ dependencies {
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)
 
+    // Billing
+    implementation(libs.play.billing)
+
     // Serialization
     implementation(libs.kotlinx.serialization.json)
 

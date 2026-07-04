@@ -31,6 +31,7 @@ class AppPreferences constructor(
         val IS_PREMIUM_UNLOCKED = booleanPreferencesKey("is_premium_unlocked")
         val KEYBOARD_SHORTCUTS = stringPreferencesKey("keyboard_shortcuts")
         val BACKEND_URL = stringPreferencesKey("backend_url")
+        val ALLOW_LOCAL_NETWORK_AGENTS = booleanPreferencesKey("allow_local_network_agents")
     }
 
     val userEmail: Flow<String> = context.dataStore.data.map { preferences ->
@@ -102,6 +103,10 @@ class AppPreferences constructor(
         preferences[BACKEND_URL] ?: "http://10.0.2.2:8080/"
     }
 
+    val allowLocalNetworkAgents: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[ALLOW_LOCAL_NETWORK_AGENTS] ?: false
+    }
+
     suspend fun setThemeMode(mode: String) {
         context.dataStore.edit { preferences -> preferences[THEME_MODE] = mode }
     }
@@ -153,6 +158,10 @@ class AppPreferences constructor(
 
     suspend fun setBackendUrl(url: String) {
         context.dataStore.edit { preferences -> preferences[BACKEND_URL] = url }
+    }
+
+    suspend fun setAllowLocalNetworkAgents(allow: Boolean) {
+        context.dataStore.edit { preferences -> preferences[ALLOW_LOCAL_NETWORK_AGENTS] = allow }
     }
 
     val keyboardShortcuts: Flow<List<KeyboardShortcut>> = context.dataStore.data.map { preferences ->

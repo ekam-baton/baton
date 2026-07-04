@@ -277,7 +277,6 @@ fun ChatScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.Bottom),
                 reverseLayout = true
             ) {
-            ) {
                 items(
                     count = messages.itemCount,
                     key = { index -> messages.peek(index)?.id ?: "placeholder_$index" }

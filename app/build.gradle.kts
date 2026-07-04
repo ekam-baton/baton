@@ -104,6 +104,7 @@ implementation(libs.work.runtime.ktx)
 
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.kotlinx.coroutines.play.services)
 
     // Biometric
     implementation(libs.androidx.biometric)
@@ -118,8 +119,9 @@ implementation(libs.work.runtime.ktx)
     debugImplementation(libs.compose.ui.test.manifest)
     debugImplementation("com.squareup.leakcanary:leakcanary-android:2.13")
 
-    // Firebase Telemetry
+    // Firebase Telemetry and Auth
     implementation(platform("com.google.firebase:firebase-bom:33.1.2"))
+    implementation("com.google.firebase:firebase-auth")
     implementation("com.google.firebase:firebase-crashlytics")
     implementation("com.google.firebase:firebase-analytics")
 }

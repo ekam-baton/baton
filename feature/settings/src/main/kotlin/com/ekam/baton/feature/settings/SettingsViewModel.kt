@@ -15,13 +15,16 @@ import com.ekam.baton.core.data.preferences.SubscriptionManager
 import com.ekam.baton.core.data.repository.WipeDataManager
 import com.ekam.baton.core.data.db.dao.AuditDao
 
+import com.ekam.baton.core.data.billing.BillingManager
+
 class SettingsViewModel(
     private val appPreferences: AppPreferences,
     private val agentRepository: AgentRepository,
     private val wipeDataManager: WipeDataManager,
     private val sessionManager: SessionManager,
     private val subscriptionManager: SubscriptionManager,
-    private val auditDao: AuditDao
+    private val auditDao: AuditDao,
+    val billingManager: BillingManager
 ) : ViewModel() {
 
     val agents: StateFlow<List<Agent>> = agentRepository.getAllAgents()
@@ -136,6 +139,13 @@ class SettingsViewModel(
             initialValue = "http://10.0.2.2:8080/"
         )
 
+    val allowLocalNetworkAgents: StateFlow<Boolean> = appPreferences.allowLocalNetworkAgents
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = false
+        )
+
     fun setThemeMode(mode: String) = viewModelScope.launch { appPreferences.setThemeMode(mode) }
     fun setAccentColor(color: Long) = viewModelScope.launch { appPreferences.setAccentColor(color) }
     fun setFontSize(size: String) = viewModelScope.launch { appPreferences.setFontSize(size) }
@@ -147,6 +157,7 @@ class SettingsViewModel(
     fun setMemoryRetentionDays(days: Int) = viewModelScope.launch { appPreferences.setMemoryRetentionDays(days) }
     fun setPremiumUnlocked(unlocked: Boolean) = viewModelScope.launch { appPreferences.setPremiumUnlocked(unlocked) }
     fun setBackendUrl(url: String) = viewModelScope.launch { appPreferences.setBackendUrl(url) }
+    fun setAllowLocalNetworkAgents(allow: Boolean) = viewModelScope.launch { appPreferences.setAllowLocalNetworkAgents(allow) }
 
     fun getTrialDaysRemaining(startTime: Long): Long {
         return subscriptionManager.getTrialDaysRemaining(startTime)

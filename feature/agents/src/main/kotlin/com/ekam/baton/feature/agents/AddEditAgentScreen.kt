@@ -82,23 +82,6 @@ fun AddEditAgentScreen(
     var endpointUrl by remember { mutableStateOf(existingAgent?.mcpEndpointUrl ?: discoveredUrl ?: "") }
     var selectedColor by remember { mutableStateOf(existingAgent?.colorAccent ?: ACCENT_COLORS.first()) }
     
-    // Auth
-    val authOptions = listOf("None", "API Key", "OAuth 2.1")
-    var selectedAuthIndex by remember { 
-        mutableIntStateOf(
-            when (existingAgent?.authType) {
-                "api_key" -> 1
-                "oauth" -> 2
-                else -> 0
-            }
-        ) 
-    }
-    var apiKey by remember { mutableStateOf("") }
-    var oauthClientId by remember { mutableStateOf("") }
-    var oauthAuthUrl by remember { mutableStateOf("") }
-    var oauthTokenUrl by remember { mutableStateOf("") }
-    var oauthScopes by remember { mutableStateOf("") }
-    var isApiKeyVisible by remember { mutableStateOf(false) }
 
     // Advanced Security
     var showAdvanced by remember { mutableStateOf(false) }
@@ -113,16 +96,14 @@ fun AddEditAgentScreen(
     var showDowngradeWarning by remember { mutableStateOf(false) }
     var pendingSecurityMode by remember { mutableStateOf<String?>(null) }
 
+    var showDeepLinkWarning by remember { mutableStateOf(discoveredUrl != null && agentId == null) }
+
     // Accordion State
     var expandedSection by remember { mutableIntStateOf(1) }
 
     // Load existing config
     LaunchedEffect(existingAgent) {
         if (existingAgent != null) {
-            try {
-                val json = JSONObject(existingAgent.authConfig)
-                if (existingAgent.authType == "api_key") apiKey = json.optString("api_key", "")
-            } catch (e: Exception) {}
             try {
                 val secJson = JSONObject(existingAgent.securityConfig)
                 clientPublicKey = secJson.optString("client_public_key", "")
@@ -153,20 +134,8 @@ fun AddEditAgentScreen(
     val isValid = name.isNotBlank() && isSecurityValid && endpointUrl.isNotBlank() && isUrlValid
 
     val handleSave = {
-        val authType = when (selectedAuthIndex) {
-            1 -> "api_key"
-            2 -> "oauth"
-            else -> "none"
-        }
-        val authConfig = JSONObject().apply {
-            if (authType == "api_key") put("api_key", apiKey)
-            if (authType == "oauth") {
-                put("client_id", oauthClientId)
-                put("auth_url", oauthAuthUrl)
-                put("token_url", oauthTokenUrl)
-                put("scopes", oauthScopes)
-            }
-        }.toString()
+        val authType = "none"
+        val authConfig = "{}"
 
         val securityConfig = JSONObject().apply {
             if (securityMode != "standard") {
@@ -245,6 +214,32 @@ fun AddEditAgentScreen(
         },
         containerColor = Color.Transparent
     ) { innerPadding ->
+        if (showDeepLinkWarning) {
+            AlertDialog(
+                onDismissRequest = { 
+                    showDeepLinkWarning = false
+                    onNavigateBack()
+                },
+                title = { Text("Security Warning", color = MaterialTheme.colorScheme.error) },
+                text = { 
+                    Text("An external app requested Baton to connect to:\n\n${discoveredUrl}\n\nDo you trust this connection? Only connect to agents you explicitly trust, as they will have access to your conversations.")
+                },
+                confirmButton = {
+                    Button(onClick = { showDeepLinkWarning = false }) {
+                        Text("Trust & Continue")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { 
+                        showDeepLinkWarning = false
+                        onNavigateBack()
+                    }) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -416,38 +411,6 @@ fun AddEditAgentScreen(
                 isExpanded = expandedSection == 3,
                 onClick = { expandedSection = if (expandedSection == 3) 0 else 3 }
             ) {
-                // Auth Options
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Authentication", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(modifier = Modifier.height(12.dp))
-                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                        authOptions.forEachIndexed { index, label ->
-                            SegmentedButton(
-                                shape = SegmentedButtonDefaults.itemShape(index = index, count = authOptions.size),
-                                onClick = { selectedAuthIndex = index },
-                                selected = selectedAuthIndex == index
-                            ) { Text(label, style = MaterialTheme.typography.labelSmall) }
-                        }
-                    }
-                }
-                
-                if (selectedAuthIndex == 1) {
-                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                    PremiumTextField(
-                        value = apiKey,
-                        onValueChange = { apiKey = it },
-                        label = "API Key / Bearer Token",
-                        visualTransformation = if (isApiKeyVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                        trailingIcon = {
-                            IconButton(onClick = { isApiKeyVisible = !isApiKeyVisible }) {
-                                Icon(if (isApiKeyVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility, contentDescription = "Toggle Visibility")
-                            }
-                        }
-                    )
-                }
-
-                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-
                 // Cryptographic Mode
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text("Cryptographic Security Mode", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

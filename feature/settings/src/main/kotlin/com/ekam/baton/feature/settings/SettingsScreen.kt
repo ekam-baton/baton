@@ -57,9 +57,12 @@ fun SettingsScreen(
     val tunnelStatusMap by viewModel.tunnelStatusMap.collectAsStateWithLifecycle()
     val userEmail by viewModel.userEmail.collectAsStateWithLifecycle()
     val userPhone by viewModel.userPhone.collectAsStateWithLifecycle()
+    
+    val products by viewModel.billingManager.products.collectAsStateWithLifecycle()
 
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
+    val activity = LocalContext.current as? android.app.Activity
 
     var activeLegalTitle by remember { mutableStateOf<String?>(null) }
     var activeLegalContent by remember { mutableStateOf<String?>(null) }
@@ -87,9 +90,6 @@ fun SettingsScreen(
     var showClearMemoriesDialog by remember { mutableStateOf(false) }
     var showBackendUrlDialog by remember { mutableStateOf(false) }
     var backendUrlInput by remember { mutableStateOf("") }
-    var showBillingDialog by remember { mutableStateOf(false) }
-    var isProcessingPayment by remember { mutableStateOf(false) }
-    var paymentSuccess by remember { mutableStateOf(false) }
     var wipeConfirmationText by remember { mutableStateOf("") }
 
     val colors = listOf(
@@ -167,7 +167,14 @@ fun SettingsScreen(
                         leadingContent = { Icon(Icons.Default.Star, contentDescription = null) },
                         trailingContent = {
                             Button(
-                                onClick = { showBillingDialog = true },
+                                onClick = { 
+                                    if (activity != null) {
+                                        val product = products.firstOrNull()
+                                        if (product != null) {
+                                            viewModel.billingManager.launchBillingFlow(activity, product)
+                                        }
+                                    }
+                                },
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = MaterialTheme.colorScheme.tertiary,
                                     contentColor = MaterialTheme.colorScheme.onTertiary
@@ -291,6 +298,19 @@ fun SettingsScreen(
             // SECTION: Network Configuration
             item {
                 SettingsSectionHeader("Network Configuration")
+                val allowLocalNetworkAgents by viewModel.allowLocalNetworkAgents.collectAsStateWithLifecycle()
+                ListItem(
+                    headlineContent = { Text("Allow local network agents") },
+                    supportingContent = { Text("Enable connections to agents on your local network (e.g. 192.168.x.x, localhost). Keep disabled for security.") },
+                    leadingContent = { Icon(Icons.Default.Wifi, contentDescription = null) },
+                    trailingContent = {
+                        Switch(
+                            checked = allowLocalNetworkAgents,
+                            onCheckedChange = { viewModel.setAllowLocalNetworkAgents(it) }
+                        )
+                    },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                )
                 ListItem(
                     headlineContent = { Text("Backend API URL") },
                     supportingContent = { Text(backendUrl) },
@@ -694,151 +714,7 @@ fun SettingsScreen(
         )
     }
 
-    if (showBillingDialog) {
-        androidx.compose.ui.window.Dialog(
-            onDismissRequest = {
-                if (!isProcessingPayment) showBillingDialog = false
-            }
-        ) {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E2436)),
-                shape = RoundedCornerShape(28.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    // Google Play Banner
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Google Play",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF34A853)
-                        )
-                        Text(
-                            text = "Secure Checkout",
-                            fontSize = 12.sp,
-                            color = Color(0xFF7A8B9E)
-                        )
-                    }
 
-                    Spacer(modifier = Modifier.height(16.dp))
-                    HorizontalDivider(color = Color(0xFF2C354E))
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    val coroutineScope = rememberCoroutineScope()
-                    if (!isProcessingPayment && !paymentSuccess) {
-                        Text(
-                            text = "BATON Premium Subscription",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White,
-                            textAlign = TextAlign.Center
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Billed annually. 6 months free, then ₹250.00/year.",
-                            fontSize = 13.sp,
-                            color = Color(0xFF7A8B9E),
-                            textAlign = TextAlign.Center
-                        )
-
-                        Spacer(modifier = Modifier.height(24.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            OutlinedButton(
-                                onClick = { showBillingDialog = false },
-                                shape = RoundedCornerShape(14.dp),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFF453A)),
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = Color(0xFFFF453A)
-                                ),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(48.dp)
-                            ) {
-                                Text("Cancel", fontWeight = FontWeight.Bold)
-                            }
-
-                            Button(
-                                onClick = {
-                                    coroutineScope.launch {
-                                        isProcessingPayment = true
-                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                        kotlinx.coroutines.delay(2000)
-                                        viewModel.setPremiumUnlocked(true)
-                                        isProcessingPayment = false
-                                        paymentSuccess = true
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        kotlinx.coroutines.delay(1500)
-                                        showBillingDialog = false
-                                        paymentSuccess = false
-                                    }
-                                },
-                                shape = RoundedCornerShape(14.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFF188038) // Darker Google Green for better contrast
-                                ),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(48.dp)
-                            ) {
-                                Text("1-Tap Buy", color = Color.White, fontWeight = FontWeight.Bold)
-                            }
-                        }
-
-                    } else if (isProcessingPayment) {
-                        CircularProgressIndicator(color = Color(0xFF34A853))
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = "Processing transaction securely...",
-                            fontSize = 14.sp,
-                            color = Color(0xFF7A8B9E)
-                        )
-                    } else if (paymentSuccess) {
-                        Surface(
-                            color = Color(0xFF34A853).copy(alpha = 0.1f),
-                            shape = CircleShape,
-                            modifier = Modifier.size(72.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = Icons.Default.Check,
-                                    contentDescription = "Success",
-                                    tint = Color(0xFF34A853),
-                                    modifier = Modifier.size(36.dp)
-                                )
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = "Subscription Activated!",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Thank you for supporting BATON.",
-                            fontSize = 13.sp,
-                            color = Color(0xFF7A8B9E)
-                        )
-                    }
-                }
-            }
-        }
-    }
 }
 
 @Composable
