@@ -1,7 +1,7 @@
 package com.ekam.baton.navigation
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.CompareArrows
+import androidx.compose.material.icons.automirrored.outlined.CompareArrows
 import androidx.compose.material.icons.outlined.Forum
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.SmartToy
@@ -46,7 +46,7 @@ val bottomNavItems: List<BottomNavItem> = listOf(
     ),
     BottomNavItem(
         route              = Screen.A2A.route,
-        icon               = Icons.Outlined.CompareArrows,
+        icon               = Icons.AutoMirrored.Outlined.CompareArrows,
         contentDescription = "A2A Handshake",
     ),
     BottomNavItem(

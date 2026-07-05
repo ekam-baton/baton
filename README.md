@@ -18,6 +18,12 @@ BATON is designed to be fully compliant with the world's most stringent digital 
 *   **IT Act Sec 65B (India)**: By default, logs are signed using a hardware-backed ECDSA key generated in the Android Keystore, providing strong non-repudiation (Advanced Electronic Signature).
 *   **Trusted NTP Time**: Time-spoofing is mitigated by fetching the true network time from `time.google.com` (SNTP), anchored against the device's monotonic uptime.
 
+## Enterprise AI Environments
+BATON acts as a zero-trust mobile endpoint for corporate VPCs. Since all data routing happens purely over HTTP/SSE on the device itself, BATON natively integrates with enterprise-managed AI instances without routing data through third-party servers:
+- **Claude for Enterprise**: Connect to Anthropic managed endpoints via your AWS API Gateways.
+- **Azure OpenAI / Codex**: Securely proxy to dedicated `.openai.azure.com` instances using internal corporate VPNs (e.g., GlobalProtect, Tailscale).
+- **Gemini Enterprise (Vertex AI)**: Interface directly with Google Cloud Run endpoints authenticated via Google Workspace Service Accounts.
+
 ## Legal Disclaimer
 
 *The cryptographic features provided by BATON are tools designed to secure data integrity. The developers of BATON provide no legal advice. You are solely responsible for ensuring your evidence exports meet the jurisdictional requirements of your local courts.*

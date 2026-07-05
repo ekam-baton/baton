@@ -36,5 +36,11 @@ data class AuditLogEntity(
     val previousHash: String, // The hash of the PREVIOUS audit log entry, forming a chain
 
     @ColumnInfo(name = "hash")
-    val hash: String // The SHA-256 hash of this entry's contents + previous_hash
+    val hash: String, // The SHA-256 hash of this entry's contents + previous_hash
+
+    @ColumnInfo(name = "signature")
+    val signature: String = "unsigned", // Hardware-backed digital signature for non-repudiation
+
+    @ColumnInfo(name = "user_id")
+    val userId: String = "local_user" // Identity of the user performing the action (DISA STIG requirement)
 )

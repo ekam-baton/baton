@@ -85,7 +85,7 @@ fun AddEditMemoryBottomSheet(
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedAgentDropdown) },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .menuAnchor()
+                        .menuAnchor(MenuAnchorType.PrimaryNotEditable)
                 )
                 
                 ExposedDropdownMenu(

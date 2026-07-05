@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 10,
-    "identityHash": "fbd916eabdf3ce1e14f1128d53491cb6",
+    "identityHash": "456051ce79e16cc91738171e455d34f2",
     "entities": [
       {
         "tableName": "conversations",
@@ -391,7 +391,7 @@
       },
       {
         "tableName": "audit_logs",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `entity_name` TEXT NOT NULL, `entity_id` TEXT NOT NULL, `action` TEXT NOT NULL, `timestamp` INTEGER NOT NULL, `device_id` TEXT NOT NULL, `payload_json` TEXT NOT NULL, `previous_hash` TEXT NOT NULL, `hash` TEXT NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `entity_name` TEXT NOT NULL, `entity_id` TEXT NOT NULL, `action` TEXT NOT NULL, `timestamp` INTEGER NOT NULL, `device_id` TEXT NOT NULL, `payload_json` TEXT NOT NULL, `previous_hash` TEXT NOT NULL, `hash` TEXT NOT NULL, `signature` TEXT NOT NULL, `user_id` TEXT NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -444,6 +444,18 @@
           {
             "fieldPath": "hash",
             "columnName": "hash",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "signature",
+            "columnName": "signature",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "userId",
+            "columnName": "user_id",
             "affinity": "TEXT",
             "notNull": true
           }
@@ -523,7 +535,7 @@
     "views": [],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'fbd916eabdf3ce1e14f1128d53491cb6')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '456051ce79e16cc91738171e455d34f2')"
     ]
   }
 }

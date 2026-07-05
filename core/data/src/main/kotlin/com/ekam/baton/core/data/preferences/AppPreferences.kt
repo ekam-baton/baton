@@ -34,13 +34,9 @@ class AppPreferences constructor(
         val ALLOW_LOCAL_NETWORK_AGENTS = booleanPreferencesKey("allow_local_network_agents")
     }
 
-    val userEmail: Flow<String> = context.dataStore.data.map { preferences ->
-        preferences[USER_EMAIL] ?: ""
-    }
+    val userEmail: Flow<String> = context.dataStore.data.map { "" }
 
-    val userPhone: Flow<String> = context.dataStore.data.map { preferences ->
-        preferences[USER_PHONE] ?: ""
-    }
+    val userPhone: Flow<String> = context.dataStore.data.map { "" }
 
     val isRegistered: Flow<Boolean> = context.dataStore.data.map { preferences ->
         preferences[IS_REGISTERED] ?: false
@@ -193,8 +189,9 @@ class AppPreferences constructor(
 
     suspend fun registerUser(email: String, phone: String) {
         context.dataStore.edit { preferences ->
-            preferences[USER_EMAIL] = email
-            preferences[USER_PHONE] = phone
+            // Security Fix: Do not store PII in plaintext DataStore
+            preferences.remove(USER_EMAIL)
+            preferences.remove(USER_PHONE)
             preferences[IS_REGISTERED] = true
             preferences[TRIAL_START_TIME] = System.currentTimeMillis()
             preferences[IS_PREMIUM_UNLOCKED] = false
@@ -203,8 +200,8 @@ class AppPreferences constructor(
 
     suspend fun clearRegistration() {
         context.dataStore.edit { preferences ->
-            preferences[USER_EMAIL] = ""
-            preferences[USER_PHONE] = ""
+            preferences.remove(USER_EMAIL)
+            preferences.remove(USER_PHONE)
             preferences[IS_REGISTERED] = false
             preferences[TRIAL_START_TIME] = 0L
             preferences[IS_PREMIUM_UNLOCKED] = false

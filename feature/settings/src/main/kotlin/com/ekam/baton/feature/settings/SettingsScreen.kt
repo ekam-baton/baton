@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.automirrored.filled.Help
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -91,6 +92,11 @@ fun SettingsScreen(
     var showBackendUrlDialog by remember { mutableStateOf(false) }
     var backendUrlInput by remember { mutableStateOf("") }
     var wipeConfirmationText by remember { mutableStateOf("") }
+    
+    // Feedback State
+    var showFeedbackDialog by remember { mutableStateOf(false) }
+    var feedbackText by remember { mutableStateOf("") }
+    var includeDiagnostics by remember { mutableStateOf(true) }
 
     val colors = listOf(
         0xFFECEFF4, // Cool White (Default)
@@ -417,6 +423,21 @@ fun SettingsScreen(
                 )
             }
 
+            // SECTION: Help & Feedback
+            item {
+                SettingsSectionHeader("Help & Feedback")
+                ListItem(
+                    headlineContent = { Text("Contact Support") },
+                    supportingContent = { Text("Report a bug or suggest a feature") },
+                    leadingContent = { Icon(Icons.AutoMirrored.Filled.Help, contentDescription = null) },
+                    modifier = Modifier.clickable { 
+                        if (enableHapticFeedback) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        showFeedbackDialog = true 
+                    },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                )
+            }
+
             // SECTION: About
             item {
                 SettingsSectionHeader("About")
@@ -711,6 +732,65 @@ fun SettingsScreen(
             },
             containerColor = Color(0xFF0F1623), // BatonSurface
             shape = RoundedCornerShape(24.dp)
+        )
+    }
+
+    if (showFeedbackDialog) {
+        AlertDialog(
+            onDismissRequest = { showFeedbackDialog = false },
+            title = { Text("Send Feedback") },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = feedbackText,
+                        onValueChange = { feedbackText = it },
+                        label = { Text("Describe the issue or suggestion") },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 120.dp),
+                        maxLines = 6
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.clickable { includeDiagnostics = !includeDiagnostics }
+                    ) {
+                        Checkbox(
+                            checked = includeDiagnostics,
+                            onCheckedChange = { includeDiagnostics = it }
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Include device diagnostics", style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showFeedbackDialog = false
+                        val diagnostics = if (includeDiagnostics) DeviceInfoHelper.getDiagnosticInfo(context) else ""
+                        val emailIntent = Intent(Intent.ACTION_SENDTO).apply {
+                            data = Uri.parse("mailto:")
+                            putExtra(Intent.EXTRA_EMAIL, arrayOf("support@baton.app")) // TODO: Replace with real support email
+                            putExtra(Intent.EXTRA_SUBJECT, "Baton App Feedback")
+                            putExtra(Intent.EXTRA_TEXT, feedbackText + "\n\n" + diagnostics)
+                        }
+                        try {
+                            context.startActivity(emailIntent)
+                        } catch (e: Exception) {
+                            android.widget.Toast.makeText(context, "No email app found", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                        feedbackText = ""
+                    }
+                ) {
+                    Text("Send via Email")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showFeedbackDialog = false }) {
+                    Text("Cancel")
+                }
+            }
         )
     }
 

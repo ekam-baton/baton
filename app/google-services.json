@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "1234567890",
-    "project_id": "baton-mock-project",
-    "storage_bucket": "baton-mock-project.appspot.com"
+    "project_number": "871882243870",
+    "project_id": "baton-2967b",
+    "storage_bucket": "baton-2967b.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:1234567890:android:abcdef1234567890",
+        "mobilesdk_app_id": "1:871882243870:android:672324e57a238660d7930f",
         "android_client_info": {
           "package_name": "com.ekam.baton"
         }
@@ -15,26 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "MOCK_API_KEY_PLEASE_REPLACE_FOR_PRODUCTION"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:1234567890:android:abcdef1234567891",
-        "android_client_info": {
-          "package_name": "com.ekam.baton.debug"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "MOCK_API_KEY_PLEASE_REPLACE_FOR_PRODUCTION"
+          "current_key": "AIzaSyCUEYCHGewMsrsGFsek0D3o1fwq4NHtmk0"
         }
       ],
       "services": {

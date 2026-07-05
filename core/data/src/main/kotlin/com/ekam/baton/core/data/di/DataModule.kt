@@ -64,8 +64,8 @@ val dataModule = module {
                 )
             } catch (fallbackEx: Exception) {
                 fallbackEx.printStackTrace()
-                // Bulletproof Fallback: Use standard SharedPreferences to avoid crashing the app
-                context.getSharedPreferences("secret_shared_prefs_fallback", Context.MODE_PRIVATE)
+                // Security Fix: Fail-secure rather than silently storing the SQLCipher passphrase in plaintext.
+                throw SecurityException("CRITICAL: Failed to initialize EncryptedSharedPreferences. Keystore is compromised.", fallbackEx)
             }
         }
 
@@ -180,6 +180,14 @@ val dataModule = module {
     single<com.ekam.baton.core.network.security.LocalNetworkPolicyProvider> {
         com.ekam.baton.core.data.repository.LocalNetworkPolicyProviderImpl(get())
     }
+
+    // Forensic Auditing & eIDAS QES Compliance
+    single { com.ekam.baton.core.data.forensic.TrustedTimeProvider() }
+    single { com.ekam.baton.core.data.forensic.EnterpriseCertificateManager(androidContext()) }
+    single { com.ekam.baton.core.data.forensic.ForensicCryptoManager(get()) }
+    single { com.ekam.baton.core.data.forensic.ForensicScreenshotManager(androidContext(), get(), get()) }
+    single { com.ekam.baton.core.data.forensic.EvidenceExportManager(androidContext(), get(), get()) }
+    single { com.ekam.baton.core.data.repository.AuditRepository(get(), get(), get(), androidContext()) }
 
     single<com.ekam.baton.core.network.BackendUrlProvider> {
         com.ekam.baton.core.data.preferences.AppPreferencesBackendUrlProvider(get())
