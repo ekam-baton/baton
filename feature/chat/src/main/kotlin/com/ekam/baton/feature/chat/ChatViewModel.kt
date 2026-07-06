@@ -31,6 +31,7 @@ class ChatViewModel(
     private val memoryRepository: MemoryRepository,
     private val appPreferences: com.ekam.baton.core.data.preferences.AppPreferences,
     private val toolAuthManager: com.ekam.baton.core.network.mcp.ToolAuthorizationManager,
+    private val httpClient: okhttp3.OkHttpClient,
     private val context: Context,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
@@ -244,20 +245,17 @@ class ChatViewModel(
         return withContext(Dispatchers.IO) {
             try {
                 val loginUrl = if (backendUrlStr.endsWith("/")) "${backendUrlStr}login" else "${backendUrlStr}/login"
-                val url = java.net.URL(loginUrl)
-                val connection = url.openConnection() as java.net.HttpURLConnection
-                connection.requestMethod = "POST"
-                connection.setRequestProperty("Content-Type", "application/json")
-                connection.doOutput = true
-                
                 val jsonInputString = "{\"secret\": \"$jwtSecretStr\"}"
-                connection.outputStream.use { os ->
-                    val input = jsonInputString.toByteArray(Charsets.UTF_8)
-                    os.write(input, 0, input.size)
-                }
+                val body = okhttp3.RequestBody.create(okhttp3.MediaType.parse("application/json"), jsonInputString)
                 
-                if (connection.responseCode == 200) {
-                    val responseBody = connection.inputStream.bufferedReader().use { it.readText() }
+                val request = okhttp3.Request.Builder()
+                    .url(loginUrl)
+                    .post(body)
+                    .build()
+                
+                val response = httpClient.newCall(request).execute()
+                if (response.isSuccessful) {
+                    val responseBody = response.body()?.string() ?: ""
                     val json = org.json.JSONObject(responseBody)
                     "Bearer ${json.getString("token")}"
                 } else {

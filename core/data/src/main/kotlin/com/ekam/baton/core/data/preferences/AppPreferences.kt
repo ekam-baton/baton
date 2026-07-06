@@ -5,8 +5,11 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.encodeToString
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
 
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "baton_preferences")
 
@@ -34,6 +37,20 @@ class AppPreferences constructor(
         val JWT_SECRET = stringPreferencesKey("jwt_secret")
         val ALLOW_LOCAL_NETWORK_AGENTS = booleanPreferencesKey("allow_local_network_agents")
     }
+
+    private val masterKey = MasterKey.Builder(context)
+        .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+        .build()
+
+    private val securePrefs = EncryptedSharedPreferences.create(
+        context,
+        "secure_baton_prefs",
+        masterKey,
+        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+    )
+
+    private val _jwtSecretFlow = MutableStateFlow(securePrefs.getString("jwt_secret", "") ?: "")
 
     val userEmail: Flow<String> = context.dataStore.data.map { "" }
 
@@ -100,9 +117,7 @@ class AppPreferences constructor(
         preferences[BACKEND_URL] ?: "http://10.0.2.2:8080/"
     }
 
-    val jwtSecret: Flow<String> = context.dataStore.data.map { preferences ->
-        preferences[JWT_SECRET] ?: ""
-    }
+    val jwtSecret: Flow<String> = _jwtSecretFlow
 
     val allowLocalNetworkAgents: Flow<Boolean> = context.dataStore.data.map { preferences ->
         preferences[ALLOW_LOCAL_NETWORK_AGENTS] ?: false
@@ -154,7 +169,10 @@ class AppPreferences constructor(
     }
 
     suspend fun setJwtSecret(secret: String) {
-        context.dataStore.edit { preferences -> preferences[JWT_SECRET] = secret }
+        securePrefs.edit().putString("jwt_secret", secret).apply()
+        _jwtSecretFlow.value = secret
+        // Clear from plaintext datastore if it was previously stored there
+        context.dataStore.edit { preferences -> preferences.remove(JWT_SECRET) }
     }
 
     suspend fun setPremiumUnlocked(unlocked: Boolean) {

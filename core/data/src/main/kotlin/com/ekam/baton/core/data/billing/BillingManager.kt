@@ -11,10 +11,17 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 import com.ekam.baton.core.data.preferences.AppPreferences
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import kotlinx.coroutines.flow.first
+import org.json.JSONObject
 
 class BillingManager(
     private val context: Context,
     private val appPreferences: AppPreferences,
+    private val httpClient: OkHttpClient,
     private val coroutineScope: CoroutineScope = CoroutineScope(Dispatchers.IO)
 ) : PurchasesUpdatedListener {
 
@@ -101,21 +108,58 @@ class BillingManager(
 
     private fun handlePurchase(purchase: Purchase) {
         if (purchase.purchaseState == Purchase.PurchaseState.PURCHASED) {
-            if (!purchase.isAcknowledged) {
-                val acknowledgePurchaseParams = AcknowledgePurchaseParams.newBuilder()
-                    .setPurchaseToken(purchase.purchaseToken)
-                    .build()
-                
-                billingClient.acknowledgePurchase(acknowledgePurchaseParams) { billingResult ->
-                    if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
+            coroutineScope.launch {
+                val isValid = verifyPurchaseWithBackend(purchase.purchaseToken)
+                if (isValid) {
+                    if (!purchase.isAcknowledged) {
+                        val acknowledgePurchaseParams = AcknowledgePurchaseParams.newBuilder()
+                            .setPurchaseToken(purchase.purchaseToken)
+                            .build()
+                        
+                        billingClient.acknowledgePurchase(acknowledgePurchaseParams) { billingResult ->
+                            if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
+                                _isPremium.value = true
+                                coroutineScope.launch { appPreferences.setPremiumUnlocked(true) }
+                            }
+                        }
+                    } else {
                         _isPremium.value = true
-                        coroutineScope.launch { appPreferences.setPremiumUnlocked(true) }
+                        appPreferences.setPremiumUnlocked(true)
                     }
                 }
-            } else {
-                _isPremium.value = true
-                coroutineScope.launch { appPreferences.setPremiumUnlocked(true) }
             }
+        }
+    }
+    
+    private suspend fun verifyPurchaseWithBackend(purchaseToken: String): Boolean {
+        val backendUrlStr = appPreferences.backendUrl.first()
+        val jwtSecretStr = appPreferences.jwtSecret.first()
+        
+        // If no backend is configured, fallback to local trust (infant-stage app behavior)
+        if (jwtSecretStr.isBlank()) {
+            // WARNING: Client-side only verification is vulnerable to spoofing (e.g., Lucky Patcher).
+            // This fallback exists only for local/decentralized setups without a billing validation server.
+            return true 
+        }
+
+        return try {
+            val verifyUrl = if (backendUrlStr.endsWith("/")) "${backendUrlStr}verify-purchase" else "${backendUrlStr}/verify-purchase"
+            val jsonInput = JSONObject().apply {
+                put("secret", jwtSecretStr)
+                put("purchaseToken", purchaseToken)
+            }.toString()
+            
+            val body = RequestBody.create("application/json".toMediaTypeOrNull(), jsonInput)
+            val request = Request.Builder()
+                .url(verifyUrl)
+                .post(body)
+                .build()
+            
+            val response = httpClient.newCall(request).execute()
+            response.isSuccessful
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
         }
     }
 

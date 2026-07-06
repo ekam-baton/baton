@@ -41,17 +41,12 @@ val networkModule = module {
     single {
         OkHttpClient.Builder()
             .dns(get<com.ekam.baton.core.network.security.SsrfProtectionDns>())
-            .addInterceptor(get<com.ekam.baton.core.network.security.CleartextTrafficInterceptor>())
             .addInterceptor(get<SecurityInterceptor>())
             .addInterceptor(get<HttpLoggingInterceptor>())
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(0, TimeUnit.MILLISECONDS)   // Unlimited for SSE streaming
             .writeTimeout(0, TimeUnit.MILLISECONDS)  // FIX: Unlimited for 1GB file uploads
             .build()
-    }
-
-    single {
-        com.ekam.baton.core.network.security.CleartextTrafficInterceptor()
     }
 
     single {
