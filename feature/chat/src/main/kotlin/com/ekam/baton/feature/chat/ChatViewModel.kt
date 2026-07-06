@@ -24,6 +24,7 @@ import androidx.paging.cachedIn
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.first
 
 class ChatViewModel(
     private val chatRepository: ChatRepository,
@@ -199,6 +200,9 @@ class ChatViewModel(
                 }
             }
 
+            _agentActivityStatus.value = "Authenticating..."
+            val authHeader = fetchJwtToken()
+
             _agentActivityStatus.value = "Opening secure E2EE channel..."
 
             try {
@@ -208,7 +212,8 @@ class ChatViewModel(
                 chatRepository.sendMessageWithResponse(
                     conversationId = cid,
                     content = content,
-                    attachments = attachmentDtos
+                    attachments = attachmentDtos,
+                    authHeader = authHeader
                 ).collect {}
             } catch (e: Exception) {
                 // Network errors are mostly handled inside repository by updating the
@@ -227,6 +232,40 @@ class ChatViewModel(
                     _isStreaming.value = false
                     _agentActivityStatus.value = null
                 }
+            }
+        }
+    }
+
+    private suspend fun fetchJwtToken(): String? {
+        val backendUrlStr = appPreferences.backendUrl.first()
+        val jwtSecretStr = appPreferences.jwtSecret.first()
+        if (jwtSecretStr.isBlank()) return null
+
+        return withContext(Dispatchers.IO) {
+            try {
+                val loginUrl = if (backendUrlStr.endsWith("/")) "${backendUrlStr}login" else "${backendUrlStr}/login"
+                val url = java.net.URL(loginUrl)
+                val connection = url.openConnection() as java.net.HttpURLConnection
+                connection.requestMethod = "POST"
+                connection.setRequestProperty("Content-Type", "application/json")
+                connection.doOutput = true
+                
+                val jsonInputString = "{\"secret\": \"$jwtSecretStr\"}"
+                connection.outputStream.use { os ->
+                    val input = jsonInputString.toByteArray(Charsets.UTF_8)
+                    os.write(input, 0, input.size)
+                }
+                
+                if (connection.responseCode == 200) {
+                    val responseBody = connection.inputStream.bufferedReader().use { it.readText() }
+                    val json = org.json.JSONObject(responseBody)
+                    "Bearer ${json.getString("token")}"
+                } else {
+                    null
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                null
             }
         }
     }
@@ -273,6 +312,48 @@ class ChatViewModel(
                 chatRepository.deleteConversation(id)
             } catch (e: Exception) {
                 _uiError.value = "Failed to delete conversation."
+            }
+        }
+    }
+
+    fun deleteMessage(id: String) {
+        viewModelScope.launch {
+            try {
+                chatRepository.deleteMessage(id)
+            } catch (e: Exception) {
+                _uiError.value = "Failed to delete message."
+            }
+        }
+    }
+
+    fun forwardMessage(message: Message, targetAgentId: String, onComplete: () -> Unit) {
+        viewModelScope.launch {
+            try {
+                val existing = chatRepository.getConversationByAgentId(targetAgentId)
+                val cid = existing?.id ?: run {
+                    val newId = UUID.randomUUID().toString()
+                    val newConv = Conversation(
+                        id = newId,
+                        agentId = targetAgentId,
+                        title = DEFAULT_NEW_CHAT_TITLE
+                    )
+                    chatRepository.upsertConversation(newConv)
+                    newId
+                }
+                
+                // Decode attachments from string to Dto
+                val attachments = message.attachments?.let {
+                    kotlinx.serialization.json.Json { ignoreUnknownKeys = true }.decodeFromString<List<AttachmentDto>>(it)
+                } ?: emptyList()
+
+                // Send the message
+                chatRepository.sendMessageWithResponse(cid, message.content, attachments).collect {}
+                
+                withContext(Dispatchers.Main) {
+                    onComplete()
+                }
+            } catch(e: Exception) {
+                _uiError.value = "Failed to forward: ${e.message}"
             }
         }
     }

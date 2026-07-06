@@ -31,6 +31,7 @@ class AppPreferences constructor(
         val IS_PREMIUM_UNLOCKED = booleanPreferencesKey("is_premium_unlocked")
         val KEYBOARD_SHORTCUTS = stringPreferencesKey("keyboard_shortcuts")
         val BACKEND_URL = stringPreferencesKey("backend_url")
+        val JWT_SECRET = stringPreferencesKey("jwt_secret")
         val ALLOW_LOCAL_NETWORK_AGENTS = booleanPreferencesKey("allow_local_network_agents")
     }
 
@@ -99,6 +100,10 @@ class AppPreferences constructor(
         preferences[BACKEND_URL] ?: "http://10.0.2.2:8080/"
     }
 
+    val jwtSecret: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[JWT_SECRET] ?: ""
+    }
+
     val allowLocalNetworkAgents: Flow<Boolean> = context.dataStore.data.map { preferences ->
         preferences[ALLOW_LOCAL_NETWORK_AGENTS] ?: false
     }
@@ -146,6 +151,10 @@ class AppPreferences constructor(
 
     suspend fun setTrialStartTime(time: Long) {
         context.dataStore.edit { preferences -> preferences[TRIAL_START_TIME] = time }
+    }
+
+    suspend fun setJwtSecret(secret: String) {
+        context.dataStore.edit { preferences -> preferences[JWT_SECRET] = secret }
     }
 
     suspend fun setPremiumUnlocked(unlocked: Boolean) {

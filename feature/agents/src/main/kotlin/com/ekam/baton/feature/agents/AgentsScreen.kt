@@ -44,6 +44,7 @@ fun AgentsScreen(
     val agents by viewModel.agents.collectAsStateWithLifecycle()
     val discoveredAgents by viewModel.discoveredAgents.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
+    val isDiscovering by viewModel.isDiscovering.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     LaunchedEffect(viewModel.uiEvents) {
@@ -89,7 +90,11 @@ fun AgentsScreen(
                 )
             }
         } else if (agents.isEmpty() && discoveredAgents.isEmpty()) {
-            EmptyAgentsState(modifier = Modifier.padding(innerPadding))
+            EmptyAgentsState(
+                modifier = Modifier.padding(innerPadding), 
+                isDiscovering = isDiscovering, 
+                onSearchClick = { viewModel.startTemporaryDiscovery() }
+            )
         } else {
             LazyColumn(
                 modifier = Modifier
@@ -98,15 +103,36 @@ fun AgentsScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                if (discoveredAgents.isNotEmpty()) {
-                    item {
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Text(
-                            text = "DISCOVERED LOCAL AGENTS",
+                            text = "LOCAL AGENTS",
                             style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(bottom = 4.dp, top = 8.dp)
+                            color = MaterialTheme.colorScheme.primary
                         )
+                        if (isDiscovering) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Searching...", style = MaterialTheme.typography.labelSmall)
+                            }
+                        } else {
+                            OutlinedButton(
+                                onClick = { viewModel.startTemporaryDiscovery() },
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                                modifier = Modifier.height(32.dp)
+                            ) {
+                                Text("Search", fontSize = 12.sp)
+                            }
+                        }
                     }
+                }
+
+                if (discoveredAgents.isNotEmpty()) {
                     items(
                         items = discoveredAgents,
                         key = { "discovered_${it.name}_${it.url}" }
@@ -147,7 +173,7 @@ fun AgentsScreen(
 }
 
 @Composable
-fun EmptyAgentsState(modifier: Modifier = Modifier) {
+fun EmptyAgentsState(modifier: Modifier = Modifier, isDiscovering: Boolean = false, onSearchClick: () -> Unit = {}) {
     Box(
         modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
@@ -165,6 +191,18 @@ fun EmptyAgentsState(modifier: Modifier = Modifier) {
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            Spacer(modifier = Modifier.height(24.dp))
+            if (isDiscovering) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Searching local network...", style = MaterialTheme.typography.labelSmall)
+                }
+            } else {
+                OutlinedButton(onClick = onSearchClick) {
+                    Text("Search Local Network")
+                }
+            }
         }
     }
 }

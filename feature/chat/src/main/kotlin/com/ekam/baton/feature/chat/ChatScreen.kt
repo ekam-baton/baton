@@ -44,6 +44,11 @@ import com.google.mlkit.vision.documentscanner.GmsDocumentScanning
 import com.google.mlkit.vision.documentscanner.GmsDocumentScanningResult
 import com.ekam.baton.core.data.preferences.KeyboardShortcut
 
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -58,6 +63,8 @@ import androidx.compose.ui.unit.dp
 import com.ekam.baton.core.data.model.Message
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -81,6 +88,14 @@ fun ChatScreen(
     var showToolsSheet by remember { mutableStateOf(false) }
     var showAgentDetails by remember { mutableStateOf(false) }
     var replyingTo by remember { mutableStateOf<Message?>(null) }
+    
+    var contextMenuMessage by remember { mutableStateOf<Message?>(null) }
+    var showForwardPicker by remember { mutableStateOf(false) }
+    val agents by viewModel.agents.collectAsStateWithLifecycle()
+    val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
+    val androidContext = LocalContext.current
+    val scope = rememberCoroutineScope()
+
     val snackbarHostState = remember { SnackbarHostState() }
     val uiError by viewModel.uiError.collectAsStateWithLifecycle()
 
@@ -140,6 +155,76 @@ fun ChatScreen(
                 }
             }
         )
+    }
+
+    if (showForwardPicker && contextMenuMessage != null) {
+        AgentPickerBottomSheet(
+            agents = agents,
+            onAgentSelected = { targetAgent ->
+                viewModel.forwardMessage(contextMenuMessage!!, targetAgent.id) {
+                    scope.launch {
+                        snackbarHostState.showSnackbar("Forwarded to ${targetAgent.name}")
+                    }
+                }
+                showForwardPicker = false
+                contextMenuMessage = null
+            },
+            onDismissRequest = { 
+                showForwardPicker = false 
+                contextMenuMessage = null
+            }
+        )
+    }
+
+    if (contextMenuMessage != null && !showForwardPicker) {
+        ModalBottomSheet(
+            onDismissRequest = { contextMenuMessage = null },
+            dragHandle = { BottomSheetDefaults.DragHandle() },
+            containerColor = MaterialTheme.colorScheme.surface
+        ) {
+            Column(modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp)) {
+                Text(
+                    text = "Message Options",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(16.dp)
+                )
+                ListItem(
+                    headlineContent = { Text("Copy Text") },
+                    leadingContent = { Icon(Icons.Default.Keyboard, contentDescription = null) },
+                    modifier = Modifier.clickable {
+                        clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(contextMenuMessage!!.content))
+                        contextMenuMessage = null
+                    }
+                )
+                ListItem(
+                    headlineContent = { Text("Share Text") },
+                    leadingContent = { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null) },
+                    modifier = Modifier.clickable {
+                        val intent = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, contextMenuMessage!!.content)
+                        }
+                        androidContext.startActivity(Intent.createChooser(intent, "Share via"))
+                        contextMenuMessage = null
+                    }
+                )
+                ListItem(
+                    headlineContent = { Text("Forward") },
+                    leadingContent = { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, modifier = Modifier.size(24.dp)) }, 
+                    modifier = Modifier.clickable {
+                        showForwardPicker = true
+                    }
+                )
+                ListItem(
+                    headlineContent = { Text("Delete", color = MaterialTheme.colorScheme.error) },
+                    leadingContent = { Icon(Icons.Default.Delete, tint = MaterialTheme.colorScheme.error, contentDescription = null) },
+                    modifier = Modifier.clickable {
+                        viewModel.deleteMessage(contextMenuMessage!!.id)
+                        contextMenuMessage = null
+                    }
+                )
+            }
+        }
     }
 
     // For TopAppBar info (agent name, avatar) we would ideally join tables or 
@@ -286,7 +371,8 @@ fun ChatScreen(
                         MessageBubble(
                             message = message,
                             modifier = Modifier.animateItem(),
-                            onReply = { replyingTo = it }
+                            onReply = { replyingTo = it },
+                            onLongClick = { contextMenuMessage = it }
                         )
                     }
                 }
@@ -295,11 +381,18 @@ fun ChatScreen(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun MessageBubble(message: Message, modifier: Modifier = Modifier, onReply: ((Message) -> Unit)? = null) {
+fun MessageBubble(
+    message: Message, 
+    modifier: Modifier = Modifier, 
+    onReply: ((Message) -> Unit)? = null,
+    onLongClick: ((Message) -> Unit)? = null
+) {
     val isUser = message.role == "user"
     val isToolResult = message.role == "tool_result"
     val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+    val androidContext = LocalContext.current
 
     val dismissState = androidx.compose.material3.rememberSwipeToDismissBoxState(
         confirmValueChange = { dismissValue ->
@@ -337,7 +430,12 @@ fun MessageBubble(message: Message, modifier: Modifier = Modifier, onReply: ((Me
         modifier = modifier
     ) {
         Box(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .combinedClickable(
+                    onClick = {},
+                    onLongClick = { onLongClick?.invoke(message) }
+                ),
             contentAlignment = if (isUser) Alignment.CenterEnd else Alignment.CenterStart
         ) {
             val attachments = remember(message.attachments) {
@@ -369,7 +467,17 @@ fun MessageBubble(message: Message, modifier: Modifier = Modifier, onReply: ((Me
                                             .fillMaxWidth(0.7f)
                                             .heightIn(max = 300.dp)
                                             .clip(RoundedCornerShape(12.dp))
-                                            .padding(bottom = 8.dp),
+                                            .padding(bottom = 8.dp)
+                                            .clickable {
+                                                attachment.uri?.let { uriString ->
+                                                    val intent = Intent(Intent.ACTION_SEND).apply {
+                                                        type = attachment.mimeType
+                                                        putExtra(Intent.EXTRA_STREAM, Uri.parse(uriString))
+                                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                                    }
+                                                    androidContext.startActivity(Intent.createChooser(intent, "Share File"))
+                                                }
+                                            },
                                         contentScale = androidx.compose.ui.layout.ContentScale.Crop
                                     )
                                 }
@@ -379,6 +487,16 @@ fun MessageBubble(message: Message, modifier: Modifier = Modifier, onReply: ((Me
                                             .fillMaxWidth(0.7f)
                                             .clip(RoundedCornerShape(12.dp))
                                             .background(MaterialTheme.colorScheme.surfaceVariant)
+                                            .clickable {
+                                                attachment.uri?.let { uriString ->
+                                                    val intent = Intent(Intent.ACTION_SEND).apply {
+                                                        type = attachment.mimeType
+                                                        putExtra(Intent.EXTRA_STREAM, Uri.parse(uriString))
+                                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                                    }
+                                                    androidContext.startActivity(Intent.createChooser(intent, "Share File"))
+                                                }
+                                            }
                                             .padding(12.dp)
                                             .padding(bottom = 8.dp),
                                         verticalAlignment = Alignment.CenterVertically
@@ -412,6 +530,16 @@ fun MessageBubble(message: Message, modifier: Modifier = Modifier, onReply: ((Me
                                             .fillMaxWidth(0.7f)
                                             .clip(RoundedCornerShape(12.dp))
                                             .background(MaterialTheme.colorScheme.surfaceVariant)
+                                            .clickable {
+                                                attachment.uri?.let { uriString ->
+                                                    val intent = Intent(Intent.ACTION_SEND).apply {
+                                                        type = attachment.mimeType
+                                                        putExtra(Intent.EXTRA_STREAM, Uri.parse(uriString))
+                                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                                    }
+                                                    androidContext.startActivity(Intent.createChooser(intent, "Share File"))
+                                                }
+                                            }
                                             .padding(12.dp)
                                             .padding(bottom = 8.dp),
                                         verticalAlignment = Alignment.CenterVertically
@@ -445,6 +573,16 @@ fun MessageBubble(message: Message, modifier: Modifier = Modifier, onReply: ((Me
                                             .fillMaxWidth(0.7f)
                                             .clip(RoundedCornerShape(12.dp))
                                             .background(MaterialTheme.colorScheme.surfaceVariant)
+                                            .clickable {
+                                                attachment.uri?.let { uriString ->
+                                                    val intent = Intent(Intent.ACTION_SEND).apply {
+                                                        type = attachment.mimeType
+                                                        putExtra(Intent.EXTRA_STREAM, Uri.parse(uriString))
+                                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                                    }
+                                                    androidContext.startActivity(Intent.createChooser(intent, "Share File"))
+                                                }
+                                            }
                                             .padding(12.dp)
                                             .padding(bottom = 8.dp),
                                         verticalAlignment = Alignment.CenterVertically

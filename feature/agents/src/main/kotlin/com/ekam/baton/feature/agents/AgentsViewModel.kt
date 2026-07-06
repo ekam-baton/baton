@@ -52,8 +52,26 @@ class AgentsViewModel(
         initialValue = emptyList()
     )
 
+    private val _isDiscovering = kotlinx.coroutines.flow.MutableStateFlow(false)
+    val isDiscovering: StateFlow<Boolean> = _isDiscovering
+
+    fun startTemporaryDiscovery() {
+        if (_isDiscovering.value) return
+        
+        viewModelScope.launch {
+            _isDiscovering.value = true
+            mdnsDiscoveryManager.startDiscovery()
+            
+            // Run for 10 seconds to save battery
+            kotlinx.coroutines.delay(10000)
+            
+            mdnsDiscoveryManager.stopDiscovery()
+            _isDiscovering.value = false
+        }
+    }
+
     init {
-        mdnsDiscoveryManager.startDiscovery()
+        // Discovery is now triggered manually via startTemporaryDiscovery()
     }
 
     override fun onCleared() {

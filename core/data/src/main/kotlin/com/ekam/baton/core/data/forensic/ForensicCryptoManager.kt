@@ -62,7 +62,6 @@ class ForensicCryptoManager(private val certificateManager: EnterpriseCertificat
      * the enterprise certificate chain would be checked here.
      */
     fun verifySignature(data: ByteArray, signatureBytes: ByteArray): Boolean {
-        // TODO: Expand this to verify QTSP certificates as well
         val certificate = keyStore.getCertificate(KEY_ALIAS)
         val signature = Signature.getInstance("SHA256withECDSA")
         signature.initVerify(certificate)

@@ -145,7 +145,8 @@ class ChatRepository constructor(
     suspend fun sendMessageWithResponse(
         conversationId: String,
         content: String,
-        attachments: List<AttachmentDto> = emptyList()
+        attachments: List<AttachmentDto> = emptyList(),
+        authHeader: String? = null
     ): kotlinx.coroutines.flow.Flow<String> {
         val attachmentsJson = if (attachments.isNotEmpty()) {
             kotlinx.serialization.json.Json.encodeToString(
@@ -215,7 +216,7 @@ class ChatRepository constructor(
         return mcpMessageSender.sendUserMessage(
             agentId = agentId,
             endpointUrl = agent.mcpEndpointUrl,
-            authHeader = null,
+            authHeader = authHeader,
             conversationHistory = history,
             newUserMessage = enrichedContextMessage,
             attachments = attachments,
@@ -266,6 +267,10 @@ class ChatRepository constructor(
     }
 
     suspend fun getMessageById(id: String): MessageEntity? = messageDao.getMessageById(id)
+
+    suspend fun deleteMessage(id: String) {
+        messageDao.deleteMessage(id)
+    }
 
     suspend fun getAvailableTools(agentId: String): List<com.ekam.baton.core.network.mcp.McpTool> {
         val agent = agentDao.getAgentById(agentId) ?: return emptyList()

@@ -6,7 +6,8 @@ BATON is a Zero-Trust, Local-First AI Orchestration Client for Android. It bridg
 
 1.  **Zero-Trust Architecture**: No API keys are stored on the device. All authentication is deferred to your secure, self-hosted MCP endpoints.
 2.  **Local-First Orchestration**: The UI and message routing logic live natively on your Android device. You own your workflow.
-3.  **Global Evidentiary Governance**: Every system action, chat message, and screenshot is rigorously audited and cryptographically secured for legal admissibility.
+3.  **Bring-Your-Own-Server (BYOS) Security**: Seamlessly connect to remote home servers using secure Cloudflare tunnels and stateless JWT token exchanges based on a custom `JWT_SECRET`.
+4.  **Global Evidentiary Governance**: Every system action, chat message, and screenshot is rigorously audited and cryptographically secured for legal admissibility.
 
 ## Global Governance & Forensic Auditability
 

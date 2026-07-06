@@ -139,6 +139,13 @@ class SettingsViewModel(
             initialValue = "http://10.0.2.2:8080/"
         )
 
+    val jwtSecret: StateFlow<String> = appPreferences.jwtSecret
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = ""
+        )
+
     val allowLocalNetworkAgents: StateFlow<Boolean> = appPreferences.allowLocalNetworkAgents
         .stateIn(
             scope = viewModelScope,
@@ -156,7 +163,14 @@ class SettingsViewModel(
     fun setAutoGenerateEpisodes(enable: Boolean) = viewModelScope.launch { appPreferences.setAutoGenerateEpisodes(enable) }
     fun setMemoryRetentionDays(days: Int) = viewModelScope.launch { appPreferences.setMemoryRetentionDays(days) }
     fun setPremiumUnlocked(unlocked: Boolean) = viewModelScope.launch { appPreferences.setPremiumUnlocked(unlocked) }
-    fun setBackendUrl(url: String) = viewModelScope.launch { appPreferences.setBackendUrl(url) }
+    fun setBackendUrl(url: String) = viewModelScope.launch {
+        val finalUrl = if (!url.endsWith("/")) "$url/" else url
+        appPreferences.setBackendUrl(finalUrl)
+    }
+
+    fun setJwtSecret(secret: String) = viewModelScope.launch {
+        appPreferences.setJwtSecret(secret)
+    }
     fun setAllowLocalNetworkAgents(allow: Boolean) = viewModelScope.launch { appPreferences.setAllowLocalNetworkAgents(allow) }
 
     fun getTrialDaysRemaining(startTime: Long): Long {

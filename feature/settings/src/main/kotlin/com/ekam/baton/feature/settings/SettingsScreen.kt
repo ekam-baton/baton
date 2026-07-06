@@ -53,6 +53,7 @@ fun SettingsScreen(
     val memoryRetentionDays by viewModel.memoryRetentionDays.collectAsStateWithLifecycle()
     val enableHapticFeedback by viewModel.enableHapticFeedback.collectAsStateWithLifecycle()
     val backendUrl by viewModel.backendUrl.collectAsStateWithLifecycle()
+    val jwtSecret by viewModel.jwtSecret.collectAsStateWithLifecycle()
     
     val agents by viewModel.agents.collectAsStateWithLifecycle()
     val tunnelStatusMap by viewModel.tunnelStatusMap.collectAsStateWithLifecycle()
@@ -91,6 +92,8 @@ fun SettingsScreen(
     var showClearMemoriesDialog by remember { mutableStateOf(false) }
     var showBackendUrlDialog by remember { mutableStateOf(false) }
     var backendUrlInput by remember { mutableStateOf("") }
+    var showJwtSecretDialog by remember { mutableStateOf(false) }
+    var jwtSecretInput by remember { mutableStateOf("") }
     var wipeConfirmationText by remember { mutableStateOf("") }
     
     // Feedback State
@@ -324,6 +327,16 @@ fun SettingsScreen(
                     modifier = Modifier.clickable { 
                         backendUrlInput = backendUrl
                         showBackendUrlDialog = true 
+                    },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                )
+                ListItem(
+                    headlineContent = { Text("Server Secret Key") },
+                    supportingContent = { Text(if (jwtSecret.isNotBlank()) "••••••••••••" else "Not set") },
+                    leadingContent = { Icon(Icons.Default.VpnKey, contentDescription = null) },
+                    modifier = Modifier.clickable { 
+                        jwtSecretInput = jwtSecret
+                        showJwtSecretDialog = true 
                     },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                 )
@@ -689,6 +702,49 @@ fun SettingsScreen(
         )
     }
 
+    if (showJwtSecretDialog) {
+        AlertDialog(
+            onDismissRequest = { showJwtSecretDialog = false },
+            title = { Text("Server Secret Key") },
+            text = {
+                Column {
+                    Text(
+                        "Enter your server's JWT secret to authenticate. Do not share this with anyone.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = jwtSecretInput,
+                        onValueChange = { jwtSecretInput = it },
+                        label = { Text("Secret Key") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "Note: You must restart the app after changing the secret for it to take effect.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.setJwtSecret(jwtSecretInput)
+                    showJwtSecretDialog = false
+                }) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showJwtSecretDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     if (activeLegalTitle != null && activeLegalContent != null) {
         AlertDialog(
             onDismissRequest = {
@@ -771,7 +827,7 @@ fun SettingsScreen(
                         val diagnostics = if (includeDiagnostics) DeviceInfoHelper.getDiagnosticInfo(context) else ""
                         val emailIntent = Intent(Intent.ACTION_SENDTO).apply {
                             data = Uri.parse("mailto:")
-                            putExtra(Intent.EXTRA_EMAIL, arrayOf("support@baton.app")) // TODO: Replace with real support email
+                            putExtra(Intent.EXTRA_EMAIL, arrayOf("support@baton.app"))
                             putExtra(Intent.EXTRA_SUBJECT, "Baton App Feedback")
                             putExtra(Intent.EXTRA_TEXT, feedbackText + "\n\n" + diagnostics)
                         }

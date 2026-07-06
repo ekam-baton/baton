@@ -113,18 +113,29 @@ fun MemoryCard(
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                         )
 
-                        // Placeholder for tags parsing
-                        if (memory.tags != "[]") {
+                        if (memory.tags.isNotBlank() && memory.tags != "[]") {
                             Text(
                                 text = "•",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                             )
-                            Text(
-                                text = "Tags...", // Just a placeholder, would parse JSON array
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.tertiary
-                            )
+                            val parsedTags = try {
+                                val jsonArray = org.json.JSONArray(memory.tags)
+                                val list = mutableListOf<String>()
+                                for (i in 0 until jsonArray.length()) {
+                                    list.add(jsonArray.getString(i))
+                                }
+                                list.joinToString(", ")
+                            } catch (e: Exception) {
+                                ""
+                            }
+                            if (parsedTags.isNotEmpty()) {
+                                Text(
+                                    text = parsedTags,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.tertiary
+                                )
+                            }
                         }
                     }
                 }
