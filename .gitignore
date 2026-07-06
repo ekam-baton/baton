@@ -17,4 +17,12 @@ target/
 *.log
 *.pdb
 *.exe
+hs_err_pid*.log
+build_out.txt
+
+# Signing
+*.jks
+*.keystore
+keystore.properties
+!keystore.properties.sample
 

@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use std::fs;
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -61,21 +60,32 @@ fn authorize_client_key(hex_key: &str) -> Result<TrustedClient, (u16, &'static s
 // ---------------------------------------------------------------------------
 
 struct NonceStore {
-    nonces: HashSet<String>,
+    // nonce -> insertion time (ms since epoch), so expired entries can be pruned.
+    nonces: std::collections::HashMap<String, u64>,
 }
+
+const NONCE_TTL_MS: u64 = 300_000; // matches the 5-minute signature skew window
 
 impl NonceStore {
     fn new() -> Self {
         Self {
-            nonces: HashSet::new(),
+            nonces: std::collections::HashMap::new(),
         }
     }
 
-    fn check_and_add(&mut self, nonce: &str) -> bool {
-        if self.nonces.contains(nonce) {
+    /// Returns true (and records the nonce) if it hasn't been seen within
+    /// the TTL window; returns false if it's a replay. Also prunes any
+    /// entries older than the TTL so this doesn't grow unbounded over the
+    /// life of the process.
+    fn check_and_add(&mut self, nonce: &str, now_ms: u64) -> bool {
+        self.nonces.retain(|_, &mut inserted_at| {
+            now_ms.saturating_sub(inserted_at) < NONCE_TTL_MS
+        });
+
+        if self.nonces.contains_key(nonce) {
             false
         } else {
-            self.nonces.insert(nonce.to_string());
+            self.nonces.insert(nonce.to_string(), now_ms);
             true
         }
     }
@@ -247,54 +257,70 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             // ------------------------------------------------------------------
             // Step 5 — Verify HMAC Signature & Replay Protection
+            //
+            // SECURITY: this block used to be `if let Some(sig) = signature`,
+            // which meant a request that simply omitted the
+            // X-Baton-Signature header skipped both signature verification
+            // AND replay/timestamp checking entirely (they lived inside the
+            // same conditional). That let anyone holding a client's public
+            // key value — not the matching private key — replay a captured
+            // request indefinitely, or forge one, just by dropping one
+            // header. The signature is now mandatory: no signature, no
+            // request.
             // ------------------------------------------------------------------
-            if let Some(sig) = signature {
-                // Enforce 5-minute timestamp skew window.
-                let now = SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .unwrap()
-                    .as_millis() as u64;
-                let skew = if now > ts { now - ts } else { ts - now };
-                if skew > 300_000 {
-                    send_status_error(&mut socket, 401, "Signature expired").await;
+            let sig = match signature {
+                Some(s) => s,
+                None => {
+                    send_status_error(&mut socket, 401, "Missing X-Baton-Signature header").await;
                     return;
                 }
+            };
 
-                // Check replay prevention.
-                let is_valid_nonce = {
-                    let mut store = nonce_store.lock().unwrap();
-                    store.check_and_add(n)
-                };
-                if !is_valid_nonce {
-                    send_status_error(&mut socket, 401, "Replay attack detected (nonce reused)").await;
-                    return;
-                }
-
-                // Derive HMAC signing key from the shared secret.
-                let mut mac_hasher = sha2::Sha256::new();
-                mac_hasher.update(shared_secret.as_slice());
-                let signing_key = mac_hasher.finalize();
-
-                let signature_input = format!("{}:{}:{}", ts, n, ciphertext_b64);
-                let mut mac_verify = <HmacSha256 as hmac::Mac>::new_from_slice(&signing_key)
-                    .expect("HMAC key size is always valid");
-                mac_verify.update(signature_input.as_bytes());
-
-                let sig_bytes = match hex::decode(sig) {
-                    Ok(b) => b,
-                    Err(_) => {
-                        send_status_error(&mut socket, 400, "Invalid signature format").await;
-                        return;
-                    }
-                };
-
-                if mac_verify.verify_slice(&sig_bytes).is_err() {
-                    send_status_error(&mut socket, 401, "Invalid signature").await;
-                    return;
-                }
-
-                println!("Signature successfully verified for {}!", trusted_client.user_email);
+            // Enforce 5-minute timestamp skew window.
+            let now = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_millis() as u64;
+            let skew = if now > ts { now - ts } else { ts - now };
+            if skew > 300_000 {
+                send_status_error(&mut socket, 401, "Signature expired").await;
+                return;
             }
+
+            // Check replay prevention.
+            let is_valid_nonce = {
+                let mut store = nonce_store.lock().unwrap();
+                store.check_and_add(n, now)
+            };
+            if !is_valid_nonce {
+                send_status_error(&mut socket, 401, "Replay attack detected (nonce reused)").await;
+                return;
+            }
+
+            // Derive HMAC signing key from the shared secret.
+            let mut mac_hasher = sha2::Sha256::new();
+            mac_hasher.update(shared_secret.as_slice());
+            let signing_key = mac_hasher.finalize();
+
+            let signature_input = format!("{}:{}:{}", ts, n, ciphertext_b64);
+            let mut mac_verify = <HmacSha256 as hmac::Mac>::new_from_slice(&signing_key)
+                .expect("HMAC key size is always valid");
+            mac_verify.update(signature_input.as_bytes());
+
+            let sig_bytes = match hex::decode(sig) {
+                Ok(b) => b,
+                Err(_) => {
+                    send_status_error(&mut socket, 400, "Invalid signature format").await;
+                    return;
+                }
+            };
+
+            if mac_verify.verify_slice(&sig_bytes).is_err() {
+                send_status_error(&mut socket, 401, "Invalid signature").await;
+                return;
+            }
+
+            println!("Signature successfully verified for {}!", trusted_client.user_email);
 
             // ------------------------------------------------------------------
             // Step 6 — Derive per-request AES key via HKDF and decrypt payload
@@ -339,10 +365,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             derived_key.zeroize();
 
             let decrypted_plaintext = String::from_utf8(decrypted_bytes).unwrap_or_default();
+            // SECURITY: never log decrypted message content — it can contain
+            // user prompts, memory data, or other sensitive payloads, and
+            // this stdout is easy to end up in a log aggregator or crash
+            // report. Log only metadata needed for debugging/audit.
             println!(
-                "Decrypted payload from {}: {}",
+                "Decrypted payload from {} ({} bytes)",
                 trusted_client.user_email,
-                decrypted_plaintext
+                decrypted_plaintext.len()
             );
 
             // ------------------------------------------------------------------
@@ -474,9 +504,18 @@ mod tests {
     #[test]
     fn test_nonce_store() {
         let mut store = NonceStore::new();
-        assert!(store.check_and_add("nonce1"));
-        assert!(!store.check_and_add("nonce1")); // Replay — must be rejected.
-        assert!(store.check_and_add("nonce2"));
+        assert!(store.check_and_add("nonce1", 1_000));
+        assert!(!store.check_and_add("nonce1", 1_500)); // Replay — must be rejected.
+        assert!(store.check_and_add("nonce2", 1_500));
+    }
+
+    #[test]
+    fn test_nonce_store_expires_after_ttl() {
+        let mut store = NonceStore::new();
+        assert!(store.check_and_add("nonce1", 0));
+        // Same nonce, but far beyond the TTL window — should be treated as new
+        // (and the stale entry should have been pruned).
+        assert!(store.check_and_add("nonce1", NONCE_TTL_MS + 1));
     }
 
     #[test]

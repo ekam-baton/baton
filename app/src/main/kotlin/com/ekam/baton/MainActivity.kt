@@ -89,9 +89,46 @@ class MainActivity : AppCompatActivity() {
     private fun extractBatonDeepLinkUrl(intent: android.content.Intent?): String? {
         val data = intent?.data ?: return null
         if (data.scheme == "baton" && data.host == "connect") {
-            return data.getQueryParameter("url")
+            val rawUrl = data.getQueryParameter("url") ?: return null
+            return sanitizePairingUrl(rawUrl)
         }
         return null
+    }
+
+    /**
+     * The `url` param arrives from an unauthenticated deep link (any app, QR
+     * code, or web page can trigger `baton://connect?url=...`), so it must
+     * never be trusted blindly. This only lets well-formed https URLs (or
+     * http to loopback/private-LAN hosts, for local gateway pairing) through
+     * to the Add Agent pre-fill screen; anything else is dropped rather than
+     * silently pre-populating a malicious endpoint.
+     */
+    private fun sanitizePairingUrl(rawUrl: String): String? {
+        if (rawUrl.length > 2048) return null
+        val uri = try {
+            android.net.Uri.parse(rawUrl)
+        } catch (e: Exception) {
+            return null
+        }
+        val scheme = uri.scheme?.lowercase() ?: return null
+        val host = uri.host?.lowercase() ?: return null
+
+        return when {
+            scheme == "https" -> rawUrl
+            scheme == "http" && isLocalOrPrivateHost(host) -> rawUrl
+            else -> null // reject javascript:, file:, data:, and public http
+        }
+    }
+
+    private fun isLocalOrPrivateHost(host: String): Boolean {
+        if (host == "localhost" || host == "127.0.0.1" || host.endsWith(".local")) return true
+        // RFC1918 private ranges used by local gateway/mDNS pairing
+        val privateRanges = listOf(
+            Regex("""^10\..*"""),
+            Regex("""^192\.168\..*"""),
+            Regex("""^172\.(1[6-9]|2\d|3[0-1])\..*""")
+        )
+        return privateRanges.any { it.matches(host) }
     }
 }
 

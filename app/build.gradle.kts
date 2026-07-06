@@ -24,10 +24,29 @@ android {
 
     signingConfigs {
         create("release") {
-            storeFile = file("release.jks")
-            storePassword = "BatonSecure123!"
-            keyAlias = "baton"
-            keyPassword = "BatonSecure123!"
+            // Credentials are read from gradle.properties (git-ignored) or
+            // environment variables (BATON_KEYSTORE_PASSWORD / BATON_KEY_PASSWORD),
+            // never hardcoded. See keystore.properties.sample for local setup.
+            storeFile = file(
+                (project.findProperty("BATON_KEYSTORE_FILE") as String?)
+                    ?: System.getenv("BATON_KEYSTORE_FILE")
+                    ?: "release.jks"
+            )
+            storePassword = (project.findProperty("BATON_KEYSTORE_PASSWORD") as String?)
+                ?: System.getenv("BATON_KEYSTORE_PASSWORD")
+                ?: throw GradleException(
+                    "Missing BATON_KEYSTORE_PASSWORD. Set it in gradle.properties (git-ignored) " +
+                    "or as an environment variable. See keystore.properties.sample."
+                )
+            keyAlias = (project.findProperty("BATON_KEY_ALIAS") as String?)
+                ?: System.getenv("BATON_KEY_ALIAS")
+                ?: "baton"
+            keyPassword = (project.findProperty("BATON_KEY_PASSWORD") as String?)
+                ?: System.getenv("BATON_KEY_PASSWORD")
+                ?: throw GradleException(
+                    "Missing BATON_KEY_PASSWORD. Set it in gradle.properties (git-ignored) " +
+                    "or as an environment variable. See keystore.properties.sample."
+                )
         }
     }
 
