@@ -64,6 +64,7 @@ dependencies {
 
     // Billing
     implementation(libs.play.billing)
+    implementation(libs.okhttp)
 
     // Serialization
     implementation(libs.kotlinx.serialization.json)

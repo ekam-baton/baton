@@ -16,9 +16,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import java.util.UUID
 import androidx.paging.cachedIn
 import kotlinx.coroutines.flow.flatMapLatest
@@ -246,7 +248,7 @@ class ChatViewModel(
             try {
                 val loginUrl = if (backendUrlStr.endsWith("/")) "${backendUrlStr}login" else "${backendUrlStr}/login"
                 val jsonInputString = "{\"secret\": \"$jwtSecretStr\"}"
-                val body = okhttp3.RequestBody.create(okhttp3.MediaType.parse("application/json"), jsonInputString)
+                val body = okhttp3.RequestBody.create("application/json".toMediaTypeOrNull(), jsonInputString)
                 
                 val request = okhttp3.Request.Builder()
                     .url(loginUrl)
@@ -255,7 +257,7 @@ class ChatViewModel(
                 
                 val response = httpClient.newCall(request).execute()
                 if (response.isSuccessful) {
-                    val responseBody = response.body()?.string() ?: ""
+                    val responseBody = response.body?.string() ?: ""
                     val json = org.json.JSONObject(responseBody)
                     "Bearer ${json.getString("token")}"
                 } else {
