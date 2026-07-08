@@ -22,7 +22,13 @@ data class Agent(
     val securityConfig: String = "",
     val isAuthenticated: Boolean = false,
     val lastAuthAt: Long? = null,
-    val relayToken: String? = null
+    val relayToken: String? = null,
+    val role: String = "COORDINATOR",
+    val cardDid: String = "",
+    val cardFingerprint: String = "",
+    val cardIssuedAt: Long = 0L,
+    val cardAvatarSeed: String = "",
+    val worldRoomId: String? = null
 )
 
 fun AgentEntity.toDomainModel() = Agent(
@@ -43,7 +49,13 @@ fun AgentEntity.toDomainModel() = Agent(
     securityConfig = securityConfig,
     isAuthenticated = isAuthenticated,
     lastAuthAt = lastAuthAt,
-    relayToken = relayToken
+    relayToken = relayToken,
+    role = role,
+    cardDid = cardDid,
+    cardFingerprint = cardFingerprint,
+    cardIssuedAt = cardIssuedAt,
+    cardAvatarSeed = cardAvatarSeed,
+    worldRoomId = worldRoomId
 )
 
 fun Agent.toEntity() = AgentEntity(
@@ -64,5 +76,11 @@ fun Agent.toEntity() = AgentEntity(
     securityConfig = securityConfig,
     isAuthenticated = isAuthenticated,
     lastAuthAt = lastAuthAt,
-    relayToken = relayToken
+    relayToken = relayToken,
+    role = role,
+    cardDid = cardDid,
+    cardFingerprint = cardFingerprint,
+    cardIssuedAt = cardIssuedAt,
+    cardAvatarSeed = cardAvatarSeed,
+    worldRoomId = worldRoomId
 )

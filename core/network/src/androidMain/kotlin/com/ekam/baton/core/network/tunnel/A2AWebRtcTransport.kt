@@ -18,7 +18,7 @@ class A2AWebRtcTransport constructor(
 
     private fun initializeWebRtc() {
         val initializationOptions = PeerConnectionFactory.InitializationOptions.builder(context)
-            .setEnableInternalTracer(true)
+            .setEnableInternalTracer(false) // SECURITY FIX (LOW-3): Disable internal tracer
             .createInitializationOptions()
         PeerConnectionFactory.initialize(initializationOptions)
 

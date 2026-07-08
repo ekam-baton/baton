@@ -26,3 +26,6 @@ build_out.txt
 keystore.properties
 !keystore.properties.sample
 
+# Gateway Engine
+gateway_keypair.hex
+trusted_clients.json

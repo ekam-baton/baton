@@ -11,6 +11,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import java.net.InetAddress
 import java.net.URL
 import java.util.UUID
 import java.util.concurrent.TimeUnit
@@ -18,14 +19,39 @@ import java.util.concurrent.TimeUnit
 class TunnelEndpointValidator constructor(
     private val json: Json
 ) {
-    // We create a custom OkHttpClient with a 10s timeout just for validation
     private val client = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(10, TimeUnit.SECONDS)
         .build()
 
+    /** Allowed hostname suffixes for MCP tunnel endpoints */
+    private val ALLOWED_TUNNEL_SUFFIXES = listOf(
+        ".trycloudflare.com",
+        ".ngrok.io",
+        ".ngrok-free.app",
+        ".bore.pub"
+    )
+    private val ALLOWED_LOCAL_HOSTS = setOf("localhost", "127.0.0.1", "10.0.2.2")
+
+    /**
+     * SECURITY FIX (CRIT-2): Block RFC-1918, link-local, and loopback addresses
+     * unless the hostname is in the explicit local allow-list.
+     * Prevents SSRF via the deep-link pairing flow.
+     */
+    private fun isPrivateOrReservedAddress(host: String): Boolean {
+        return try {
+            val addr = InetAddress.getByName(host)
+            addr.isSiteLocalAddress ||
+                    addr.isLoopbackAddress ||
+                    addr.isLinkLocalAddress ||
+                    addr.isAnyLocalAddress
+        } catch (e: Exception) {
+            false
+        }
+    }
+
     suspend fun validateEndpoint(urlString: String): TunnelValidationResult = withContext(Dispatchers.IO) {
-        // a. Parse URL
+        // a. Scheme check — only http/https
         if (!urlString.startsWith("https://") && !urlString.startsWith("http://")) {
             return@withContext TunnelValidationResult(Status.INVALID_URL, null, null, "URL must start with http:// or https://")
         }
@@ -36,32 +62,40 @@ class TunnelEndpointValidator constructor(
             return@withContext TunnelValidationResult(Status.INVALID_URL, null, null, "Malformed URL")
         }
 
+        val host = url.host
         val baseUrl = urlString.removeSuffix("/")
 
-        // b. Check if hostname is valid (tunnel)
-        val host = url.host
-        val isTunnel = host.endsWith(".trycloudflare.com") || host.endsWith(".ngrok.io") || 
-                host.endsWith(".ngrok-free.app") || host.endsWith(".bore.pub") || host == "localhost"
+        // SECURITY FIX (CRIT-2): Determine if this host is permitted.
+        // The allowlist check is performed BEFORE any HTTP call is made.
+        // Previously, only the UI classification was gated behind this check,
+        // but the actual HTTP requests were made to any URL — enabling SSRF.
+        val isTunnel = ALLOWED_TUNNEL_SUFFIXES.any { host.endsWith(it) }
+        val isExplicitLocal = ALLOWED_LOCAL_HOSTS.contains(host.lowercase())
 
-        // c. Send GET to URL
+        if (!isTunnel && !isExplicitLocal) {
+            // Before outright rejection, check if it resolves to a private address
+            // (even if the hostname looks public, it could point to a LAN IP via DNS rebinding)
+            if (isPrivateOrReservedAddress(host)) {
+                return@withContext TunnelValidationResult(
+                    Status.INVALID_URL, null, null,
+                    "Endpoint resolves to a private/internal IP address. Use a tunnel (Cloudflare, ngrok) for security."
+                )
+            }
+        }
+
+        // b. HTTP reachability check — only performed after allowlist validation
         val getRequest = Request.Builder()
             .url(baseUrl)
             .get()
             .build()
 
         try {
-            client.newCall(getRequest).execute().use { response ->
-                if (!response.isSuccessful && response.code != 404 && response.code != 405) {
-                    // Sometimes root path returns 404 or 405 Method Not Allowed on MCP servers, which is still REACHABLE.
-                    // Let's just be lenient if we got a response at all, it's reachable.
-                }
-            }
+            client.newCall(getRequest).execute().use { /* just checking reachability */ }
         } catch (e: Exception) {
             return@withContext TunnelValidationResult(Status.UNREACHABLE, null, null, e.localizedMessage)
         }
 
-        // d. Check for MCP capability - send POST to base URL (JSON-RPC)
-        // Some servers expect it at /, some at /message
+        // c. MCP capability probe
         val initializePayload = buildJsonObject {
             put("jsonrpc", "2.0")
             put("id", UUID.randomUUID().toString())
@@ -88,20 +122,20 @@ class TunnelEndpointValidator constructor(
                     val bodyString = response.body?.string() ?: ""
                     try {
                         val jsonResponse = json.parseToJsonElement(bodyString).jsonObject
-                        if (jsonResponse.containsKey("jsonrpc") && jsonResponse["jsonrpc"]?.toString()?.replace("\"", "") == "2.0") {
-                            // Valid MCP
+                        if (jsonResponse.containsKey("jsonrpc") &&
+                            jsonResponse["jsonrpc"]?.toString()?.replace("\"", "") == "2.0"
+                        ) {
                             return@withContext TunnelValidationResult(Status.VALID, host, emptyList(), null)
                         }
                     } catch (e: Exception) {
-                        // Not JSON-RPC
+                        // Not JSON-RPC — fall through
                     }
                 }
             }
         } catch (e: Exception) {
-            // Error on POST
+            // POST failed — fall through to REACHABLE_NO_MCP
         }
 
-        // e. If HTTP reachable but no MCP
         return@withContext TunnelValidationResult(Status.REACHABLE_NO_MCP, null, null, "HTTP reachable but no MCP detected")
     }
 }

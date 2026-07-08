@@ -2,6 +2,8 @@ package com.ekam.baton.feature.chat
 
 import android.content.Context
 import android.net.Uri
+import android.util.Base64
+import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -17,6 +19,10 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import org.json.JSONObject
+import javax.crypto.Mac
+import javax.crypto.spec.SecretKeySpec
+
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -27,6 +33,8 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.first
+
+private const val TAG = "ChatViewModel"
 
 class ChatViewModel(
     private val chatRepository: ChatRepository,
@@ -125,12 +133,21 @@ class ChatViewModel(
 
     fun updateAgentEndpoint(newUrl: String) {
         val current = _currentAgent.value ?: return
+        // SECURITY FIX (MED-5): Validate URL scheme before persisting to DB.
+        // Reject non-HTTP/HTTPS schemes (file://, javascript:, etc.) to prevent
+        // SSRF and local file read attacks through MCP tool calls.
+        val scheme = newUrl.lowercase().substringBefore("://")
+        if (scheme != "http" && scheme != "https") {
+            _uiError.value = "Invalid URL: only http:// and https:// endpoints are allowed."
+            return
+        }
         viewModelScope.launch {
             try {
                 val updatedAgent = current.copy(mcpEndpointUrl = newUrl)
                 chatRepository.upsertAgent(updatedAgent)
                 _currentAgent.value = updatedAgent
             } catch (e: Exception) {
+                Log.e(TAG, "Failed to update agent endpoint", e)
                 _uiError.value = "Failed to update agent endpoint: ${e.message}"
             }
         }
@@ -246,25 +263,51 @@ class ChatViewModel(
 
         return withContext(Dispatchers.IO) {
             try {
-                val loginUrl = if (backendUrlStr.endsWith("/")) "${backendUrlStr}login" else "${backendUrlStr}/login"
-                val jsonInputString = "{\"secret\": \"$jwtSecretStr\"}"
-                val body = okhttp3.RequestBody.create("application/json".toMediaTypeOrNull(), jsonInputString)
-                
+                val loginUrl = if (backendUrlStr.endsWith("/")) {
+                    "${backendUrlStr}login"
+                } else {
+                    "${backendUrlStr}/login"
+                }
+
+                // SECURITY FIX (CRIT-6): Never send the raw JWT secret over the network.
+                // Sign a local HMAC-SHA256 challenge — only the signature + timestamp
+                // travel over the wire. The server verifies via the shared secret it holds.
+                val timestamp = System.currentTimeMillis().toString()
+                val mac = Mac.getInstance("HmacSHA256")
+                val secretKey = SecretKeySpec(jwtSecretStr.toByteArray(Charsets.UTF_8), "HmacSHA256")
+                mac.init(secretKey)
+                val signature = Base64.encodeToString(
+                    mac.doFinal(timestamp.toByteArray(Charsets.UTF_8)),
+                    Base64.NO_WRAP
+                )
+
+                // SECURITY FIX (CRIT-6): Use JSONObject.put() — no string interpolation
+                // which would be vulnerable to JSON injection if secret contains quotes.
+                val jsonInput = JSONObject().apply {
+                    put("timestamp", timestamp)
+                    put("signature", signature)
+                }.toString()
+
+                val body = okhttp3.RequestBody.create(
+                    "application/json".toMediaTypeOrNull(),
+                    jsonInput
+                )
                 val request = okhttp3.Request.Builder()
                     .url(loginUrl)
                     .post(body)
                     .build()
-                
+
                 val response = httpClient.newCall(request).execute()
                 if (response.isSuccessful) {
                     val responseBody = response.body?.string() ?: ""
-                    val json = org.json.JSONObject(responseBody)
+                    val json = JSONObject(responseBody)
                     "Bearer ${json.getString("token")}"
                 } else {
                     null
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                // LOW-1: Use structured logging — never e.printStackTrace() in production
+                Log.e(TAG, "JWT token fetch failed", e)
                 null
             }
         }

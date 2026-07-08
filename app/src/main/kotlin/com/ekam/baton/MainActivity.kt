@@ -88,47 +88,24 @@ class MainActivity : AppCompatActivity() {
 
     private fun extractBatonDeepLinkUrl(intent: android.content.Intent?): String? {
         val data = intent?.data ?: return null
-        if (data.scheme == "baton" && data.host == "connect") {
-            val rawUrl = data.getQueryParameter("url") ?: return null
-            return sanitizePairingUrl(rawUrl)
-        }
-        return null
-    }
+        if (data.scheme != "baton" || data.host != "connect") return null
 
-    /**
-     * The `url` param arrives from an unauthenticated deep link (any app, QR
-     * code, or web page can trigger `baton://connect?url=...`), so it must
-     * never be trusted blindly. This only lets well-formed https URLs (or
-     * http to loopback/private-LAN hosts, for local gateway pairing) through
-     * to the Add Agent pre-fill screen; anything else is dropped rather than
-     * silently pre-populating a malicious endpoint.
-     */
-    private fun sanitizePairingUrl(rawUrl: String): String? {
-        if (rawUrl.length > 2048) return null
-        val uri = try {
-            android.net.Uri.parse(rawUrl)
+        val candidate = data.getQueryParameter("url") ?: return null
+
+        // SECURITY: this activity is exported and BROWSABLE, so any app or
+        // web page can launch baton://connect?url=<anything>. The value is
+        // pre-filled straight into the "add agent" endpoint field, so only
+        // accept schemes the endpoint field is meant to hold — anything else
+        // (javascript:, content:, file:, intent:, etc.) is rejected here
+        // rather than being passed further into the app.
+        val allowedSchemes = setOf("http", "https", "ws", "wss")
+        val candidateScheme = try {
+            java.net.URI(candidate).scheme?.lowercase()
         } catch (e: Exception) {
-            return null
+            null
         }
-        val scheme = uri.scheme?.lowercase() ?: return null
-        val host = uri.host?.lowercase() ?: return null
 
-        return when {
-            scheme == "https" -> rawUrl
-            scheme == "http" && isLocalOrPrivateHost(host) -> rawUrl
-            else -> null // reject javascript:, file:, data:, and public http
-        }
-    }
-
-    private fun isLocalOrPrivateHost(host: String): Boolean {
-        if (host == "localhost" || host == "127.0.0.1" || host.endsWith(".local")) return true
-        // RFC1918 private ranges used by local gateway/mDNS pairing
-        val privateRanges = listOf(
-            Regex("""^10\..*"""),
-            Regex("""^192\.168\..*"""),
-            Regex("""^172\.(1[6-9]|2\d|3[0-1])\..*""")
-        )
-        return privateRanges.any { it.matches(host) }
+        return if (candidateScheme in allowedSchemes) candidate else null
     }
 }
 
@@ -161,7 +138,7 @@ internal fun BatonAppShell(
                 }
             )
         }
-        AuthState.LoggedOut -> {
+        AuthState.LoggedOut, AuthState.LoginFailed -> {
             LoginScreen(
                 onLoginSuccess = {
                     authViewModel.login()

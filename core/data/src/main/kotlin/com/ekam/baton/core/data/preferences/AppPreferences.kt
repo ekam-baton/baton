@@ -51,6 +51,7 @@ class AppPreferences constructor(
     )
 
     private val _jwtSecretFlow = MutableStateFlow(securePrefs.getString("jwt_secret", "") ?: "")
+    private val _isPremiumUnlockedFlow = MutableStateFlow(securePrefs.getBoolean("is_premium_unlocked", false))
 
     val userEmail: Flow<String> = context.dataStore.data.map { "" }
 
@@ -64,9 +65,7 @@ class AppPreferences constructor(
         preferences[TRIAL_START_TIME] ?: 0L
     }
 
-    val isPremiumUnlocked: Flow<Boolean> = context.dataStore.data.map { preferences ->
-        preferences[IS_PREMIUM_UNLOCKED] ?: false
-    }
+    val isPremiumUnlocked: Flow<Boolean> = _isPremiumUnlockedFlow
 
     val themeMode: Flow<String> = context.dataStore.data.map { preferences ->
         preferences[THEME_MODE] ?: "dark"
@@ -176,7 +175,10 @@ class AppPreferences constructor(
     }
 
     suspend fun setPremiumUnlocked(unlocked: Boolean) {
-        context.dataStore.edit { preferences -> preferences[IS_PREMIUM_UNLOCKED] = unlocked }
+        securePrefs.edit().putBoolean("is_premium_unlocked", unlocked).apply()
+        _isPremiumUnlockedFlow.value = unlocked
+        // Clear from plaintext datastore if it was previously stored there
+        context.dataStore.edit { preferences -> preferences.remove(IS_PREMIUM_UNLOCKED) }
     }
 
     suspend fun setBackendUrl(url: String) {
@@ -221,8 +223,9 @@ class AppPreferences constructor(
             preferences.remove(USER_PHONE)
             preferences[IS_REGISTERED] = true
             preferences[TRIAL_START_TIME] = System.currentTimeMillis()
-            preferences[IS_PREMIUM_UNLOCKED] = false
+            preferences.remove(IS_PREMIUM_UNLOCKED)
         }
+        setPremiumUnlocked(false)
     }
 
     suspend fun clearRegistration() {
@@ -231,7 +234,8 @@ class AppPreferences constructor(
             preferences.remove(USER_PHONE)
             preferences[IS_REGISTERED] = false
             preferences[TRIAL_START_TIME] = 0L
-            preferences[IS_PREMIUM_UNLOCKED] = false
+            preferences.remove(IS_PREMIUM_UNLOCKED)
         }
+        setPremiumUnlocked(false)
     }
 }

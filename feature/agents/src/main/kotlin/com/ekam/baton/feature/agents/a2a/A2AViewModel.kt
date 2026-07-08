@@ -13,14 +13,19 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
 
 import com.ekam.baton.core.data.repository.AgentRepository
+import com.ekam.baton.core.data.repository.WorldRoomRepository
 import com.ekam.baton.core.data.model.Agent
+import com.ekam.baton.core.data.model.AgentRole
+import com.ekam.baton.core.data.model.WorldRoom
 import java.util.UUID
 import org.webrtc.PeerConnection
+import kotlin.random.Random
 
 class A2AViewModel(
     private val securityManager: ConnectionSecurityManager,
     private val webRtcTransport: A2AWebRtcTransport,
-    private val agentRepository: AgentRepository
+    private val agentRepository: AgentRepository,
+    private val worldRoomRepository: WorldRoomRepository
 ) : ViewModel() {
     private val _ephemeralPublicKey = MutableStateFlow("")
     val ephemeralPublicKey: StateFlow<String> = _ephemeralPublicKey.asStateFlow()
@@ -40,6 +45,9 @@ class A2AViewModel(
     private var activeSession: A2ASession? = null
     private val _connectionState = MutableStateFlow<PeerConnection.PeerConnectionState>(PeerConnection.PeerConnectionState.NEW)
     val connectionState: StateFlow<PeerConnection.PeerConnectionState> = _connectionState.asStateFlow()
+
+    private val _pendingRoleAssignment = MutableStateFlow<Agent?>(null)
+    val pendingRoleAssignment: StateFlow<Agent?> = _pendingRoleAssignment.asStateFlow()
 
     init {
         generateNewIdentity()
@@ -148,9 +156,11 @@ class A2AViewModel(
                     authConfig = "{}",
                     colorAccent = "#34A853", // Green for secure
                     securityMode = "sovereign",
-                    securityConfig = "{\"shared_secret\": \"$sharedSecretHex\", \"peer_public_key\": \"$remoteKey\"}"
+                    securityConfig = "{\"shared_secret\": \"$sharedSecretHex\", \"peer_public_key\": \"$remoteKey\"}",
+                    role = AgentRole.CODER.name // Default, will be updated during assignment
                 )
                 agentRepository.upsertAgent(newAgent)
+                _pendingRoleAssignment.value = newAgent
             }
 
             val current = _activeTunnels.value.toMutableList()
@@ -161,5 +171,33 @@ class A2AViewModel(
             current.add("Handshake failed: ${remoteKey.take(8)}...")
             _activeTunnels.value = current
         }
+    }
+
+    fun assignRoleToPendingAgent(role: AgentRole) {
+        val agent = _pendingRoleAssignment.value ?: return
+        viewModelScope.launch {
+            // Update agent role in DB
+            val updatedAgent = agent.copy(role = role.name)
+            agentRepository.upsertAgent(updatedAgent)
+            
+            // Auto-create world room
+            val room = WorldRoom(
+                id = UUID.randomUUID().toString(),
+                agentId = agent.id,
+                role = role,
+                displayName = agent.name,
+                colorHex = agent.colorAccent,
+                worldX = Random.nextInt(1, 15), // Random placement for now
+                worldY = Random.nextInt(1, 15)
+            )
+            worldRoomRepository.upsertRoom(room)
+            worldRoomRepository.setDefaultPropsForRoom(room)
+            
+            _pendingRoleAssignment.value = null
+        }
+    }
+    
+    fun dismissRoleAssignment() {
+        _pendingRoleAssignment.value = null
     }
 }

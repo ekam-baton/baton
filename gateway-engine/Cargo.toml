@@ -16,3 +16,7 @@ rand = "0.8"
 hkdf = "0.12"
 zeroize = "1.8"
 hex = "0.4"
+# Rate limiting — per-IP request throttle to prevent DoS / brute-force
+governor = { version = "0.6", features = ["std", "dashmap"] }
+# Non-zero duration support required by governor
+nonzero_ext = "0.3"

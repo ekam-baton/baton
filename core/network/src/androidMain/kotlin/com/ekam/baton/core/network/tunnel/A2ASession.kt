@@ -28,7 +28,14 @@ class A2ASession(
     private val incomingChunks = ConcurrentHashMap<String, Array<ByteArray?>>()
     private val MAX_PAYLOAD_SIZE = 16336
     private val MAX_BUFFER = 1024 * 1024
+    // SECURITY FIX (HIGH-8): Hard caps to prevent OOM via malicious chunk headers
+    private val MAX_TOTAL_CHUNKS = 1_000          // max chunks per message
+    private val MAX_PENDING_MESSAGES = 50          // max incomplete messages in flight
+    private val MAX_CHUNK_PAYLOAD_BYTES = 1_048_576 // 1 MB per message
 
+    // SECURITY FIX (HIGH-7): @Volatile ensures reads/writes of the 64-bit Long
+    // are atomic and visible across threads (data channel observer vs pool monitor).
+    @Volatile
     private var _lastAccessedAt: Long = System.currentTimeMillis()
     override val lastAccessedAt: Long
         get() = _lastAccessedAt
@@ -90,10 +97,10 @@ class A2ASession(
             override fun onMessage(buffer: DataChannel.Buffer?) {
                 markAccessed()
                 if (buffer == null || !buffer.binary) return
-                
+
                 val data = ByteArray(buffer.data.remaining())
                 buffer.data.get(data)
-                
+
                 if (data.size < 48) return
 
                 val bb = ByteBuffer.wrap(data)
@@ -105,6 +112,18 @@ class A2ASession(
                 val typeInt = bb.int
                 val isBinary = typeInt == 1
 
+                // SECURITY FIX (HIGH-8): Validate totalChunks before allocating
+                // any memory. Without this, a peer can send totalChunks=Int.MAX_VALUE
+                // causing a ~17 GB array allocation and immediate OOM crash.
+                if (totalChunks <= 0 || totalChunks > MAX_TOTAL_CHUNKS) return
+                if (chunkIndex < 0 || chunkIndex >= totalChunks) return
+
+                // SECURITY FIX (HIGH-8): Cap number of in-flight partial messages.
+                // Without this, a peer floods unique messageIds to fill the map
+                // and exhaust heap memory.
+                if (!incomingChunks.containsKey(messageId) &&
+                    incomingChunks.size >= MAX_PENDING_MESSAGES) return
+
                 val payloadLength = data.size - 48
                 val payload = ByteArray(payloadLength)
                 bb.get(payload)
@@ -115,13 +134,21 @@ class A2ASession(
                 if (chunks.all { it != null }) {
                     var totalSize = 0
                     chunks.forEach { totalSize += it!!.size }
+
+                    // SECURITY FIX (HIGH-8): Reject reassembled message if total
+                    // size exceeds the per-message byte cap.
+                    if (totalSize > MAX_CHUNK_PAYLOAD_BYTES) {
+                        incomingChunks.remove(messageId)
+                        return
+                    }
+
                     val completePayload = ByteArray(totalSize)
                     var offset = 0
-                    chunks.forEach { 
+                    chunks.forEach {
                         System.arraycopy(it!!, 0, completePayload, offset, it.size)
                         offset += it.size
                     }
-                    
+
                     incomingChunks.remove(messageId)
                     scope.launch {
                         _incomingMessages.emit(A2AWebRtcTransport.A2AMessage(isBinary, completePayload))
@@ -253,10 +280,14 @@ class A2ASession(
         dataChannel?.unregisterObserver()
         dataChannel?.dispose()
         dataChannel = null
-        
+
         peerConnection?.dispose()
         peerConnection = null
-        
+
+        // SECURITY FIX (LOW-4): Clear partial message chunks on disconnect to
+        // release memory promptly and avoid dangling byte-array references.
+        incomingChunks.clear()
+
         _connectionState.value = PeerConnection.PeerConnectionState.CLOSED
     }
 }

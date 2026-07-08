@@ -69,5 +69,23 @@ data class AgentEntity(
     val previousHash: String = "",
 
     @ColumnInfo(name = "hash", defaultValue = "")
-    val hash: String = ""
+    val hash: String = "",
+
+    @ColumnInfo(name = "role", defaultValue = "COORDINATOR")
+    val role: String = "COORDINATOR",
+
+    @ColumnInfo(name = "card_did", defaultValue = "")
+    val cardDid: String = "",
+
+    @ColumnInfo(name = "card_fingerprint", defaultValue = "")
+    val cardFingerprint: String = "",
+
+    @ColumnInfo(name = "card_issued_at", defaultValue = "0")
+    val cardIssuedAt: Long = 0L,
+
+    @ColumnInfo(name = "card_avatar_seed", defaultValue = "")
+    val cardAvatarSeed: String = "",
+
+    @ColumnInfo(name = "world_room_id")
+    val worldRoomId: String? = null
 )

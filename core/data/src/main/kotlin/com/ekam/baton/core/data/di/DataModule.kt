@@ -118,13 +118,52 @@ val dataModule = module {
             }
         }
 
+        val MIGRATION_10_11 = object : androidx.room.migration.Migration(10, 11) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // New agent card + avatar identity columns
+                db.execSQL("ALTER TABLE agents ADD COLUMN role TEXT NOT NULL DEFAULT 'COORDINATOR'")
+                db.execSQL("ALTER TABLE agents ADD COLUMN card_did TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE agents ADD COLUMN card_fingerprint TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE agents ADD COLUMN card_issued_at INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE agents ADD COLUMN card_avatar_seed TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE agents ADD COLUMN world_room_id TEXT DEFAULT NULL")
+                // World room tables
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `world_rooms` (
+                        `id` TEXT NOT NULL,
+                        `agent_id` TEXT NOT NULL,
+                        `role_key` TEXT NOT NULL DEFAULT 'COORDINATOR',
+                        `display_name` TEXT NOT NULL,
+                        `color_hex` TEXT NOT NULL DEFAULT '#3D8EFF',
+                        `world_x` INTEGER NOT NULL DEFAULT 0,
+                        `world_y` INTEGER NOT NULL DEFAULT 0,
+                        `width_tiles` INTEGER NOT NULL DEFAULT 8,
+                        `height_tiles` INTEGER NOT NULL DEFAULT 6,
+                        `created_at` INTEGER NOT NULL,
+                        PRIMARY KEY(`id`))
+                """.trimIndent())
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `world_room_props` (
+                        `id` TEXT NOT NULL,
+                        `room_id` TEXT NOT NULL,
+                        `prop_type` TEXT NOT NULL,
+                        `grid_x` REAL NOT NULL,
+                        `grid_y` REAL NOT NULL,
+                        `grid_z` REAL NOT NULL DEFAULT 0.0,
+                        `anim_seed` INTEGER NOT NULL DEFAULT 0,
+                        `custom_color_hex` TEXT,
+                        PRIMARY KEY(`id`))
+                """.trimIndent())
+            }
+        }
+
         val builder = Room.databaseBuilder(
             context,
             BatonDatabase::class.java,
             BatonDatabase.DATABASE_NAME,
         )
             .openHelperFactory(factory)
-            .addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
+            .addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
             .fallbackToDestructiveMigration()
 
         try {
@@ -145,7 +184,7 @@ val dataModule = module {
                 BatonDatabase.DATABASE_NAME,
             )
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
+                .addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
                 .fallbackToDestructiveMigration()
             freshBuilder.build()
         }
@@ -157,6 +196,9 @@ val dataModule = module {
     single<MemoryDao> { get<BatonDatabase>().memoryDao() }
     single<com.ekam.baton.core.data.db.dao.AuditDao> { get<BatonDatabase>().auditDao() }
     single<com.ekam.baton.core.data.db.dao.AgentActionLogDao> { get<BatonDatabase>().agentActionLogDao() }
+    single<com.ekam.baton.core.data.db.dao.WorldRoomDao> { get<BatonDatabase>().worldRoomDao() }
+    single<com.ekam.baton.core.data.db.dao.WorldRoomPropDao> { get<BatonDatabase>().worldRoomPropDao() }
+    single { com.ekam.baton.core.data.repository.WorldRoomRepository(get(), get()) }
 
     single { com.ekam.baton.core.data.preferences.AppPreferences(androidContext()) }
     single { com.ekam.baton.core.data.preferences.SessionManager(get()) }

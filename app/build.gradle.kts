@@ -89,6 +89,10 @@ android {
 }
 
 dependencies {
+    implementation(libs.ktor.client.okhttp)
+    implementation(libs.okhttp)
+    
+    // Test dependencies
     implementation(libs.koin.androidx.compose)
     // Feature modules
     implementation(project(":feature:chat"))
