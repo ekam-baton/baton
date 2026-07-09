@@ -53,6 +53,7 @@ fun SettingsScreen(
     val memoryRetentionDays by viewModel.memoryRetentionDays.collectAsStateWithLifecycle()
     val enableHapticFeedback by viewModel.enableHapticFeedback.collectAsStateWithLifecycle()
     val backendUrl by viewModel.backendUrl.collectAsStateWithLifecycle()
+    val pipelineMode by viewModel.pipelineMode.collectAsStateWithLifecycle()
     val jwtSecret by viewModel.jwtSecret.collectAsStateWithLifecycle()
     
     val agents by viewModel.agents.collectAsStateWithLifecycle()
@@ -92,6 +93,7 @@ fun SettingsScreen(
     var showClearMemoriesDialog by remember { mutableStateOf(false) }
     var showBackendUrlDialog by remember { mutableStateOf(false) }
     var backendUrlInput by remember { mutableStateOf("") }
+    var showPipelineModeDialog by remember { mutableStateOf(false) }
     var showJwtSecretDialog by remember { mutableStateOf(false) }
     var jwtSecretInput by remember { mutableStateOf("") }
     var wipeConfirmationText by remember { mutableStateOf("") }
@@ -321,25 +323,35 @@ fun SettingsScreen(
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                 )
                 ListItem(
-                    headlineContent = { Text("Backend API URL") },
-                    supportingContent = { Text(backendUrl) },
-                    leadingContent = { Icon(Icons.Default.Link, contentDescription = null) },
-                    modifier = Modifier.clickable { 
-                        backendUrlInput = backendUrl
-                        showBackendUrlDialog = true 
-                    },
+                    headlineContent = { Text("Pipeline Connection Mode") },
+                    supportingContent = { Text(if (pipelineMode == "MANAGED") "Managed (EKAM Cloud)" else "Custom Server (BYOS)") },
+                    leadingContent = { Icon(Icons.Default.Cloud, contentDescription = null) },
+                    modifier = Modifier.clickable { showPipelineModeDialog = true },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                 )
-                ListItem(
-                    headlineContent = { Text("Server Secret Key") },
-                    supportingContent = { Text(if (jwtSecret.isNotBlank()) "••••••••••••" else "Not set") },
-                    leadingContent = { Icon(Icons.Default.VpnKey, contentDescription = null) },
-                    modifier = Modifier.clickable { 
-                        jwtSecretInput = jwtSecret
-                        showJwtSecretDialog = true 
-                    },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                )
+                
+                if (pipelineMode == "BYOS") {
+                    ListItem(
+                        headlineContent = { Text("Backend API URL") },
+                        supportingContent = { Text(backendUrl) },
+                        leadingContent = { Icon(Icons.Default.Link, contentDescription = null) },
+                        modifier = Modifier.clickable { 
+                            backendUrlInput = backendUrl
+                            showBackendUrlDialog = true 
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                    ListItem(
+                        headlineContent = { Text("Server Secret Key") },
+                        supportingContent = { Text(if (jwtSecret.isNotBlank()) "••••••••••••" else "Not set") },
+                        leadingContent = { Icon(Icons.Default.VpnKey, contentDescription = null) },
+                        modifier = Modifier.clickable { 
+                            jwtSecretInput = jwtSecret
+                            showJwtSecretDialog = true 
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                }
             }
 
             // SECTION: Local Agents
@@ -699,6 +711,40 @@ fun SettingsScreen(
                     Text("Cancel")
                 }
             }
+        )
+    }
+
+    if (showPipelineModeDialog) {
+        AlertDialog(
+            onDismissRequest = { showPipelineModeDialog = false },
+            title = { Text("Pipeline Connection Mode") },
+            text = {
+                Column {
+                    listOf("MANAGED" to "Managed (EKAM Cloud)", "BYOS" to "Custom Server (BYOS)").forEach { (mode, label) ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { 
+                                    viewModel.setPipelineMode(mode)
+                                    showPipelineModeDialog = false
+                                }
+                                .padding(vertical = 12.dp)
+                        ) {
+                            RadioButton(selected = pipelineMode == mode, onClick = null)
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Text(label)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "Note: You must restart the app after changing the connection mode for it to take effect.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            },
+            confirmButton = {}
         )
     }
 

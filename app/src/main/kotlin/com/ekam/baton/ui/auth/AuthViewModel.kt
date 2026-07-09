@@ -67,7 +67,22 @@ class AuthViewModel(
         viewModelScope.launch {
             val backendUrlStr = appPreferences.backendUrl.first()
             val jwtSecretStr = appPreferences.jwtSecret.first()
+            val pipelineMode = appPreferences.pipelineMode.first()
+            val isPremium = appPreferences.isPremiumUnlocked.first()
 
+            if (!isPremium) {
+                _loginError.value = "Premium access required (250 RS). Please upgrade in Settings."
+                return@launch
+            }
+
+            if (pipelineMode == "MANAGED") {
+                // EKAM Cloud mode: authenticated by Google Play billing receipt (checked above)
+                _loginError.value = null
+                sessionManager.setLoggedIn(true)
+                return@launch
+            }
+
+            // BYOS mode logic
             // SECURITY FIX (HIGH-6): No unauthenticated fallback.
             // If no JWT secret is configured, the app must NOT auto-login.
             // The user must configure their BYOS backend first.

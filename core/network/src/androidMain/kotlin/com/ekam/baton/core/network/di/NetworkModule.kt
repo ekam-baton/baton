@@ -88,7 +88,7 @@ val networkModule = module {
     single { McpMessageSender(get(), get(), get<android.content.Context>()) }
     single { ToolAuthorizationManager() }
     single { com.ekam.baton.core.network.security.ConnectionSecurityManager(get<android.content.Context>()) }
-    single { com.ekam.baton.core.network.tunnel.TunnelEndpointValidator(get()) }
+    single { com.ekam.baton.core.network.tunnel.TunnelEndpointValidator(get(), get()) }
     single { com.ekam.baton.core.network.tunnel.ConnectionPoolManager() }
     single { com.ekam.baton.core.network.tunnel.A2AWebRtcTransport(get<android.content.Context>(), get()) }
     single { com.ekam.baton.core.network.mdns.MdnsDiscoveryManager(get<android.content.Context>()) }

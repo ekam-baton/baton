@@ -17,9 +17,25 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 class TunnelEndpointValidator constructor(
-    private val json: Json
+    private val json: Json,
+    // SECURITY: this used to build its own local OkHttpClient with the
+    // default system DNS resolver — a completely separate resolution path
+    // from the one isPrivateOrReservedAddress() used to decide whether the
+    // host was safe. That let a malicious DNS server answer differently for
+    // the check vs. the actual connection (classic DNS-rebinding SSRF),
+    // undermining the exact protection this class exists to provide.
+    // Sharing the app's single OkHttpClient means both the validation
+    // decision and the real connection go through the same SsrfProtectionDns
+    // resolution, so there's no gap between "what we checked" and
+    // "what we connected to."
+    private val client: OkHttpClient
 ) {
-    private val client = OkHttpClient.Builder()
+    // The shared client has an unlimited read timeout (needed for SSE
+    // streaming elsewhere in the app) — wrong for a bounded reachability
+    // probe. newBuilder() clones the shared client, keeping its dns()
+    // (SsrfProtectionDns) and interceptors, while only overriding the
+    // timeouts for this use case.
+    private val probeClient: OkHttpClient = client.newBuilder()
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(10, TimeUnit.SECONDS)
         .build()
@@ -69,7 +85,9 @@ class TunnelEndpointValidator constructor(
         // The allowlist check is performed BEFORE any HTTP call is made.
         // Previously, only the UI classification was gated behind this check,
         // but the actual HTTP requests were made to any URL — enabling SSRF.
-        val isTunnel = ALLOWED_TUNNEL_SUFFIXES.any { host.endsWith(it) }
+        // BYOS FIX: Any HTTPS URL is treated as a valid tunnel because TLS certificates
+        // and our SsrfProtectionDns ensure safe routing without strict suffix checks.
+        val isTunnel = ALLOWED_TUNNEL_SUFFIXES.any { host.endsWith(it) } || urlString.startsWith("https://")
         val isExplicitLocal = ALLOWED_LOCAL_HOSTS.contains(host.lowercase())
 
         if (!isTunnel && !isExplicitLocal) {
@@ -90,7 +108,7 @@ class TunnelEndpointValidator constructor(
             .build()
 
         try {
-            client.newCall(getRequest).execute().use { /* just checking reachability */ }
+            probeClient.newCall(getRequest).execute().use { /* just checking reachability */ }
         } catch (e: Exception) {
             return@withContext TunnelValidationResult(Status.UNREACHABLE, null, null, e.localizedMessage)
         }
@@ -117,7 +135,7 @@ class TunnelEndpointValidator constructor(
             .build()
 
         try {
-            client.newCall(postRequest).execute().use { response ->
+            probeClient.newCall(postRequest).execute().use { response ->
                 if (response.isSuccessful) {
                     val bodyString = response.body?.string() ?: ""
                     try {

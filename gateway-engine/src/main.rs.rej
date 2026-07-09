@@ -1,0 +1,10 @@
+diff a/gateway-engine/src/main.rs b/gateway-engine/src/main.rs	(rejected hunks)
+@@ -331,7 +377,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
+             // ------------------------------------------------------------------
+             // Step 4 — Parse encrypted JSON body
+             // ------------------------------------------------------------------
+-            let json_body: serde_json::Value = match serde_json::from_str(body_part) {
++            let json_body: serde_json::Value = match serde_json::from_str(&body_part) {
+                 Ok(v) => v,
+                 Err(_) => {
+                     send_status_error(&mut socket, 400, "Invalid JSON body").await;

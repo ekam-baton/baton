@@ -91,21 +91,49 @@ class MainActivity : AppCompatActivity() {
         if (data.scheme != "baton" || data.host != "connect") return null
 
         val candidate = data.getQueryParameter("url") ?: return null
+        return sanitizePairingUrl(candidate)
+    }
 
-        // SECURITY: this activity is exported and BROWSABLE, so any app or
-        // web page can launch baton://connect?url=<anything>. The value is
-        // pre-filled straight into the "add agent" endpoint field, so only
-        // accept schemes the endpoint field is meant to hold — anything else
-        // (javascript:, content:, file:, intent:, etc.) is rejected here
-        // rather than being passed further into the app.
-        val allowedSchemes = setOf("http", "https", "ws", "wss")
-        val candidateScheme = try {
-            java.net.URI(candidate).scheme?.lowercase()
+    /**
+     * The url param arrives from an unauthenticated deep link — this
+     * activity is exported and BROWSABLE, so any app, QR code, or web page
+     * can launch baton://connect?url=<anything>. The value is pre-filled
+     * straight into the "add agent" endpoint field, so it needs two layers
+     * of restriction, not just one:
+     *   1. Scheme allowlist — rejects javascript:, content:, file:, intent:,
+     *      and anything else that isn't a plain network endpoint scheme.
+     *   2. For the cleartext schemes (http/ws), the host must be local or
+     *      private-LAN. Encrypted schemes (https/wss) can go anywhere,
+     *      since TLS protects the connection regardless of destination.
+     *      Without this second check, a deep link could pre-fill a
+     *      cleartext endpoint pointed at an arbitrary public host.
+     */
+    private fun sanitizePairingUrl(rawUrl: String): String? {
+        if (rawUrl.length > 2048) return null
+        val uri = try {
+            java.net.URI(rawUrl)
         } catch (e: Exception) {
-            null
+            return null
         }
+        val scheme = uri.scheme?.lowercase() ?: return null
+        val host = uri.host?.lowercase() ?: return null
 
-        return if (candidateScheme in allowedSchemes) candidate else null
+        return when (scheme) {
+            "https", "wss" -> rawUrl
+            "http", "ws" -> if (isLocalOrPrivateHost(host)) rawUrl else null
+            else -> null // reject javascript:, file:, content:, intent:, data:, etc.
+        }
+    }
+
+    private fun isLocalOrPrivateHost(host: String): Boolean {
+        if (host == "localhost" || host == "127.0.0.1" || host.endsWith(".local")) return true
+        // RFC1918 private ranges used by local gateway/mDNS pairing
+        val privateRanges = listOf(
+            Regex("""^10\..*"""),
+            Regex("""^192\.168\..*"""),
+            Regex("""^172\.(1[6-9]|2\d|3[0-1])\..*""")
+        )
+        return privateRanges.any { it.matches(host) }
     }
 }
 

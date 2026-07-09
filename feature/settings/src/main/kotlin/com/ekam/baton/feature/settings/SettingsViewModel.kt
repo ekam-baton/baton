@@ -139,6 +139,13 @@ class SettingsViewModel(
             initialValue = "http://10.0.2.2:8080/"
         )
 
+    val pipelineMode: StateFlow<String> = appPreferences.pipelineMode
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = "MANAGED"
+        )
+
     val jwtSecret: StateFlow<String> = appPreferences.jwtSecret
         .stateIn(
             scope = viewModelScope,
@@ -166,6 +173,12 @@ class SettingsViewModel(
     fun setBackendUrl(url: String) = viewModelScope.launch {
         val finalUrl = if (!url.endsWith("/")) "$url/" else url
         appPreferences.setBackendUrl(finalUrl)
+    }
+
+    fun setPipelineMode(mode: String) {
+        viewModelScope.launch {
+            appPreferences.setPipelineMode(mode)
+        }
     }
 
     fun setJwtSecret(secret: String) = viewModelScope.launch {

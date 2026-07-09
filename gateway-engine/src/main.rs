@@ -226,21 +226,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
 
             // ------------------------------------------------------------------
-            // Read HTTP request — loop until \r\n\r\n or MAX_REQUEST_BYTES
+            // Read HTTP request headers — loop until \r\n\r\n or MAX_REQUEST_BYTES
             // ------------------------------------------------------------------
             let mut raw = Vec::with_capacity(4096);
             let mut tmp = [0u8; 4096];
+            let header_end: usize;
             loop {
                 match socket.read(&mut tmp).await {
-                    Ok(0) => break,
+                    Ok(0) => {
+                        send_status_error(&mut socket, 400, "Connection closed before headers completed").await;
+                        return;
+                    }
                     Ok(n) => {
                         raw.extend_from_slice(&tmp[..n]);
                         if raw.len() > MAX_REQUEST_BYTES {
                             send_status_error(&mut socket, 413, "Request too large").await;
                             return;
                         }
-                        // Stop reading once we have the full header + body
-                        if raw.windows(4).any(|w| w == b"\r\n\r\n") {
+                        if let Some(pos) = raw.windows(4).position(|w| w == b"\r\n\r\n") {
+                            header_end = pos;
                             break;
                         }
                     }
@@ -248,13 +252,55 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
 
-            let request_str = String::from_utf8_lossy(&raw);
-            let parts: Vec<&str> = request_str.splitn(2, "\r\n\r\n").collect();
-            if parts.len() < 2 {
+            // SECURITY/CORRECTNESS: headers arriving doesn't mean the body
+            // has arrived too — TCP makes no such guarantee, and a body can
+            // easily land in a later read() than the "\r\n\r\n" separator.
+            // This used to stop reading right here, silently truncating any
+            // body that hadn't fully arrived yet. Now it keeps reading until
+            // it has the full Content-Length-declared body (bytes are
+            // sliced from the raw buffer, not a lossy-converted String, to
+            // avoid panicking on a UTF-8 char boundary if the buffer ever
+            // contains invalid UTF-8).
+            let header_str = String::from_utf8_lossy(&raw[..header_end]).into_owned();
+
+            let content_length: usize = header_str
+                .lines()
+                .find_map(|line| {
+                    let lower = line.to_lowercase();
+                    if lower.starts_with("content-length:") {
+                        line.splitn(2, ':').nth(1)?.trim().parse().ok()
+                    } else {
+                        None
+                    }
+                })
+                .unwrap_or(0);
+
+            let body_end = header_end + 4 + content_length;
+            if body_end > MAX_REQUEST_BYTES {
+                send_status_error(&mut socket, 413, "Request too large").await;
                 return;
             }
-            let header_part = parts[0];
-            let body_part = parts[1];
+
+            while raw.len() < body_end {
+                match socket.read(&mut tmp).await {
+                    Ok(0) => {
+                        send_status_error(&mut socket, 400, "Connection closed before body completed").await;
+                        return;
+                    }
+                    Ok(n) => {
+                        raw.extend_from_slice(&tmp[..n]);
+                        if raw.len() > MAX_REQUEST_BYTES {
+                            send_status_error(&mut socket, 413, "Request too large").await;
+                            return;
+                        }
+                    }
+                    Err(_) => return,
+                }
+            }
+
+            let body_str = String::from_utf8_lossy(&raw[header_end + 4..body_end]).into_owned();
+            let header_part = header_str;
+            let body_part = body_str;
 
             // ------------------------------------------------------------------
             // Parse security-relevant headers
@@ -331,7 +377,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             // ------------------------------------------------------------------
             // Step 4 — Parse encrypted JSON body
             // ------------------------------------------------------------------
-            let json_body: serde_json::Value = match serde_json::from_str(body_part) {
+            let json_body: serde_json::Value = match serde_json::from_str(&body_part) {
                 Ok(v) => v,
                 Err(_) => {
                     send_status_error(&mut socket, 400, "Invalid JSON body").await;

@@ -7,6 +7,8 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
@@ -36,22 +38,71 @@ class AppPreferences constructor(
         val BACKEND_URL = stringPreferencesKey("backend_url")
         val JWT_SECRET = stringPreferencesKey("jwt_secret")
         val ALLOW_LOCAL_NETWORK_AGENTS = booleanPreferencesKey("allow_local_network_agents")
+        val PIPELINE_MODE = stringPreferencesKey("pipeline_mode")
     }
 
-    private val masterKey = MasterKey.Builder(context)
-        .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-        .build()
+    private val securePrefs = try {
+        val masterKey = MasterKey.Builder(context)
+            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+            .build()
+        EncryptedSharedPreferences.create(
+            context,
+            "secure_baton_prefs",
+            masterKey,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+    } catch (e: Exception) {
+        e.printStackTrace()
+        try {
+            context.deleteSharedPreferences("secure_baton_prefs")
+        } catch (ignored: Exception) {}
+        try {
+            val file = java.io.File(context.filesDir.parent, "shared_prefs/secure_baton_prefs.xml")
+            if (file.exists()) file.delete()
+            val bakFile = java.io.File(context.filesDir.parent, "shared_prefs/secure_baton_prefs.xml.bak")
+            if (bakFile.exists()) bakFile.delete()
+            val bakFile2 = java.io.File(context.filesDir.parent, "shared_prefs/secure_baton_prefs.bak")
+            if (bakFile2.exists()) bakFile2.delete()
+        } catch (ignored: Exception) {}
 
-    private val securePrefs = EncryptedSharedPreferences.create(
-        context,
-        "secure_baton_prefs",
-        masterKey,
-        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-    )
+        try {
+            val keyStore = java.security.KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+            keyStore.deleteEntry(MasterKey.DEFAULT_MASTER_KEY_ALIAS)
+        } catch (ignored: Exception) {}
+
+        try {
+            val freshMasterKey = MasterKey.Builder(context)
+                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                .build()
+            EncryptedSharedPreferences.create(
+                context,
+                "secure_baton_prefs",
+                freshMasterKey,
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            )
+        } catch (fallbackEx: Exception) {
+            fallbackEx.printStackTrace()
+            throw SecurityException("CRITICAL: Failed to initialize EncryptedSharedPreferences for AppPreferences.", fallbackEx)
+        }
+    }
 
     private val _jwtSecretFlow = MutableStateFlow(securePrefs.getString("jwt_secret", "") ?: "")
     private val _isPremiumUnlockedFlow = MutableStateFlow(securePrefs.getBoolean("is_premium_unlocked", false))
+
+    init {
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            val legacyJwt = context.dataStore.data.map { it[JWT_SECRET] }.firstOrNull()
+            if (!legacyJwt.isNullOrBlank() && securePrefs.getString("jwt_secret", "") == "") {
+                setJwtSecret(legacyJwt)
+            }
+            val legacyPremium = context.dataStore.data.map { it[IS_PREMIUM_UNLOCKED] }.firstOrNull()
+            if (legacyPremium != null && !securePrefs.getBoolean("is_premium_unlocked", false)) {
+                setPremiumUnlocked(legacyPremium)
+            }
+        }
+    }
 
     val userEmail: Flow<String> = context.dataStore.data.map { "" }
 
@@ -122,6 +173,10 @@ class AppPreferences constructor(
         preferences[ALLOW_LOCAL_NETWORK_AGENTS] ?: false
     }
 
+    val pipelineMode: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[PIPELINE_MODE] ?: "MANAGED"
+    }
+
     suspend fun setThemeMode(mode: String) {
         context.dataStore.edit { preferences -> preferences[THEME_MODE] = mode }
     }
@@ -187,6 +242,10 @@ class AppPreferences constructor(
 
     suspend fun setAllowLocalNetworkAgents(allow: Boolean) {
         context.dataStore.edit { preferences -> preferences[ALLOW_LOCAL_NETWORK_AGENTS] = allow }
+    }
+
+    suspend fun setPipelineMode(mode: String) {
+        context.dataStore.edit { preferences -> preferences[PIPELINE_MODE] = mode }
     }
 
     val keyboardShortcuts: Flow<List<KeyboardShortcut>> = context.dataStore.data.map { preferences ->
