@@ -85,9 +85,17 @@ class TunnelEndpointValidator constructor(
         // The allowlist check is performed BEFORE any HTTP call is made.
         // Previously, only the UI classification was gated behind this check,
         // but the actual HTTP requests were made to any URL — enabling SSRF.
-        // BYOS FIX: Any HTTPS URL is treated as a valid tunnel because TLS certificates
-        // and our SsrfProtectionDns ensure safe routing without strict suffix checks.
-        val isTunnel = ALLOWED_TUNNEL_SUFFIXES.any { host.endsWith(it) } || urlString.startsWith("https://")
+        //
+        // SECURITY FIX (BYOS-SSRF-1): A prior BYOS change treated *any*
+        // https:// URL as an automatically-trusted tunnel, on the theory
+        // that "TLS certs ensure safe routing." That's not true — a valid
+        // cert only proves the hostname matches, not that the hostname
+        // resolves somewhere safe. An attacker can obtain a legitimate cert
+        // for a domain they control and then point that domain's DNS record
+        // at 127.0.0.1, 169.254.169.254, or a LAN IP (DNS rebinding), which
+        // is exactly the attack isPrivateOrReservedAddress() below exists to
+        // catch. So scheme alone must never bypass that check.
+        val isTunnel = ALLOWED_TUNNEL_SUFFIXES.any { host.endsWith(it) }
         val isExplicitLocal = ALLOWED_LOCAL_HOSTS.contains(host.lowercase())
 
         if (!isTunnel && !isExplicitLocal) {
