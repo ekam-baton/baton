@@ -126,7 +126,7 @@ fun LoginScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Please authenticate to access your secure AI environment.",
+                text = "Tap below to unlock with your fingerprint or face.",
                 fontSize = 15.sp,
                 color = Color(0xFF7A8B9E),
                 modifier = Modifier.padding(horizontal = 16.dp),
@@ -158,7 +158,7 @@ fun LoginScreen(
                     .height(54.dp)
             ) {
                 Text(
-                    text = "Unlock with Biometrics",
+                    text = "Unlock Baton",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold
                 )

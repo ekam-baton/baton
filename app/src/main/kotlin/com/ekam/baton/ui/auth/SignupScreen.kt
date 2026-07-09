@@ -179,7 +179,7 @@ fun SignupScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Set up your profile to continue.",
+                text = "Just a few quick details to get started.",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
                 textAlign = TextAlign.Center
@@ -202,7 +202,7 @@ fun SignupScreen(
                         Icon(Icons.Outlined.PersonOutline, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary)
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Profile Setup",
+                            text = "Create Your Profile",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
                             color = Color.White
@@ -302,7 +302,7 @@ fun SignupScreen(
                             .height(50.dp)
                     ) {
                         Text(
-                            text = "Verify & Sign Up",
+                            text = "Get Started",
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold
                         )

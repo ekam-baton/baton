@@ -142,7 +142,7 @@ fun SettingsScreen(
         ) {
             // SECTION: Profile
             item {
-                SettingsSectionHeader("Profile Details")
+                SettingsSectionHeader("Your Profile")
                 ListItem(
                     headlineContent = { Text("Email Address") },
                     supportingContent = { Text(userEmail.ifBlank { "Not set" }) },
@@ -165,16 +165,16 @@ fun SettingsScreen(
                 
                 if (isPremium) {
                     ListItem(
-                        headlineContent = { Text("Premium Status") },
-                        supportingContent = { Text("Premium Active — Unlimited Access") },
+                        headlineContent = { Text("Active Plan") },
+                        supportingContent = { Text("✓ Full Access Unlocked") },
                         leadingContent = { Icon(Icons.Default.Star, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary) },
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                     )
                 } else {
                     val daysLeft = viewModel.getTrialDaysRemaining(trialStart)
                     ListItem(
-                        headlineContent = { Text("Subscription Plan") },
-                        supportingContent = { Text("Trial Active — $daysLeft days remaining") },
+                        headlineContent = { Text("Free Trial") },
+                        supportingContent = { Text("$daysLeft days remaining in your trial") },
                         leadingContent = { Icon(Icons.Default.Star, contentDescription = null) },
                         trailingContent = {
                             Button(
@@ -194,7 +194,7 @@ fun SettingsScreen(
                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                                 modifier = Modifier.height(32.dp)
                             ) {
-                                Text("Upgrade", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text("Unlock", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             }
                         },
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent)
@@ -266,8 +266,8 @@ fun SettingsScreen(
             item {
                 SettingsSectionHeader("Privacy & Security")
                 ListItem(
-                    headlineContent = { Text("App lock") },
-                    supportingContent = { Text("Requires biometric authentication to resume app") },
+                    headlineContent = { Text("App Lock") },
+                    supportingContent = { Text("Use fingerprint or face ID every time you open Baton") },
                     leadingContent = { Icon(Icons.Default.Lock, contentDescription = null) },
                     trailingContent = {
                         Switch(
@@ -278,8 +278,8 @@ fun SettingsScreen(
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                 )
                 ListItem(
-                    headlineContent = { Text("Log out") },
-                    supportingContent = { Text("Require biometric login to access app") },
+                    headlineContent = { Text("Sign Out") },
+                    supportingContent = { Text("Lock the app until you authenticate again") },
                     leadingContent = { Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = null) },
                     modifier = Modifier.clickable {
                         if (enableHapticFeedback) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -288,8 +288,8 @@ fun SettingsScreen(
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                 )
                 ListItem(
-                    headlineContent = { Text("Database encryption") },
-                    supportingContent = { Text("Encrypted with SQLCipher") },
+                    headlineContent = { Text("Data Encryption") },
+                    supportingContent = { Text("Your data is encrypted and stored only on this device") },
                     leadingContent = { Icon(Icons.Default.Security, contentDescription = null) },
                     trailingContent = {
                         Surface(color = MaterialTheme.colorScheme.tertiaryContainer, shape = RoundedCornerShape(16.dp)) {
@@ -299,20 +299,21 @@ fun SettingsScreen(
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                 )
                 ListItem(
-                    headlineContent = { Text("Clear all data", color = MaterialTheme.colorScheme.error) },
+                    headlineContent = { Text("Erase All Data", color = MaterialTheme.colorScheme.error) },
+                    supportingContent = { Text("Permanently delete all agents, chats, and memories", color = MaterialTheme.colorScheme.error.copy(alpha = 0.7f)) },
                     leadingContent = { Icon(Icons.Default.DeleteForever, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
                     modifier = Modifier.clickable { showWipeDialog = true },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                 )
             }
 
-            // SECTION: Network Configuration
+            // SECTION: Network Configuration (Advanced)
             item {
-                SettingsSectionHeader("Network Configuration")
+                SettingsSectionHeader("Connection")
                 val allowLocalNetworkAgents by viewModel.allowLocalNetworkAgents.collectAsStateWithLifecycle()
                 ListItem(
-                    headlineContent = { Text("Allow local network agents") },
-                    supportingContent = { Text("Enable connections to agents on your local network (e.g. 192.168.x.x, localhost). Keep disabled for security.") },
+                    headlineContent = { Text("Allow Home Network Agents") },
+                    supportingContent = { Text("Connect to AI running on the same Wi-Fi network (e.g., your home computer)") },
                     leadingContent = { Icon(Icons.Default.Wifi, contentDescription = null) },
                     trailingContent = {
                         Switch(
@@ -323,8 +324,8 @@ fun SettingsScreen(
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                 )
                 ListItem(
-                    headlineContent = { Text("Pipeline Connection Mode") },
-                    supportingContent = { Text(if (pipelineMode == "MANAGED") "Managed (EKAM Cloud)" else "Custom Server (BYOS)") },
+                    headlineContent = { Text("Connection Mode") },
+                    supportingContent = { Text(if (pipelineMode == "MANAGED") "EKAM Cloud (Recommended)" else "My Own Server") },
                     leadingContent = { Icon(Icons.Default.Cloud, contentDescription = null) },
                     modifier = Modifier.clickable { showPipelineModeDialog = true },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)
@@ -332,8 +333,8 @@ fun SettingsScreen(
                 
                 if (pipelineMode == "BYOS") {
                     ListItem(
-                        headlineContent = { Text("Backend API URL") },
-                        supportingContent = { Text(backendUrl) },
+                        headlineContent = { Text("Server Address") },
+                        supportingContent = { Text(backendUrl.ifBlank { "Not set — tap to configure" }) },
                         leadingContent = { Icon(Icons.Default.Link, contentDescription = null) },
                         modifier = Modifier.clickable { 
                             backendUrlInput = backendUrl
@@ -342,8 +343,8 @@ fun SettingsScreen(
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                     )
                     ListItem(
-                        headlineContent = { Text("Server Secret Key") },
-                        supportingContent = { Text(if (jwtSecret.isNotBlank()) "••••••••••••" else "Not set") },
+                        headlineContent = { Text("Server Password") },
+                        supportingContent = { Text(if (jwtSecret.isNotBlank()) "••••••••  (tap to change)" else "Not set — tap to configure") },
                         leadingContent = { Icon(Icons.Default.VpnKey, contentDescription = null) },
                         modifier = Modifier.clickable { 
                             jwtSecretInput = jwtSecret
@@ -356,10 +357,10 @@ fun SettingsScreen(
 
             // SECTION: Local Agents
             item {
-                SettingsSectionHeader("Local Agents")
+                SettingsSectionHeader("My AI Agents")
                 ListItem(
-                    headlineContent = { Text("Setup Guide") },
-                    supportingContent = { Text("How to expose local models via Cloudflare") },
+                    headlineContent = { Text("How to Connect a Local Agent") },
+                    supportingContent = { Text("Step-by-step guide to connect AI running on your computer") },
                     leadingContent = { Icon(Icons.Default.CloudSync, contentDescription = null) },
                     modifier = Modifier.clickable { onNavigateToTunnelSetup() },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)
@@ -370,8 +371,8 @@ fun SettingsScreen(
                     host.endsWith(".ngrok-free.app") || host.endsWith(".bore.pub") || host == "localhost"
                 }
                 ListItem(
-                    headlineContent = { Text("Active tunnels") },
-                    supportingContent = { Text("${tunnelAgents.size} local agents connected") },
+                    headlineContent = { Text("Connected Local Agents") },
+                    supportingContent = { Text(if (tunnelAgents.isEmpty()) "No local agents connected yet" else "${tunnelAgents.size} agent${if (tunnelAgents.size == 1) "" else "s"} connected") },
                     leadingContent = { Icon(Icons.Default.Sensors, contentDescription = null) },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                 )
@@ -379,17 +380,17 @@ fun SettingsScreen(
 
             // SECTION: Memory
             item {
-                SettingsSectionHeader("Memory")
+                SettingsSectionHeader("Memory & Learning")
                 ListItem(
-                    headlineContent = { Text("Agent Memory Viewer") },
-                    supportingContent = { Text("Browse episodic and semantic memories") },
+                    headlineContent = { Text("View Agent Memories") },
+                    supportingContent = { Text("See what your AI has learned and remembered about you") },
                     leadingContent = { Icon(Icons.Default.Psychology, contentDescription = null) },
                     modifier = Modifier.clickable { onNavigateToMemory() },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                 )
                 ListItem(
-                    headlineContent = { Text("Auto-extract facts") },
-                    supportingContent = { Text("Automatically learn key facts from your messages") },
+                    headlineContent = { Text("Remember facts from chats") },
+                    supportingContent = { Text("Your AI will remember details you share, like your name or preferences") },
                     leadingContent = { Icon(Icons.Default.Info, contentDescription = null) },
                     trailingContent = {
                         Switch(
@@ -400,30 +401,9 @@ fun SettingsScreen(
                     },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                 )
-
-                SettingsSectionHeader("E-Discovery & Legal")
                 ListItem(
-                    headlineContent = { Text("Export Cryptographic Ledger") },
-                    supportingContent = { Text("Export tamper-proof audit logs (JSON)") },
-                    leadingContent = { Icon(Icons.Default.Lock, contentDescription = null) },
-                    trailingContent = {
-                        OutlinedButton(
-                            onClick = {
-                                viewModel.exportAuditLogs(context)
-                            },
-                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
-                        ) {
-                            Text("Export")
-                        }
-                    },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                )
-
-                SettingsSectionHeader("Account & Data")
-                ListItem(
-                    headlineContent = { Text("Auto-generate episodes") },
-                    supportingContent = { Text("Periodically summarize conversation history") },
+                    headlineContent = { Text("Summarize past conversations") },
+                    supportingContent = { Text("Periodically create summaries of older chats to improve context") },
                     leadingContent = { Icon(Icons.Default.AutoAwesome, contentDescription = null) },
                     trailingContent = {
                         Switch(
@@ -434,14 +414,15 @@ fun SettingsScreen(
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                 )
                 ListItem(
-                    headlineContent = { Text("Memory retention") },
+                    headlineContent = { Text("Keep memories for") },
                     supportingContent = { Text(if (memoryRetentionDays == -1) "Forever" else "$memoryRetentionDays days") },
                     leadingContent = { Icon(Icons.Default.History, contentDescription = null) },
                     modifier = Modifier.clickable { showMemoryRetentionDialog = true },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                 )
                 ListItem(
-                    headlineContent = { Text("Clear all memories", color = MaterialTheme.colorScheme.error) },
+                    headlineContent = { Text("Clear memories", color = MaterialTheme.colorScheme.error) },
+                    supportingContent = { Text("Wipe everything your AI has learned", color = MaterialTheme.colorScheme.error.copy(alpha = 0.7f)) },
                     leadingContent = { Icon(Icons.Default.DeleteSweep, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
                     modifier = Modifier.clickable { showClearMemoriesDialog = true },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)
@@ -452,8 +433,8 @@ fun SettingsScreen(
             item {
                 SettingsSectionHeader("Help & Feedback")
                 ListItem(
-                    headlineContent = { Text("Contact Support") },
-                    supportingContent = { Text("Report a bug or suggest a feature") },
+                    headlineContent = { Text("Get Help or Send Feedback") },
+                    supportingContent = { Text("Report a problem or suggest a new feature") },
                     leadingContent = { Icon(Icons.AutoMirrored.Filled.Help, contentDescription = null) },
                     modifier = Modifier.clickable { 
                         if (enableHapticFeedback) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -467,14 +448,14 @@ fun SettingsScreen(
             item {
                 SettingsSectionHeader("About")
                 ListItem(
-                    headlineContent = { Text("App version") },
+                    headlineContent = { Text("App Version") },
                     supportingContent = { Text("1.0.0-alpha") }, // Would come from BuildConfig in real app
                     leadingContent = { Icon(Icons.Default.Info, contentDescription = null) },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                 )
                 ListItem(
-                    headlineContent = { Text("Privacy policy") },
-                    supportingContent = { Text("How we protect your local data") },
+                    headlineContent = { Text("Privacy Policy") },
+                    supportingContent = { Text("How we protect your data") },
                     leadingContent = { Icon(Icons.Default.Policy, contentDescription = null) },
                     modifier = Modifier.clickable { 
                         if (enableHapticFeedback) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -484,7 +465,7 @@ fun SettingsScreen(
                 )
                 ListItem(
                     headlineContent = { Text("Terms of Service") },
-                    supportingContent = { Text("Rules for using BATON") },
+                    supportingContent = { Text("Rules for using Baton") },
                     leadingContent = { Icon(Icons.Default.Description, contentDescription = null) },
                     modifier = Modifier.clickable { 
                         if (enableHapticFeedback) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -494,7 +475,7 @@ fun SettingsScreen(
                 )
                 ListItem(
                     headlineContent = { Text("Biometric Disclosure") },
-                    supportingContent = { Text("How native authentication is secured") },
+                    supportingContent = { Text("How fingerprint and face unlock works") },
                     leadingContent = { Icon(Icons.Default.Fingerprint, contentDescription = null) },
                     modifier = Modifier.clickable { 
                         if (enableHapticFeedback) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -583,10 +564,10 @@ fun SettingsScreen(
                 showWipeDialog = false 
                 wipeConfirmationText = ""
             },
-            title = { Text("Clear all data", color = MaterialTheme.colorScheme.error) },
+            title = { Text("Clear All Data", color = MaterialTheme.colorScheme.error) },
             text = {
                 Column {
-                    Text("This will permanently delete all agents, conversations, and memories. This action cannot be undone.")
+                    Text("This will permanently delete all agents, conversations, and memories. This cannot be undone.")
                     Spacer(modifier = Modifier.height(16.dp))
                     OutlinedTextField(
                         value = wipeConfirmationText,
@@ -638,8 +619,8 @@ fun SettingsScreen(
     if (showClearMemoriesDialog) {
         AlertDialog(
             onDismissRequest = { showClearMemoriesDialog = false },
-            title = { Text("Clear all memories", color = MaterialTheme.colorScheme.error) },
-            text = { Text("This will permanently delete all semantic, episodic, and working memories across all agents.") },
+            title = { Text("Clear Memories", color = MaterialTheme.colorScheme.error) },
+            text = { Text("This will erase everything your AI has learned — preferences, facts, and past summaries. This cannot be undone.") },
             confirmButton = {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
@@ -674,11 +655,11 @@ fun SettingsScreen(
     if (showBackendUrlDialog) {
         AlertDialog(
             onDismissRequest = { showBackendUrlDialog = false },
-            title = { Text("Backend URL") },
+            title = { Text("Server Address") },
             text = {
                 Column {
                     Text(
-                        "Set the API URL for Baton to connect to your backend.",
+                        "Enter the web address of your own server. Your AI will connect to it instead of our cloud.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -686,15 +667,15 @@ fun SettingsScreen(
                     OutlinedTextField(
                         value = backendUrlInput,
                         onValueChange = { backendUrlInput = it },
-                        label = { Text("URL") },
+                        label = { Text("Server URL (e.g. https://myserver.com)") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        "Note: You must restart the app after changing the backend URL for it to take effect.",
+                        "Tip: Restart the app after saving for changes to apply.",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.error
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             },
@@ -717,10 +698,16 @@ fun SettingsScreen(
     if (showPipelineModeDialog) {
         AlertDialog(
             onDismissRequest = { showPipelineModeDialog = false },
-            title = { Text("Pipeline Connection Mode") },
+            title = { Text("Connection Mode") },
             text = {
                 Column {
-                    listOf("MANAGED" to "Managed (EKAM Cloud)", "BYOS" to "Custom Server (BYOS)").forEach { (mode, label) ->
+                    Text(
+                        "Choose how Baton connects to AI.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                    listOf("MANAGED" to "EKAM Cloud (Recommended)", "BYOS" to "My Own Server").forEach { (mode, label) ->
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
@@ -733,15 +720,16 @@ fun SettingsScreen(
                         ) {
                             RadioButton(selected = pipelineMode == mode, onClick = null)
                             Spacer(modifier = Modifier.width(16.dp))
-                            Text(label)
+                            Column {
+                                Text(label)
+                                if (mode == "MANAGED") {
+                                    Text("Let us handle the setup — nothing to configure", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                } else {
+                                    Text("Connect to your own server — requires server address & password", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
                         }
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        "Note: You must restart the app after changing the connection mode for it to take effect.",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.error
-                    )
                 }
             },
             confirmButton = {}
@@ -751,11 +739,11 @@ fun SettingsScreen(
     if (showJwtSecretDialog) {
         AlertDialog(
             onDismissRequest = { showJwtSecretDialog = false },
-            title = { Text("Server Secret Key") },
+            title = { Text("Server Password") },
             text = {
                 Column {
                     Text(
-                        "Enter your server's JWT secret to authenticate. Do not share this with anyone.",
+                        "Enter the secret password for your server. This is used to verify your identity when connecting.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -763,15 +751,15 @@ fun SettingsScreen(
                     OutlinedTextField(
                         value = jwtSecretInput,
                         onValueChange = { jwtSecretInput = it },
-                        label = { Text("Secret Key") },
+                        label = { Text("Secret Password") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        "Note: You must restart the app after changing the secret for it to take effect.",
+                        "Never share this with anyone. Restart the app after saving.",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.error
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             },

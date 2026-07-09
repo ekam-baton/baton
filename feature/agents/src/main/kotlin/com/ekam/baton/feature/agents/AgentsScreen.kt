@@ -64,7 +64,7 @@ fun AgentsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Agents") },
+                title = { Text("My Agents") },
                 actions = {
                     IconButton(onClick = { onAddAgentClick(null, null) }) {
                         Icon(Icons.Default.Add, contentDescription = "Add Agent")
@@ -110,7 +110,7 @@ fun AgentsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "LOCAL AGENTS",
+                            text = "Your Agents",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.primary
                         )
@@ -118,7 +118,7 @@ fun AgentsScreen(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("Searching...", style = MaterialTheme.typography.labelSmall)
+                                Text("Looking for agents...", style = MaterialTheme.typography.labelSmall)
                             }
                         } else {
                             OutlinedButton(
@@ -126,7 +126,7 @@ fun AgentsScreen(
                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
                                 modifier = Modifier.height(32.dp)
                             ) {
-                                Text("Search", fontSize = 12.sp)
+                                Text("Find Nearby", fontSize = 12.sp)
                             }
                         }
                     }
