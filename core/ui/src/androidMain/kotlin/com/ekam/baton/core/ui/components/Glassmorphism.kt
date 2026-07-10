@@ -19,12 +19,10 @@ import androidx.compose.ui.unit.Dp
  */
 fun Modifier.glassCard(
     shape: Shape = RoundedCornerShape(16.dp),
-    backgroundColor: Color = Color(0xFF1A2235).copy(alpha = 0.4f),
-    borderColor: Color = Color.White.copy(alpha = 0.15f),
-    blurRadius: Dp = 24.dp
+    backgroundColor: Color = Color(0xFF1A2235).copy(alpha = 0.6f),
+    borderColor: Color = Color.White.copy(alpha = 0.15f)
 ): Modifier = composed {
     this
-        .blur(radius = blurRadius, edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded)
         .background(color = backgroundColor, shape = shape)
         .border(width = 1.dp, color = borderColor, shape = shape)
 }

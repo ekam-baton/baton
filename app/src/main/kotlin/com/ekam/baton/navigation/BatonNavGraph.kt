@@ -42,19 +42,12 @@ sealed class Screen(val route: String) {
     object Settings : Screen("settings")
 }
 
-// ─── Animation Constants ─────────────────────────────────────────────────────
-
-/** Duration for cross-fade transitions between top-level destinations. */
-private const val TAB_FADE_MS = 200
-
 // ─── Nav Graph ───────────────────────────────────────────────────────────────
 
 /**
  * Root navigation graph for BATON.
  *
  * Hosts all four top-level tab destinations with a symmetric fade transition.
- * No slide animations are used between tabs — fades feel natural for a
- * bottom-navigation paradigm.
  *
  * @param navController  The [NavHostController] owned by [MainActivity].
  * @param modifier       Applied to the [NavHost] itself; typically carries

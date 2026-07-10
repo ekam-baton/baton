@@ -55,6 +55,7 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -1017,7 +1018,7 @@ fun ChatInputBar(
                 },
                 interactionSource = interactionSource,
                 enabled = text.text.isNotBlank() || attachments.isNotEmpty(),
-                modifier = Modifier.size(40.dp).androidx.compose.ui.draw.scale(scale),
+                modifier = Modifier.size(40.dp).scale(scale),
                 colors = IconButtonDefaults.iconButtonColors(
                     contentColor = MaterialTheme.colorScheme.tertiary,
                     disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
