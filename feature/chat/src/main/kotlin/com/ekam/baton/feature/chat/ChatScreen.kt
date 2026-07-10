@@ -12,6 +12,8 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -21,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Add
@@ -237,10 +240,26 @@ fun ChatScreen(
             Column {
                 TopAppBar(
                     title = { 
-                        Text(
-                            text = currentAgent?.name ?: "Chat",
-                            modifier = Modifier.clickable { showAgentDetails = true }
-                        ) 
+                        Column(modifier = Modifier.clickable { showAgentDetails = true }) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .clip(CircleShape)
+                                        .background(if (currentAgent?.isActive == true) Color(0xFF4CAF50) else Color(0xFF9E9E9E))
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    text = currentAgent?.name ?: "Chat",
+                                    style = MaterialTheme.typography.titleMedium
+                                ) 
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
+                                Icon(Icons.Outlined.Lock, contentDescription = null, modifier = Modifier.size(10.dp), tint = MaterialTheme.colorScheme.primary)
+                                Spacer(Modifier.width(4.dp))
+                                Text("End-to-End Encrypted", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontSize = 10.sp)
+                            }
+                        }
                     },
                     navigationIcon = {
                         IconButton(onClick = onNavigateBack) {
@@ -372,7 +391,8 @@ fun ChatScreen(
                             message = message,
                             modifier = Modifier.animateItem(),
                             onReply = { replyingTo = it },
-                            onLongClick = { contextMenuMessage = it }
+                            onLongClick = { contextMenuMessage = it },
+                            isStreamingAndLast = isStreaming && index == 0
                         )
                     }
                 }
@@ -387,7 +407,8 @@ fun MessageBubble(
     message: Message, 
     modifier: Modifier = Modifier, 
     onReply: ((Message) -> Unit)? = null,
-    onLongClick: ((Message) -> Unit)? = null
+    onLongClick: ((Message) -> Unit)? = null,
+    isStreamingAndLast: Boolean = false
 ) {
     val isUser = message.role == "user"
     val isToolResult = message.role == "tool_result"
@@ -638,8 +659,9 @@ fun MessageBubble(
                         .background(Color.Transparent, RoundedCornerShape(4.dp, 20.dp, 20.dp, 20.dp))
                         .padding(horizontal = 16.dp, vertical = 12.dp)
                 ) {
+                    val displayContent = if (isStreamingAndLast) message.content + " ▋" else message.content
                     MarkdownRenderer(
-                        text = message.content,
+                        text = displayContent,
                         textColor = MaterialTheme.colorScheme.onBackground
                     )
                 }
@@ -980,6 +1002,10 @@ fun ChatInputBar(
                 )
             }
 
+            val interactionSource = remember { MutableInteractionSource() }
+            val isPressed by interactionSource.collectIsPressedAsState()
+            val scale by animateFloatAsState(if (isPressed) 0.85f else 1f, label = "sendScale")
+
             IconButton(
                 onClick = {
                     if (text.text.isNotBlank() || attachments.isNotEmpty()) {
@@ -989,8 +1015,9 @@ fun ChatInputBar(
                         attachments = emptyList()
                     }
                 },
+                interactionSource = interactionSource,
                 enabled = text.text.isNotBlank() || attachments.isNotEmpty(),
-                modifier = Modifier.size(40.dp),
+                modifier = Modifier.size(40.dp).androidx.compose.ui.draw.scale(scale),
                 colors = IconButtonDefaults.iconButtonColors(
                     contentColor = MaterialTheme.colorScheme.tertiary,
                     disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)

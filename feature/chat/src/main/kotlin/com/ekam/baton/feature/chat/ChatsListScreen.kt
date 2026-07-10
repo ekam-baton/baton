@@ -28,6 +28,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.ekam.baton.core.data.model.Conversation
 import com.ekam.baton.core.data.model.Agent
+import com.ekam.baton.core.ui.components.glassCard
 
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -147,10 +148,15 @@ fun ChatsListScreen(
 @Composable
 fun EmptyChatsState(modifier: Modifier = Modifier) {
     Box(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize().padding(24.dp),
         contentAlignment = Alignment.Center
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .glassCard(shape = MaterialTheme.shapes.large)
+                .padding(32.dp)
+        ) {
             Icon(
                 imageVector = Icons.Outlined.ChatBubbleOutline,
                 contentDescription = null,

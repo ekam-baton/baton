@@ -43,6 +43,15 @@ fun UpgradeScreen(
     var isProcessingPayment by remember { mutableStateOf(false) }
     var paymentSuccess by remember { mutableStateOf(false) }
 
+    val formattedPrice = remember {
+        java.text.NumberFormat.getCurrencyInstance().apply { 
+            maximumFractionDigits = 0 
+        }.format(25)
+    }
+    val formattedPriceDetailed = remember {
+        java.text.NumberFormat.getCurrencyInstance().format(25)
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -124,7 +133,7 @@ fun UpgradeScreen(
                         verticalAlignment = Alignment.Bottom
                     ) {
                         Text(
-                            text = "₹250",
+                            text = formattedPrice,
                             fontSize = 36.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
@@ -235,7 +244,7 @@ fun UpgradeScreen(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "Billed annually. 6 months free, then ₹250.00/year.",
+                            text = "Billed annually. 6 months free, then $formattedPriceDetailed/year.",
                             fontSize = 13.sp,
                             color = Color(0xFF7A8B9E),
                             textAlign = TextAlign.Center

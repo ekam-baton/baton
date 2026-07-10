@@ -24,7 +24,9 @@ import androidx.compose.ui.unit.sp
 
 @Composable
 fun LoginScreen(
-    onLoginSuccess: () -> Unit
+    onLoginSuccess: () -> Unit,
+    backendError: String? = null,
+    onClearBackendError: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
@@ -32,6 +34,7 @@ fun LoginScreen(
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     fun triggerBiometricAuth() {
+        onClearBackendError()
         val activity = context as? FragmentActivity
         if (activity == null) {
             errorMessage = "System error: Failed to initialize biometric unlock context."
@@ -135,7 +138,8 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(48.dp))
 
-            errorMessage?.let {
+            val currentError = errorMessage ?: backendError
+            currentError?.let {
                 Text(
                     text = it,
                     color = MaterialTheme.colorScheme.error,

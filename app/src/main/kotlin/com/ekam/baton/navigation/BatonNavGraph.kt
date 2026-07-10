@@ -1,6 +1,9 @@
 package com.ekam.baton.navigation
 
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
@@ -67,10 +70,24 @@ fun BatonNavGraph(
         navController    = navController,
         startDestination = Screen.Chats.route,
         modifier         = modifier,
-        enterTransition    = { fadeIn(animationSpec  = tween(TAB_FADE_MS)) },
-        exitTransition     = { fadeOut(animationSpec = tween(TAB_FADE_MS)) },
-        popEnterTransition = { fadeIn(animationSpec  = tween(TAB_FADE_MS)) },
-        popExitTransition  = { fadeOut(animationSpec = tween(TAB_FADE_MS)) },
+        enterTransition    = { 
+            slideInHorizontally(
+                animationSpec = spring(stiffness = Spring.StiffnessLow, dampingRatio = Spring.DampingRatioNoBouncy),
+                initialOffsetX = { it / 4 }
+            ) + fadeIn(animationSpec = spring(stiffness = Spring.StiffnessLow))
+        },
+        exitTransition     = { 
+            fadeOut(animationSpec = spring(stiffness = Spring.StiffnessLow))
+        },
+        popEnterTransition = { 
+            fadeIn(animationSpec = spring(stiffness = Spring.StiffnessLow))
+        },
+        popExitTransition  = { 
+            slideOutHorizontally(
+                animationSpec = spring(stiffness = Spring.StiffnessLow, dampingRatio = Spring.DampingRatioNoBouncy),
+                targetOffsetX = { it / 4 }
+            ) + fadeOut(animationSpec = spring(stiffness = Spring.StiffnessLow))
+        },
     ) {
         // Chats nested graph
         navigation(startDestination = "chats_list", route = Screen.Chats.route) {

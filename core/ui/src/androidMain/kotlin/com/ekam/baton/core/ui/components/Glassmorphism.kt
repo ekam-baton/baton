@@ -1,0 +1,30 @@
+package com.ekam.baton.core.ui.components
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
+
+/**
+ * Applies a premium glassmorphism effect to a component.
+ * 
+ * Includes a translucent background, optional blur (which requires rendering logic or 
+ * a simple visual approximation depending on the platform), and a subtle light border.
+ */
+fun Modifier.glassCard(
+    shape: Shape = RoundedCornerShape(16.dp),
+    backgroundColor: Color = Color(0xFF1A2235).copy(alpha = 0.4f),
+    borderColor: Color = Color.White.copy(alpha = 0.15f),
+    blurRadius: Dp = 24.dp
+): Modifier = composed {
+    this
+        .blur(radius = blurRadius, edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded)
+        .background(color = backgroundColor, shape = shape)
+        .border(width = 1.dp, color = borderColor, shape = shape)
+}

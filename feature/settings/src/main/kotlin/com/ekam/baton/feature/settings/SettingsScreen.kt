@@ -429,6 +429,21 @@ fun SettingsScreen(
                 )
             }
 
+            // SECTION: E-Discovery & Legal
+            item {
+                SettingsSectionHeader("E-Discovery & Legal")
+                ListItem(
+                    headlineContent = { Text("Export Cryptographic Ledger") },
+                    supportingContent = { Text("Download a tamper-proof audit log of agent activities and system events") },
+                    leadingContent = { Icon(Icons.Default.VpnKey, contentDescription = null) },
+                    modifier = Modifier.clickable { 
+                        if (enableHapticFeedback) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        viewModel.exportAuditLogs(context)
+                    },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                )
+            }
+
             // SECTION: Help & Feedback
             item {
                 SettingsSectionHeader("Help & Feedback")
@@ -673,9 +688,10 @@ fun SettingsScreen(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        "Tip: Restart the app after saving for changes to apply.",
+                        "You MUST restart the app after saving for changes to apply.",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.error,
+                        fontWeight = FontWeight.Bold
                     )
                 }
             },
@@ -730,6 +746,13 @@ fun SettingsScreen(
                             }
                         }
                     }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        "You MUST restart the app after saving for changes to apply.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             },
             confirmButton = {}
@@ -757,9 +780,10 @@ fun SettingsScreen(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        "Never share this with anyone. Restart the app after saving.",
+                        "Never share this with anyone. You MUST restart the app after saving.",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.error,
+                        fontWeight = FontWeight.Bold
                     )
                 }
             },

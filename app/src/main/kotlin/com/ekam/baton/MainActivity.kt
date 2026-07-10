@@ -30,6 +30,7 @@ import com.ekam.baton.ui.auth.AuthViewModel
 import com.ekam.baton.ui.auth.AuthState
 import com.ekam.baton.ui.auth.SignupScreen
 import com.ekam.baton.ui.auth.LoginScreen
+import com.ekam.baton.ui.auth.OnboardingScreen
 
 import org.koin.androidx.viewmodel.ext.android.viewModel
 
@@ -160,16 +161,29 @@ internal fun BatonAppShell(
 
     when (authState) {
         AuthState.Unregistered -> {
-            SignupScreen(
-                onSignupSuccess = { email, phone ->
-                    authViewModel.register(email, phone)
-                }
-            )
+            var showOnboarding by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(true) }
+            
+            if (showOnboarding) {
+                OnboardingScreen(
+                    onFinishOnboarding = { showOnboarding = false }
+                )
+            } else {
+                SignupScreen(
+                    onSignupSuccess = { email, phone ->
+                        authViewModel.register(email, phone)
+                    }
+                )
+            }
         }
         AuthState.LoggedOut, AuthState.LoginFailed -> {
+            val loginError by authViewModel.loginError.collectAsStateWithLifecycle()
             LoginScreen(
                 onLoginSuccess = {
                     authViewModel.login()
+                },
+                backendError = loginError,
+                onClearBackendError = {
+                    authViewModel.clearLoginError()
                 }
             )
         }

@@ -26,6 +26,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ekam.baton.core.data.model.Agent
+import com.ekam.baton.core.ui.components.glassCard
 
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.platform.LocalContext
@@ -175,10 +176,15 @@ fun AgentsScreen(
 @Composable
 fun EmptyAgentsState(modifier: Modifier = Modifier, isDiscovering: Boolean = false, onSearchClick: () -> Unit = {}) {
     Box(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize().padding(24.dp),
         contentAlignment = Alignment.Center
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .glassCard(shape = MaterialTheme.shapes.large)
+                .padding(32.dp)
+        ) {
             Icon(
                 imageVector = Icons.Outlined.SmartToy,
                 contentDescription = null,
@@ -248,19 +254,16 @@ fun SwipeToDeleteAgentCard(
             }
         }
     ) {
-        Card(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .glassCard(shape = MaterialTheme.shapes.medium)
                 .pointerInput(Unit) {
                     detectTapGestures(
                         onTap = { onEdit() },
                         onLongPress = { showMenu = true }
                     )
-                },
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
-            ),
-            shape = MaterialTheme.shapes.medium
+                }
         ) {
             Row(
                 modifier = Modifier
@@ -355,9 +358,7 @@ fun SwipeToDeleteAgentCard(
                         text = { Text(if (agent.isAuthenticated) "Re-authenticate" else "Authenticate") },
                         onClick = {
                             showMenu = false
-                            // In a real app, we'd trigger the OAuth flow from here via a callback
-                            // For now, we'll navigate to edit which can trigger it, or trigger directly if we had a callback
-                            onEdit()
+                            viewModel.launchAuthBrowser(agent.mcpEndpointUrl)
                         }
                     )
                 }
@@ -393,15 +394,11 @@ fun DiscoveredAgentCard(
     agent: com.ekam.baton.core.network.mdns.DiscoveredAgent,
     onClick: () -> Unit
 ) {
-    Card(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick() },
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-        ),
-        shape = MaterialTheme.shapes.medium,
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
+            .glassCard(shape = MaterialTheme.shapes.medium, backgroundColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f))
+            .clickable { onClick() }
     ) {
         Row(
             modifier = Modifier
