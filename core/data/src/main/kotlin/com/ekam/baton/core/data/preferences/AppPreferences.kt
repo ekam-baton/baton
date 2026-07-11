@@ -169,6 +169,16 @@ class AppPreferences constructor(
 
     val jwtSecret: Flow<String> = _jwtSecretFlow
 
+    var qtspPassword: CharArray?
+        get() = securePrefs.getString("qtsp_password", null)?.toCharArray()
+        set(value) {
+            if (value == null) {
+                securePrefs.edit().remove("qtsp_password").apply()
+            } else {
+                securePrefs.edit().putString("qtsp_password", String(value)).apply()
+            }
+        }
+
     val allowLocalNetworkAgents: Flow<Boolean> = context.dataStore.data.map { preferences ->
         preferences[ALLOW_LOCAL_NETWORK_AGENTS] ?: false
     }

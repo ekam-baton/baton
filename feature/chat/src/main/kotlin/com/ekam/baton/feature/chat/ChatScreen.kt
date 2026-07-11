@@ -64,6 +64,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.ekam.baton.core.data.model.Message
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.lifecycle.compose.collectAsStateWithLifecycle

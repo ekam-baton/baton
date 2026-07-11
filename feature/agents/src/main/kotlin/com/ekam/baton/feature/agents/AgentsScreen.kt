@@ -165,7 +165,8 @@ fun AgentsScreen(
                     SwipeToDeleteAgentCard(
                         agent = agent,
                         onDelete = { viewModel.deleteAgent(agent.id) },
-                        onEdit = { onEditAgentClick(agent.id) }
+                        onEdit = { onEditAgentClick(agent.id) },
+                        onAuthenticate = { viewModel.launchAuthBrowser(agent.mcpEndpointUrl) }
                     )
                 }
             }
@@ -218,7 +219,8 @@ fun EmptyAgentsState(modifier: Modifier = Modifier, isDiscovering: Boolean = fal
 fun SwipeToDeleteAgentCard(
     agent: Agent,
     onDelete: () -> Unit,
-    onEdit: () -> Unit
+    onEdit: () -> Unit,
+    onAuthenticate: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
     val clipboardManager = LocalClipboardManager.current
@@ -358,7 +360,7 @@ fun SwipeToDeleteAgentCard(
                         text = { Text(if (agent.isAuthenticated) "Re-authenticate" else "Authenticate") },
                         onClick = {
                             showMenu = false
-                            viewModel.launchAuthBrowser(agent.mcpEndpointUrl)
+                            onAuthenticate()
                         }
                     )
                 }

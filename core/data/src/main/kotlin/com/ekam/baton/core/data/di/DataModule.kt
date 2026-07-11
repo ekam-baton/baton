@@ -204,7 +204,7 @@ val dataModule = module {
     single { com.ekam.baton.core.data.preferences.SessionManager(get()) }
     single { com.ekam.baton.core.data.preferences.SubscriptionManager() }
     
-    single { com.ekam.baton.core.data.billing.BillingManager(androidContext(), get(), get()) }
+    single(createdAtStart = true) { com.ekam.baton.core.data.billing.BillingManager(androidContext(), get(), get()) }
 
     single { com.ekam.baton.core.data.repository.AgentRepository(get()) }
     single { com.ekam.baton.core.data.repository.MemoryRepository(get(), get()) }
@@ -225,7 +225,7 @@ val dataModule = module {
 
     // Forensic Auditing & eIDAS QES Compliance
     single { com.ekam.baton.core.data.forensic.TrustedTimeProvider() }
-    single { com.ekam.baton.core.data.forensic.EnterpriseCertificateManager(androidContext()) }
+    single { com.ekam.baton.core.data.forensic.EnterpriseCertificateManager(androidContext(), get()) }
     single { com.ekam.baton.core.data.forensic.ForensicCryptoManager(get()) }
     single { com.ekam.baton.core.data.forensic.ForensicScreenshotManager(androidContext(), get(), get()) }
     single { com.ekam.baton.core.data.forensic.EvidenceExportManager(androidContext(), get(), get()) }

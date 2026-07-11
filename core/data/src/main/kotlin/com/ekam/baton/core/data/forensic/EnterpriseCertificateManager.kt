@@ -10,11 +10,13 @@ import java.security.PrivateKey
 import java.security.cert.CertificateFactory
 import java.security.cert.X509Certificate
 
-class EnterpriseCertificateManager(private val context: Context) {
+class EnterpriseCertificateManager(
+    private val context: Context,
+    private val appPreferences: com.ekam.baton.core.data.preferences.AppPreferences
+) {
 
     private val certDir by lazy { File(context.filesDir, "qtsp_certs").apply { mkdirs() } }
     private val keyStoreFile by lazy { File(certDir, "enterprise_keystore.bks") }
-    private val ksPassword = "baton_qtsp_secure_password".toCharArray() // In production, this would be injected via MDM or user prompt
 
     /**
      * Checks if a Qualified Trust Service Provider (QTSP) certificate is installed.
@@ -40,6 +42,7 @@ class EnterpriseCertificateManager(private val context: Context) {
     fun getEnterprisePrivateKey(): PrivateKey? {
         if (!keyStoreFile.exists()) return null
         return try {
+            val ksPassword = appPreferences.qtspPassword ?: return null
             val ks = KeyStore.getInstance("BKS")
             FileInputStream(keyStoreFile).use { fis ->
                 ks.load(fis, ksPassword)
