@@ -20,6 +20,11 @@ import okhttp3.RequestBody.Companion.toRequestBody
 
 import kotlinx.serialization.Serializable
 
+private val jsonParser = kotlinx.serialization.json.Json {
+    ignoreUnknownKeys = true
+    isLenient = true
+}
+
 @Serializable
 data class AttachmentDto(
     val mimeType: String,
@@ -124,9 +129,7 @@ class McpMessageSender constructor(
             .map { jsonString ->
                 try {
                     // FIX: Reuse the injected Json instance — no per-event object creation
-                    val mcpResponse = kotlinx.serialization.json.Json {
-                        ignoreUnknownKeys = true; isLenient = true
-                    }.decodeFromString<McpResponse>(jsonString)
+                    val mcpResponse = jsonParser.decodeFromString<McpResponse>(jsonString)
                     if (mcpResponse.error != null) {
                         "Error: ${mcpResponse.error.message}"
                     } else {
@@ -195,8 +198,7 @@ class McpMessageSender constructor(
         return raceEndpoints(endpointUrl, authHeader, relayUrl, relayToken, toolName, arguments)
             .map { jsonString ->
                 try {
-                    val parser = kotlinx.serialization.json.Json { ignoreUnknownKeys = true; isLenient = true }
-                    val mcpResponse = parser.decodeFromString<McpResponse>(jsonString)
+                    val mcpResponse = jsonParser.decodeFromString<McpResponse>(jsonString)
                     if (mcpResponse.error != null) {
                         "Error: ${mcpResponse.error.message}"
                     } else {

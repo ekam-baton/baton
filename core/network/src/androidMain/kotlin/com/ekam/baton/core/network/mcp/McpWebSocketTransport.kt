@@ -90,6 +90,7 @@ class McpWebSocketTransport constructor(
             private var privateKey: ByteArray? = null
             private var securityMode: String = "standard"
 
+            @OptIn(kotlinx.coroutines.DelicateCoroutinesApi::class)
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 GlobalScope.launch(Dispatchers.IO) {
                     val details = configProvider.getSecurityConfig(agentId)

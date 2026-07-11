@@ -288,8 +288,8 @@ object WorldAssets {
         val kettleColor = Color(0xFFD4A853)
         val body = Path().apply {
             moveTo(origin.x - u, origin.y)
-            quadraticBezierTo(origin.x - u * 1.2f, origin.y - u * 1.5f, origin.x, origin.y - u * 2f)
-            quadraticBezierTo(origin.x + u * 1.2f, origin.y - u * 1.5f, origin.x + u, origin.y)
+            quadraticTo(origin.x - u * 1.2f, origin.y - u * 1.5f, origin.x, origin.y - u * 2f)
+            quadraticTo(origin.x + u * 1.2f, origin.y - u * 1.5f, origin.x + u, origin.y)
             close()
         }
         drawPath(body, kettleColor)
@@ -725,7 +725,7 @@ object WorldAssets {
         // Arm
         val path = Path().apply {
             moveTo(origin.x, origin.y - u * 0.3f)
-            quadraticBezierTo(origin.x - u * 0.5f, origin.y - u * 2f, origin.x - u, origin.y - u * 3.5f)
+            quadraticTo(origin.x - u * 0.5f, origin.y - u * 2f, origin.x - u, origin.y - u * 3.5f)
         }
         drawPath(path, lampColor, style = Stroke(u * 0.35f, cap = StrokeCap.Round))
         // Shade

@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.RequestBody.Companion.toRequestBody
 import java.util.UUID
 import androidx.paging.cachedIn
 import kotlinx.coroutines.flow.flatMapLatest
@@ -288,10 +289,7 @@ class ChatViewModel(
                     put("signature", signature)
                 }.toString()
 
-                val body = okhttp3.RequestBody.create(
-                    "application/json".toMediaTypeOrNull(),
-                    jsonInput
-                )
+                val body = jsonInput.toRequestBody("application/json".toMediaTypeOrNull())
                 val request = okhttp3.Request.Builder()
                     .url(loginUrl)
                     .post(body)

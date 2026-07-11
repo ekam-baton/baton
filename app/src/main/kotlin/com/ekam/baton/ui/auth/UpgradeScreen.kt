@@ -44,12 +44,12 @@ fun UpgradeScreen(
     var paymentSuccess by remember { mutableStateOf(false) }
 
     val formattedPrice = remember {
-        java.text.NumberFormat.getCurrencyInstance(java.util.Locale("en", "IN")).apply { 
+        java.text.NumberFormat.getCurrencyInstance(java.util.Locale.Builder().setLanguage("en").setRegion("IN").build()).apply { 
             maximumFractionDigits = 0 
         }.format(250)
     }
     val formattedPriceDetailed = remember {
-        java.text.NumberFormat.getCurrencyInstance(java.util.Locale("en", "IN")).format(250)
+        java.text.NumberFormat.getCurrencyInstance(java.util.Locale.Builder().setLanguage("en").setRegion("IN").build()).format(250)
     }
 
     Box(

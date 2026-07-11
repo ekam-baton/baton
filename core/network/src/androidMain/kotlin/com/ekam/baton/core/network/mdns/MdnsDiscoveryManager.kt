@@ -34,6 +34,7 @@ class MdnsDiscoveryManager(private val context: Context) {
                 Log.d(TAG, "Service discovery started")
             }
 
+            @Suppress("DEPRECATION")
             override fun onServiceFound(service: NsdServiceInfo) {
                 Log.d(TAG, "Service discovery success: $service")
                 if (service.serviceType.contains("_baton._tcp")) {

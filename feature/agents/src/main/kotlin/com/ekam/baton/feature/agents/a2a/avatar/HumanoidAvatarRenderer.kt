@@ -226,8 +226,8 @@ private fun DrawScope.drawHair(center: Offset, r: Float, u: Float, style: HairSt
         HairStyle.WAVE -> {
             val wavePath = Path().apply {
                 moveTo(center.x - r, center.y - r * 0.5f)
-                quadraticBezierTo(center.x - r * 0.5f, center.y - r * 1.6f, center.x, center.y - r * 1.4f)
-                quadraticBezierTo(center.x + r * 0.5f, center.y - r * 1.2f, center.x + r, center.y - r * 0.5f)
+                quadraticTo(center.x - r * 0.5f, center.y - r * 1.6f, center.x, center.y - r * 1.4f)
+                quadraticTo(center.x + r * 0.5f, center.y - r * 1.2f, center.x + r, center.y - r * 0.5f)
                 close()
             }
             drawPath(wavePath, hairColor)
@@ -277,8 +277,8 @@ private fun DrawScope.drawEyes(center: Offset, u: Float, style: EyeStyle, accent
             listOf(lx, rx).forEach { ex ->
                 val path = Path().apply {
                     moveTo(ex - u, eyeY)
-                    quadraticBezierTo(ex, eyeY - u * 0.7f, ex + u, eyeY)
-                    quadraticBezierTo(ex, eyeY + u * 0.45f, ex - u, eyeY)
+                    quadraticTo(ex, eyeY - u * 0.7f, ex + u, eyeY)
+                    quadraticTo(ex, eyeY + u * 0.45f, ex - u, eyeY)
                     close()
                 }
                 drawPath(path, accent)
@@ -384,7 +384,7 @@ private fun DrawScope.drawRoleIconShape(center: Offset, role: AgentRole, size: F
                 moveTo(center.x, center.y - size)
                 lineTo(center.x + size, center.y - size * 0.4f)
                 lineTo(center.x + size, center.y + size * 0.4f)
-                quadraticBezierTo(center.x, center.y + size * 1.2f, center.x - size, center.y + size * 0.4f)
+                quadraticTo(center.x, center.y + size * 1.2f, center.x - size, center.y + size * 0.4f)
                 lineTo(center.x - size, center.y - size * 0.4f)
                 close()
             }
