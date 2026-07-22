@@ -32,7 +32,7 @@ class ComplianceNotificationWorker(
         return try {
             sendComplianceNotification()
             Result.success()
-        } catch (e: Exception) {
+        } catch (ignored: Exception) {
             Result.retry()
         }
     }
@@ -56,13 +56,15 @@ class ComplianceNotificationWorker(
         val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_logo)
             .setContentTitle("BATON – Policy Reminder")
-            .setContentText("Please review our Privacy Policy and Terms of Service to stay informed about your rights and obligations.")
+            .setContentText(
+                "Please review our Privacy Policy and Terms of Service to stay informed about your rights and obligations."
+            )
             .setStyle(
                 NotificationCompat.BigTextStyle()
                     .bigText(
                         "As required by Indian IT Rules, we are reminding you of BATON's Privacy Policy and Terms of Service. " +
-                                "You can view these documents in Settings → About. " +
-                                "For grievances, contact: grievance@baton-app.in"
+                            "You can view these documents in Settings → About. " +
+                            "For grievances, contact: grievance@baton-app.in"
                     )
             )
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)

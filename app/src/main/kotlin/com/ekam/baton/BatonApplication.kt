@@ -5,10 +5,9 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
 import androidx.work.Configuration
+import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
-import androidx.work.ExistingPeriodicWorkPolicy
-import com.ekam.baton.ComplianceNotificationWorker
 import com.ekam.baton.core.data.di.dataModule
 import com.ekam.baton.core.network.di.networkModule
 import org.koin.android.ext.koin.androidContext
@@ -25,7 +24,7 @@ class BatonApplication : Application(), Configuration.Provider {
 
     override fun onCreate() {
         super.onCreate()
-        
+
         startKoin {
             androidLogger()
             androidContext(this@BatonApplication)
@@ -36,7 +35,7 @@ class BatonApplication : Application(), Configuration.Provider {
         createComplianceNotificationChannel()
         scheduleTunnelMonitor()
         scheduleComplianceReminder()
-        
+
         androidx.lifecycle.ProcessLifecycleOwner.get().lifecycle.addObserver(appLockObserver)
         registerActivityLifecycleCallbacks(appLockObserver)
     }
@@ -94,7 +93,10 @@ class BatonApplication : Application(), Configuration.Provider {
     }
 
     private fun scheduleTunnelMonitor() {
-        val workRequest = PeriodicWorkRequestBuilder<com.ekam.baton.feature.agents.tunnel.TunnelConnectivityMonitor>(5, TimeUnit.MINUTES)
+        val workRequest = PeriodicWorkRequestBuilder<com.ekam.baton.feature.agents.tunnel.TunnelConnectivityMonitor>(
+            5,
+            TimeUnit.MINUTES
+        )
             .build()
 
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(

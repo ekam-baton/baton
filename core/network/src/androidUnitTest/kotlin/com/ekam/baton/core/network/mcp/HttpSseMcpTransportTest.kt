@@ -1,7 +1,7 @@
 package com.ekam.baton.core.network.mcp
 
 import kotlinx.coroutines.flow.toList
-import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -20,11 +20,16 @@ class HttpSseMcpTransportTest {
     private val client = OkHttpClient()
     private val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
 
+    private val profileProvider = object : McpProfileProvider {
+        override suspend fun getBatonId(): String = "test-baton-id"
+        override suspend fun getDisplayName(): String? = "Test User"
+    }
+
     @Before
     fun setUp() {
         server = MockWebServer()
         server.start()
-        transport = HttpSseMcpTransport(client, json)
+        transport = HttpSseMcpTransport(client, json, profileProvider)
     }
 
     @After
@@ -33,7 +38,7 @@ class HttpSseMcpTransportTest {
     }
 
     @Test
-    fun `ping returns true when server returns 200`() = runTest {
+    fun `ping returns true when server returns 200`() = runBlocking {
         server.enqueue(MockResponse().setResponseCode(200))
         
         val result = transport.ping(server.url("/").toString())
@@ -41,7 +46,7 @@ class HttpSseMcpTransportTest {
     }
 
     @Test
-    fun `callTool processes SSE event data correctly`() = runTest {
+    fun `callTool processes SSE event data correctly`() = runBlocking {
         // Prepare SSE response body
         // Event data format: "data: <json>\n\n"
         val sseBody = "data: {\"result\": \"Hello\"}\n\ndata: {\"result\": \" world!\"}\n\ndata: [DONE]\n\n"

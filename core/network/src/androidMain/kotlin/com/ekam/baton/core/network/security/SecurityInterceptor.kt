@@ -15,6 +15,7 @@ import java.util.UUID
 
 interface AgentSecurityConfigProvider {
     suspend fun getSecurityConfig(agentId: String): AgentSecurityDetails?
+    suspend fun saveRatchetState(agentId: String, stateBase64: String)
 }
 
 data class AgentSecurityDetails(
@@ -22,7 +23,8 @@ data class AgentSecurityDetails(
     val clientPrivateKeyBase64: String?,
     val clientPrivateKeyIvBase64: String?,
     val peerPublicKeyHex: String?,
-    val certificatePins: List<String>
+    val certificatePins: List<String>,
+    val ratchetStateBase64: String?
 )
 
 class SecurityInterceptor(

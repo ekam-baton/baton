@@ -28,12 +28,13 @@
 -keep @androidx.room.Dao class * { *; }
 -keepclassmembers @androidx.room.Entity class * { *; }
 
-# ─── Hilt ─────────────────────────────────────────────────────────────────────
--keep class dagger.hilt.** { *; }
--keep class javax.inject.** { *; }
--keepclasseswithmembernames class * {
-    @dagger.hilt.* <methods>;
+# ─── Koin ─────────────────────────────────────────────────────────────────────
+-keep class org.koin.** { *; }
+-keepclassmembers class org.koin.** { *; }
+-keepclasseswithmembers class * {
+    @org.koin.core.annotation.* <methods>;
 }
+-keep class * extends androidx.lifecycle.ViewModel { *; }
 
 # ─── OkHttp & Retrofit ────────────────────────────────────────────────────────
 -dontwarn okhttp3.**

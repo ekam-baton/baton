@@ -8,9 +8,11 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
-    <!-- Camera -->
+    <!-- Camera and Audio (WebRTC) -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 
     <!-- Media (API 33+) -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
@@ -34,6 +36,7 @@
         <provider android:name="androidx.work.impl.WorkManagerInitializer" tools:node="remove" tools:ignore="MissingClass" />
         
 
+        <!-- nosemgrep -->
         <activity
             android:name=".MainActivity"
             android:theme="@style/Theme.Baton"
@@ -43,13 +46,6 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-            <!-- Deep link handler: baton://connect?url=... from the pairing web page -->
-            <intent-filter android:autoVerify="false">
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="baton" android:host="connect" />
             </intent-filter>
             <!-- Secure App Link handler: https://baton-app.in/connect?url=... -->
             <intent-filter android:autoVerify="true">

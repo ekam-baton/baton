@@ -1,6 +1,5 @@
 package com.ekam.baton.ui.auth
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -15,12 +14,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -44,12 +41,16 @@ fun UpgradeScreen(
     var paymentSuccess by remember { mutableStateOf(false) }
 
     val formattedPrice = remember {
-        java.text.NumberFormat.getCurrencyInstance(java.util.Locale.Builder().setLanguage("en").setRegion("IN").build()).apply { 
-            maximumFractionDigits = 0 
+        java.text.NumberFormat.getCurrencyInstance(
+            java.util.Locale.Builder().setLanguage("en").setRegion("IN").build()
+        ).apply {
+            maximumFractionDigits = 0
         }.format(250)
     }
     val formattedPriceDetailed = remember {
-        java.text.NumberFormat.getCurrencyInstance(java.util.Locale.Builder().setLanguage("en").setRegion("IN").build()).format(250)
+        java.text.NumberFormat.getCurrencyInstance(
+            java.util.Locale.Builder().setLanguage("en").setRegion("IN").build()
+        ).format(250)
     }
 
     Box(
@@ -59,7 +60,7 @@ fun UpgradeScreen(
                 Brush.verticalGradient(
                     colors = listOf(
                         Color(0xFF0F1623), // BatonSurface
-                        Color(0xFF070B14)  // BatonBackground
+                        Color(0xFF070B14) // BatonBackground
                     )
                 )
             )
@@ -297,7 +298,6 @@ fun UpgradeScreen(
                                 Text("1-Tap Buy", color = Color.White, fontWeight = FontWeight.Bold)
                             }
                         }
-
                     } else if (isProcessingPayment) {
                         CircularProgressIndicator(color = Color(0xFF34A853))
                         Spacer(modifier = Modifier.height(16.dp))

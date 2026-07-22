@@ -87,5 +87,11 @@ data class AgentEntity(
     val cardAvatarSeed: String = "",
 
     @ColumnInfo(name = "world_room_id")
-    val worldRoomId: String? = null
+    val worldRoomId: String? = null,
+
+    @ColumnInfo(name = "owner_id")
+    val ownerId: String? = null,
+
+    @ColumnInfo(name = "owner_name")
+    val ownerName: String? = null
 )

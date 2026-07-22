@@ -89,6 +89,7 @@ fun ChatScreen(
     
     val availableTools by viewModel.availableTools.collectAsStateWithLifecycle()
     val toolAuthRequest by viewModel.toolAuthRequests.collectAsStateWithLifecycle(initialValue = null)
+    val fontSizePref by viewModel.fontSize.collectAsStateWithLifecycle()
     
     var showToolsSheet by remember { mutableStateOf(false) }
     var showAgentDetails by remember { mutableStateOf(false) }
@@ -134,9 +135,21 @@ fun ChatScreen(
             onDismissRequest = { showAgentDetails = false },
             title = { Text(currentAgent?.name ?: "Agent Details") },
             text = {
-                Column {
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    if (!currentAgent?.ownerName.isNullOrBlank()) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Text(
+                                text = "👤 Owned by: ${currentAgent?.ownerName}",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                            )
+                        }
+                    }
                     Text("Agent ID: ${currentAgent?.id}", style = MaterialTheme.typography.bodyMedium)
-                    Spacer(modifier = Modifier.height(16.dp))
                     OutlinedTextField(
                         value = editUrl,
                         onValueChange = { editUrl = it },
@@ -367,7 +380,7 @@ fun ChatScreen(
                     context.startService(intent)
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                android.util.Log.e("ChatScreen", "Error starting/stopping streaming service", e)
             }
         }
 
@@ -391,6 +404,7 @@ fun ChatScreen(
                     if (message != null) {
                         MessageBubble(
                             message = message,
+                            fontSizePref = fontSizePref,
                             modifier = Modifier.animateItem(),
                             onReply = { replyingTo = it },
                             onLongClick = { contextMenuMessage = it },
@@ -406,7 +420,8 @@ fun ChatScreen(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MessageBubble(
-    message: Message, 
+    message: Message,
+    fontSizePref: String = "medium",
     modifier: Modifier = Modifier, 
     onReply: ((Message) -> Unit)? = null,
     onLongClick: ((Message) -> Unit)? = null,
@@ -628,7 +643,8 @@ fun MessageBubble(
                         if (message.content.isNotEmpty()) {
                             MarkdownRenderer(
                                 text = message.content,
-                                textColor = MaterialTheme.colorScheme.onTertiary
+                                textColor = MaterialTheme.colorScheme.onTertiary,
+                                fontSizePref = fontSizePref
                             )
                         }
                     }
@@ -664,7 +680,8 @@ fun MessageBubble(
                     val displayContent = if (isStreamingAndLast) message.content + " ▋" else message.content
                     MarkdownRenderer(
                         text = displayContent,
-                        textColor = MaterialTheme.colorScheme.onBackground
+                        textColor = MaterialTheme.colorScheme.onBackground,
+                        fontSizePref = fontSizePref
                     )
                 }
             }

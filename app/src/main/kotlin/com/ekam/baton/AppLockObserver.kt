@@ -31,7 +31,7 @@ class AppLockObserver : DefaultLifecycleObserver, Application.ActivityLifecycleC
 
     private fun checkLockState() {
         val activity = currentActivity ?: return
-        
+
         activity.lifecycleScope.launch {
             val isEnabled = appPreferences.appLockEnabled.first()
             if (!isEnabled) return@launch
@@ -45,8 +45,8 @@ class AppLockObserver : DefaultLifecycleObserver, Application.ActivityLifecycleC
     }
 
     // ActivityLifecycleCallbacks
-    override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
-    override fun onActivityStarted(activity: Activity) {}
+    override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) { /* No-op */ }
+    override fun onActivityStarted(activity: Activity) { /* No-op */ }
     override fun onActivityResumed(activity: Activity) {
         if (activity is AppCompatActivity) {
             currentActivity = activity
@@ -57,7 +57,7 @@ class AppLockObserver : DefaultLifecycleObserver, Application.ActivityLifecycleC
             currentActivity = null
         }
     }
-    override fun onActivityStopped(activity: Activity) {}
-    override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
-    override fun onActivityDestroyed(activity: Activity) {}
+    override fun onActivityStopped(activity: Activity) { /* No-op */ }
+    override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) { /* No-op */ }
+    override fun onActivityDestroyed(activity: Activity) { /* No-op */ }
 }

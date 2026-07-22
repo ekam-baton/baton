@@ -29,6 +29,12 @@ fun CallScreen(
     var isMuted by remember { mutableStateOf(false) }
     var isSpeaker by remember { mutableStateOf(true) }
 
+    LaunchedEffect(Unit) {
+        val webRtcManager = com.ekam.baton.core.network.webrtc.WebRtcManager()
+        webRtcManager.initialize()
+        webRtcManager.startVoiceCall(agentName)
+    }
+
     // Pulsing animation for the avatar to simulate "speaking"
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
     val pulseScale by infiniteTransition.animateFloat(

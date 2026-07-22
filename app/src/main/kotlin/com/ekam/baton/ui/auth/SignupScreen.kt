@@ -2,38 +2,34 @@ package com.ekam.baton.ui.auth
 
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
-import androidx.core.content.ContextCompat
-import androidx.fragment.app.FragmentActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.PersonOutline
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Phone
-import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.outlined.PersonOutline
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import androidx.fragment.app.FragmentActivity
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -56,9 +52,9 @@ fun SignupScreen(
             val content = context.assets.open(fileName).bufferedReader().use { it.readText() }
             activeLegalTitle = title
             activeLegalContent = content
-        } catch (e: Exception) {
+        } catch (ignored: Exception) {
             activeLegalTitle = title
-            activeLegalContent = "Failed to load document: ${e.localizedMessage}"
+            activeLegalContent = "Failed to load document: ${ignored.localizedMessage}"
         }
     }
 
@@ -129,7 +125,9 @@ fun SignupScreen(
         val promptInfo = BiometricPrompt.PromptInfo.Builder()
             .setTitle("Confirm Biometric setup")
             .setSubtitle("Confirm your biometric identity to lock and unlock BATON")
-            .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL)
+            .setAllowedAuthenticators(
+                BiometricManager.Authenticators.BIOMETRIC_WEAK or BiometricManager.Authenticators.DEVICE_CREDENTIAL
+            )
             .build()
 
         biometricPrompt.authenticate(promptInfo)
@@ -142,7 +140,7 @@ fun SignupScreen(
                 brush = Brush.verticalGradient(
                     colors = listOf(
                         Color(0xFF0F1424),
-                        Color(0xFF022744)
+                        Color(0xFF000000)
                     )
                 )
             ),
@@ -199,7 +197,11 @@ fun SignupScreen(
                     modifier = Modifier.padding(24.dp)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Outlined.PersonOutline, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary)
+                        Icon(
+                            Icons.Outlined.PersonOutline,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.tertiary
+                        )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = "Create Your Profile",
@@ -219,7 +221,13 @@ fun SignupScreen(
                             emailError = null
                         },
                         label = { Text("Email Address") },
-                        leadingIcon = { Icon(Icons.Default.Email, contentDescription = null, tint = Color(0xFF7A8B9E)) },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Email,
+                                contentDescription = null,
+                                tint = Color(0xFF7A8B9E)
+                            )
+                        },
                         isError = emailError != null,
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
@@ -252,7 +260,13 @@ fun SignupScreen(
                             phoneError = null
                         },
                         label = { Text("Phone Number") },
-                        leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null, tint = Color(0xFF7A8B9E)) },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Phone,
+                                contentDescription = null,
+                                tint = Color(0xFF7A8B9E)
+                            )
+                        },
                         isError = phoneError != null,
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),

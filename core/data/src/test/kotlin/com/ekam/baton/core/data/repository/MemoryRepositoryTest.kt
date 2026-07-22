@@ -103,11 +103,25 @@ class FakeMemoryDao : MemoryDao {
         memories.clear()
         emit()
     }
+
+    override suspend fun deleteMemoriesOlderThan(cutoffTime: Long) {
+        val toDelete = memories.filter { it.createdAt < cutoffTime }
+        memories.removeAll(toDelete)
+        if (toDelete.isNotEmpty()) emit()
+    }
+}
+
+class FakeAuditDao : com.ekam.baton.core.data.db.dao.AuditDao {
+    override suspend fun insertAuditLog(log: com.ekam.baton.core.data.db.entity.AuditLogEntity) {}
+    override fun getAllAuditLogs(): Flow<List<com.ekam.baton.core.data.db.entity.AuditLogEntity>> = kotlinx.coroutines.flow.flowOf(emptyList())
+    override suspend fun getLastAuditLog(): com.ekam.baton.core.data.db.entity.AuditLogEntity? = null
+    override suspend fun getAllAuditLogsSync(): List<com.ekam.baton.core.data.db.entity.AuditLogEntity> = emptyList()
 }
 
 class MemoryRepositoryTest {
 
     private lateinit var fakeDao: FakeMemoryDao
+    private lateinit var fakeAuditDao: FakeAuditDao
     private lateinit var repository: MemoryRepository
 
     private fun memory(
@@ -134,7 +148,8 @@ class MemoryRepositoryTest {
     @Before
     fun setUp() {
         fakeDao = FakeMemoryDao()
-        repository = MemoryRepository(fakeDao)
+        fakeAuditDao = FakeAuditDao()
+        repository = MemoryRepository(fakeDao, fakeAuditDao)
     }
 
     // ── getAllMemories ────────────────────────────────────────────

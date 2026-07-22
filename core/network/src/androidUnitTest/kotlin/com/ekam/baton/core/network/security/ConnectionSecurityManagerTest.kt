@@ -30,14 +30,14 @@ class ConnectionSecurityManagerTest {
     @Test
     fun testDeriveSharedSecret() {
         // Client Keypair
-        val clientPrivBytes = Curve25519.generatePrivateKey()
-        val clientPubBytes = Curve25519.getPublicKey(clientPrivBytes)
-        val clientPubHex = securityManager.toHex(clientPubBytes)
+        val clientKeys = securityManager.generateClientKeys()
+        val clientPrivBytes = securityManager.decryptPrivateKey(clientKeys.encryptedPrivateKeyBase64, clientKeys.privateKeyIvBase64)
+        val clientPubHex = clientKeys.publicKeyHex
 
         // Agent Keypair
-        val agentPrivBytes = Curve25519.generatePrivateKey()
-        val agentPubBytes = Curve25519.getPublicKey(agentPrivBytes)
-        val agentPubHex = securityManager.toHex(agentPubBytes)
+        val agentKeys = securityManager.generateClientKeys()
+        val agentPrivBytes = securityManager.decryptPrivateKey(agentKeys.encryptedPrivateKeyBase64, agentKeys.privateKeyIvBase64)
+        val agentPubHex = agentKeys.publicKeyHex
 
         // Derive client-side shared secret
         val clientSharedSecret = securityManager.deriveSharedSecret(clientPrivBytes, agentPubHex)
@@ -61,8 +61,8 @@ class ConnectionSecurityManagerTest {
         val keys = securityManager.generateClientKeys()
         val privateKey = securityManager.decryptPrivateKey(keys.encryptedPrivateKeyBase64, keys.privateKeyIvBase64)
         
-        val agentPrivBytes = Curve25519.generatePrivateKey()
-        val agentPubHex = securityManager.toHex(Curve25519.getPublicKey(agentPrivBytes))
+        val agentKeys = securityManager.generateClientKeys()
+        val agentPubHex = agentKeys.publicKeyHex
         
         val sharedSecret = securityManager.deriveSharedSecret(privateKey, agentPubHex)
 
@@ -83,8 +83,9 @@ class ConnectionSecurityManagerTest {
     fun testComputeSignature() {
         val keys = securityManager.generateClientKeys()
         val privateKey = securityManager.decryptPrivateKey(keys.encryptedPrivateKeyBase64, keys.privateKeyIvBase64)
-        val agentPrivBytes = Curve25519.generatePrivateKey()
-        val agentPubHex = securityManager.toHex(Curve25519.getPublicKey(agentPrivBytes))
+        
+        val agentKeys = securityManager.generateClientKeys()
+        val agentPubHex = agentKeys.publicKeyHex
         
         val sharedSecret = securityManager.deriveSharedSecret(privateKey, agentPubHex)
         val ciphertext = "encrypted_base64_blob"

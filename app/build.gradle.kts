@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
+    id("io.gitlab.arturbosch.detekt") version "1.23.6"
 }
 
 android {
@@ -88,7 +89,19 @@ android {
     }
 }
 
+detekt {
+    buildUponDefaultConfig = true
+    allRules = false
+    autoCorrect = true
+    config.setFrom(files("$rootDir/config/detekt/detekt.yml"))
+}
+
+tasks.named("check") {
+    dependsOn("detekt")
+}
+
 dependencies {
+    detektPlugins("io.gitlab.arturbosch.detekt:detekt-formatting:1.23.6")
     implementation(libs.ktor.client.okhttp)
     implementation(libs.okhttp)
     
@@ -139,5 +152,8 @@ implementation(libs.work.runtime.ktx)
     debugImplementation(libs.compose.ui.tooling)
     debugImplementation(libs.compose.ui.test.manifest)
     debugImplementation("com.squareup.leakcanary:leakcanary-android:2.13")
+
+    // Voice / WebRTC
+    implementation("io.getstream:stream-webrtc-android:1.3.10")
 }
 

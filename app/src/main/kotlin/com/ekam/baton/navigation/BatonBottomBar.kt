@@ -14,7 +14,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navOptions
 
 // ─── Model ───────────────────────────────────────────────────────────────────
@@ -35,32 +37,32 @@ data class BottomNavItem(
 /** Ordered list of bottom-nav tabs (left → right). */
 val bottomNavItems: List<BottomNavItem> = listOf(
     BottomNavItem(
-        route              = Screen.Chats.route,
-        icon               = Icons.Outlined.Forum,
+        route = Screen.Chats.route,
+        icon = Icons.Outlined.Forum,
         contentDescription = "Chats",
     ),
     BottomNavItem(
-        route              = Screen.Agents.route,
-        icon               = Icons.Outlined.SmartToy,
+        route = Screen.Agents.route,
+        icon = Icons.Outlined.SmartToy,
         contentDescription = "Agents",
     ),
     BottomNavItem(
-        route              = Screen.A2A.route,
-        icon               = Icons.AutoMirrored.Outlined.CompareArrows,
+        route = Screen.A2A.route,
+        icon = Icons.AutoMirrored.Outlined.CompareArrows,
         contentDescription = "A2A Handshake",
     ),
     BottomNavItem(
-        route              = Screen.Settings.route,
-        icon               = Icons.Outlined.Settings,
+        route = Screen.Settings.route,
+        icon = Icons.Outlined.Settings,
         contentDescription = "Settings",
     ),
 )
 
 // ─── Colors ──────────────────────────────────────────────────────────────────
 
-private val NavBarContainer  = Color(0xFF0F1623)               // BatonSurface
-private val NavBarSelected   = Color(0xFF3D8EFF)               // BatonElectric
-private val NavBarIndicator  = Color(0xFF3D8EFF).copy(alpha = 0.16f) // subtle pill glow
+private val NavBarContainer = Color(0xFF0F1623) // BatonSurface
+private val NavBarSelected = Color(0xFF3D8EFF) // BatonElectric
+private val NavBarIndicator = Color(0xFF3D8EFF).copy(alpha = 0.16f) // subtle pill glow
 private val NavBarUnselected = Color.White.copy(alpha = 0.60f) // 60% white
 
 // ─── Composable ──────────────────────────────────────────────────────────────
@@ -78,27 +80,28 @@ private val NavBarUnselected = Color.White.copy(alpha = 0.60f) // 60% white
  * [NavigationBarDefaults.windowInsets] — no extra padding needed here.
  *
  * @param navController  App-level nav controller.
- * @param currentRoute   Active destination route from [currentBackStackEntryAsState].
  */
 @Composable
 fun BatonBottomBar(
-    navController: NavController,
-    currentRoute: String?,
+    navController: NavController
 ) {
+    val navBackStackEntry = navController.currentBackStackEntryAsState().value
+    val currentDestination = navBackStackEntry?.destination
+
     NavigationBar(
         containerColor = NavBarContainer,
         tonalElevation = 0.dp, // suppress M3 tonal surface overlay; color is explicit
     ) {
         bottomNavItems.forEach { item ->
-            val selected = currentRoute == item.route
+            val selected = currentDestination?.hierarchy?.any { it.route == item.route } == true
 
             NavigationBarItem(
                 selected = selected,
-                onClick  = {
+                onClick = {
                     // Guard against re-navigating to the already-visible destination
                     if (!selected) {
                         navController.navigate(
-                            route      = item.route,
+                            route = item.route,
                             navOptions = navOptions {
                                 // Pop back to start destination so tab switches never
                                 // accumulate a deep back stack.
@@ -106,24 +109,24 @@ fun BatonBottomBar(
                                     saveState = true
                                 }
                                 launchSingleTop = true
-                                restoreState    = true
+                                restoreState = true
                             },
                         )
                     }
                 },
                 icon = {
                     Icon(
-                        imageVector        = item.icon,
+                        imageVector = item.icon,
                         contentDescription = item.contentDescription,
                     )
                 },
                 // No visible label — contentDescription handles accessibility
-                label           = null,
+                label = null,
                 alwaysShowLabel = false,
                 colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor   = NavBarSelected,
+                    selectedIconColor = NavBarSelected,
                     unselectedIconColor = NavBarUnselected,
-                    indicatorColor      = NavBarIndicator,
+                    indicatorColor = NavBarIndicator,
                 ),
             )
         }

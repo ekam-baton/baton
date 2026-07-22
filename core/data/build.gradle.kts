@@ -49,6 +49,8 @@ dependencies {
     implementation(libs.room.paging)
     implementation(libs.paging.runtime)
     ksp(libs.room.compiler)
+    implementation("net.zetetic:android-database-sqlcipher:4.5.4")
+    implementation("androidx.sqlite:sqlite-ktx:2.4.0")
 
     // DataStore & Security
     implementation(libs.datastore.preferences)

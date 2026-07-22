@@ -28,7 +28,9 @@ data class Agent(
     val cardFingerprint: String = "",
     val cardIssuedAt: Long = 0L,
     val cardAvatarSeed: String = "",
-    val worldRoomId: String? = null
+    val worldRoomId: String? = null,
+    val ownerId: String? = null,
+    val ownerName: String? = null
 )
 
 fun AgentEntity.toDomainModel() = Agent(
@@ -55,7 +57,9 @@ fun AgentEntity.toDomainModel() = Agent(
     cardFingerprint = cardFingerprint,
     cardIssuedAt = cardIssuedAt,
     cardAvatarSeed = cardAvatarSeed,
-    worldRoomId = worldRoomId
+    worldRoomId = worldRoomId,
+    ownerId = ownerId,
+    ownerName = ownerName
 )
 
 fun Agent.toEntity() = AgentEntity(
@@ -82,5 +86,7 @@ fun Agent.toEntity() = AgentEntity(
     cardFingerprint = cardFingerprint,
     cardIssuedAt = cardIssuedAt,
     cardAvatarSeed = cardAvatarSeed,
-    worldRoomId = worldRoomId
+    worldRoomId = worldRoomId,
+    ownerId = ownerId,
+    ownerName = ownerName
 )

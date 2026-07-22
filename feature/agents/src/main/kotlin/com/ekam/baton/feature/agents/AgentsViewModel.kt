@@ -114,7 +114,22 @@ class AgentsViewModel(
                 val finalAgent = if (pairResult.isSuccess) {
                     val pair = pairResult.getOrNull()
                     if (pair != null) {
-                        agent.copy(relayUrl = pair.first, relayToken = pair.second)
+                        val peerPublicKey = pair.x25519PublicKey
+                        val securityConfigJson = if (peerPublicKey != null) {
+                            "{\"client_private_key_enc\": \"${keys.encryptedPrivateKeyBase64}\", \"client_private_key_iv\": \"${keys.privateKeyIvBase64}\", \"peer_public_key\": \"$peerPublicKey\"}"
+                        } else {
+                            agent.securityConfig
+                        }
+                        val securityMode = if (peerPublicKey != null) "secured" else agent.securityMode
+
+                        agent.copy(
+                            relayUrl = pair.relayUrl,
+                            relayToken = pair.relayToken,
+                            ownerId = pair.ownerId,
+                            ownerName = pair.ownerName,
+                            securityMode = securityMode,
+                            securityConfig = securityConfigJson
+                        )
                     } else {
                         agent
                     }

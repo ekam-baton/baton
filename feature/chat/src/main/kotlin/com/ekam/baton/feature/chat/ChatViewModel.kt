@@ -122,6 +122,12 @@ class ChatViewModel(
     private val _availableTools = MutableStateFlow<List<com.ekam.baton.core.network.mcp.McpTool>>(emptyList())
     val availableTools: StateFlow<List<com.ekam.baton.core.network.mcp.McpTool>> = _availableTools.asStateFlow()
 
+    val fontSize: StateFlow<String> = appPreferences.fontSize.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = "medium"
+    )
+
     val toolAuthRequests = toolAuthManager.authorizationRequests
 
     fun resolveToolAuth(request: com.ekam.baton.core.network.mcp.ToolAuthorizationRequest, isApproved: Boolean) {
@@ -170,6 +176,16 @@ class ChatViewModel(
                 }
             }
 
+            // Memory cleanup
+            viewModelScope.launch {
+                try {
+                    val retentionDays = appPreferences.memoryRetentionDays.first()
+                    memoryRepository.cleanupOldMemories(retentionDays)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to cleanup old memories", e)
+                }
+            }
+
             // Tool loading runs concurrently but does its own fetch — intentional
             // because it may require a network round-trip (MCP listTools) and should
             // not block the memory observer above.
@@ -215,7 +231,7 @@ class ChatViewModel(
                             uri = uri.toString()
                         )
                     } catch (e: Exception) {
-                        e.printStackTrace()
+                        android.util.Log.e("ChatViewModel", "Failed to parse attachment", e)
                         null
                     }
                 }
@@ -230,11 +246,13 @@ class ChatViewModel(
                 _agentActivityStatus.value = "Thinking..."
                 // FIX: Use collect {} to make it clear we are consuming all chunks;
                 // the plain .collect() overload with no lambda works but is misleading.
+                val extractFacts = appPreferences.autoExtractFacts.first()
                 chatRepository.sendMessageWithResponse(
                     conversationId = cid,
                     content = content,
                     attachments = attachmentDtos,
-                    authHeader = authHeader
+                    authHeader = authHeader,
+                    extractFacts = extractFacts
                 ).collect {}
             } catch (e: Exception) {
                 // Network errors are mostly handled inside repository by updating the
@@ -312,6 +330,7 @@ class ChatViewModel(
     }
 
     private suspend fun checkEpisodicMemoryGeneration(cid: String) {
+        if (!appPreferences.autoGenerateEpisodes.first()) return
         val conv = chatRepository.getConversationById(cid) ?: return
         if (conv.messageCount > 0 && conv.messageCount % EPISODIC_MEMORY_INTERVAL == 0) {
             val workData = androidx.work.workDataOf(

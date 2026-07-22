@@ -30,7 +30,7 @@ fun BatonSplashScreen() {
                 brush = Brush.verticalGradient(
                     colors = listOf(
                         Color(0xFF0F1424),
-                        Color(0xFF022744)
+                        Color(0xFF000000)
                     )
                 )
             ),
@@ -50,7 +50,7 @@ fun BatonSplashScreen() {
                 )
             }
         }
-        
+
         // Branding at the bottom
         Column(
             modifier = Modifier

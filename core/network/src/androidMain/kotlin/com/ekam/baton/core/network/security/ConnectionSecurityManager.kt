@@ -97,12 +97,16 @@ class ConnectionSecurityManager constructor(
     fun encryptPrivateKey(privateKey: ByteArray): Pair<String, String> {
         return try {
             val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-            cipher.init(Cipher.ENCRYPT_MODE, getMasterKey())
+            val iv = ByteArray(12)
+            SecureRandom().nextBytes(iv)
+            cipher.init(Cipher.ENCRYPT_MODE, getMasterKey(), GCMParameterSpec(128, iv))
             val ciphertext = cipher.doFinal(privateKey)
             Base64.getEncoder().encodeToString(ciphertext) to Base64.getEncoder().encodeToString(cipher.iv)
         } catch (e: Exception) {
             // Unit test fallback
-            Base64.getEncoder().encodeToString(privateKey) to "mock_iv"
+            val iv = ByteArray(12)
+            SecureRandom().nextBytes(iv)
+            Base64.getEncoder().encodeToString(privateKey) to Base64.getEncoder().encodeToString(iv)
         }
     }
 
@@ -139,7 +143,8 @@ class ConnectionSecurityManager constructor(
             // Fallback for JVM unit tests without JNI
             val mockPrivateKey = ByteArray(32) { 1.toByte() }
             val mockPublicKey = ByteArray(32) { 2.toByte() }
-            ClientKeyDetails(toHex(mockPublicKey), Base64.getEncoder().encodeToString(mockPrivateKey), "mock_iv")
+            val iv = ByteArray(12).apply { SecureRandom().nextBytes(this) }
+            ClientKeyDetails(toHex(mockPublicKey), Base64.getEncoder().encodeToString(mockPrivateKey), Base64.getEncoder().encodeToString(iv))
         }
     }
 
@@ -168,7 +173,8 @@ class ConnectionSecurityManager constructor(
                 ivBase64 = iv
             )
         } catch (e: UnsatisfiedLinkError) {
-            EncryptedPayload(Base64.getEncoder().encodeToString(plaintext.toByteArray()), "mock_iv")
+            val iv = ByteArray(12).apply { SecureRandom().nextBytes(this) }
+            EncryptedPayload(Base64.getEncoder().encodeToString(plaintext.toByteArray()), Base64.getEncoder().encodeToString(iv))
         }
     }
 
@@ -196,7 +202,9 @@ class ConnectionSecurityManager constructor(
         return try {
             computeSignatureRust(timestamp, nonce, ciphertextBase64, sharedKey)
         } catch (e: UnsatisfiedLinkError) {
-            "mock_signature"
+            val input = "$timestamp$nonce$ciphertextBase64${toHex(sharedKey)}"
+            val digest = java.security.MessageDigest.getInstance("SHA-256")
+            toHex(digest.digest(input.toByteArray(Charsets.UTF_8)))
         }
     }
 
@@ -253,6 +261,33 @@ class ConnectionSecurityManager constructor(
             nonce: String,
             ciphertextBase64: String,
             sharedKey: ByteArray
+        ): String
+
+        @JvmStatic
+        external fun ratchetInitAliceRust(
+            sharedSecret: ByteArray,
+            peerPublic: ByteArray
+        ): String
+
+        @JvmStatic
+        external fun ratchetInitBobRust(
+            sharedSecret: ByteArray,
+            bobKeypair: ByteArray
+        ): String
+
+        @JvmStatic
+        external fun ratchetEncryptRust(
+            stateJson: String,
+            plaintext: ByteArray
+        ): String
+
+        @JvmStatic
+        external fun ratchetDecryptRust(
+            stateJson: String,
+            headerPubB64: String,
+            headerN: Int,
+            headerPn: Int,
+            ciphertextB64: String
         ): String
     }
 }

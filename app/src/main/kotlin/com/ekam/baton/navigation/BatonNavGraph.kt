@@ -1,24 +1,24 @@
 package com.ekam.baton.navigation
 
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
-import androidx.navigation.NavType
 import androidx.navigation.navArgument
-import com.ekam.baton.feature.agents.AgentsScreen
 import com.ekam.baton.feature.agents.AddEditAgentScreen
-import com.ekam.baton.feature.chat.ChatsListScreen
-import com.ekam.baton.feature.chat.ChatScreen
+import com.ekam.baton.feature.agents.AgentsScreen
 import com.ekam.baton.feature.chat.CallScreen
+import com.ekam.baton.feature.chat.ChatScreen
+import com.ekam.baton.feature.chat.ChatsListScreen
 import com.ekam.baton.feature.memory.MemoryScreen
 import com.ekam.baton.feature.settings.SettingsScreen
 
@@ -33,11 +33,14 @@ import com.ekam.baton.feature.settings.SettingsScreen
  */
 sealed class Screen(val route: String) {
     /** Chats tab — the default landing screen. */
-    object Chats    : Screen("chats_root")
+    object Chats : Screen("chats_root")
+
     /** Agents tab — agent management. */
-    object Agents   : Screen("agents_root") // Use nested graph route
+    object Agents : Screen("agents_root") // Use nested graph route
+
     /** A2A tab — Agent-to-Agent protocol handshake. */
-    object A2A      : Screen("a2a_root")
+    object A2A : Screen("a2a_root")
+
     /** Settings tab — app configuration. */
     object Settings : Screen("settings")
 }
@@ -60,22 +63,22 @@ fun BatonNavGraph(
     modifier: Modifier = Modifier,
 ) {
     NavHost(
-        navController    = navController,
+        navController = navController,
         startDestination = Screen.Chats.route,
-        modifier         = modifier,
-        enterTransition    = { 
+        modifier = modifier,
+        enterTransition = {
             slideInHorizontally(
                 animationSpec = spring(stiffness = Spring.StiffnessLow, dampingRatio = Spring.DampingRatioNoBouncy),
                 initialOffsetX = { it / 4 }
             ) + fadeIn(animationSpec = spring(stiffness = Spring.StiffnessLow))
         },
-        exitTransition     = { 
+        exitTransition = {
             fadeOut(animationSpec = spring(stiffness = Spring.StiffnessLow))
         },
-        popEnterTransition = { 
+        popEnterTransition = {
             fadeIn(animationSpec = spring(stiffness = Spring.StiffnessLow))
         },
-        popExitTransition  = { 
+        popExitTransition = {
             slideOutHorizontally(
                 animationSpec = spring(stiffness = Spring.StiffnessLow, dampingRatio = Spring.DampingRatioNoBouncy),
                 targetOffsetX = { it / 4 }
@@ -86,8 +89,8 @@ fun BatonNavGraph(
         navigation(startDestination = "chats_list", route = Screen.Chats.route) {
             composable("chats_list") {
                 ChatsListScreen(
-                    onNavigateToChat = { conversationId -> 
-                        navController.navigate("chats/$conversationId") 
+                    onNavigateToChat = { conversationId ->
+                        navController.navigate("chats/$conversationId")
                     },
                     onNavigateToCall = { agentName ->
                         navController.navigate("call/$agentName")
@@ -103,7 +106,7 @@ fun BatonNavGraph(
                     ChatScreen(
                         conversationId = conversationId,
                         onNavigateBack = { navController.popBackStack() },
-                        onNavigateToMemory = { agentId -> 
+                        onNavigateToMemory = { agentId ->
                             navController.navigate("memory")
                         },
                         onNavigateToCall = { agentName ->
@@ -123,16 +126,25 @@ fun BatonNavGraph(
                 )
             }
         }
-        
+
         // Agents nested graph
         navigation(startDestination = "agents", route = Screen.Agents.route) {
             composable("agents") {
                 AgentsScreen(
-                    onAddAgentClick = { url, name -> 
+                    onAddAgentClick = { url, name, owner ->
                         if (url != null && name != null) {
-                            val encodedUrl = android.util.Base64.encodeToString(url.toByteArray(), android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP)
-                            val encodedName = android.util.Base64.encodeToString(name.toByteArray(), android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP)
-                            navController.navigate("agents/add?url=$encodedUrl&name=$encodedName")
+                            val encodedUrl = android.util.Base64.encodeToString(
+                                url.toByteArray(),
+                                android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP
+                            )
+                            val encodedName = android.util.Base64.encodeToString(
+                                name.toByteArray(),
+                                android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP
+                            )
+                            val ownerPart = owner?.let {
+                                "&owner=" + android.util.Base64.encodeToString(it.toByteArray(), android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP)
+                            } ?: ""
+                            navController.navigate("agents/add?url=$encodedUrl&name=$encodedName$ownerPart")
                         } else {
                             navController.navigate("agents/add")
                         }
@@ -141,22 +153,39 @@ fun BatonNavGraph(
                 )
             }
             composable(
-                route = "agents/add?url={url}&name={name}",
+                route = "agents/add?url={url}&name={name}&owner={owner}",
                 arguments = listOf(
-                    navArgument("url") { type = NavType.StringType; nullable = true; defaultValue = null },
-                    navArgument("name") { type = NavType.StringType; nullable = true; defaultValue = null }
+                    navArgument("url") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                    navArgument("name") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                    navArgument("owner") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    }
                 )
             ) { backStackEntry ->
-                val discoveredUrl = backStackEntry.arguments?.getString("url")?.let { 
-                    String(android.util.Base64.decode(it, android.util.Base64.URL_SAFE)) 
+                val discoveredUrl = backStackEntry.arguments?.getString("url")?.let {
+                    String(android.util.Base64.decode(it, android.util.Base64.URL_SAFE))
                 }
-                val discoveredName = backStackEntry.arguments?.getString("name")?.let { 
-                    String(android.util.Base64.decode(it, android.util.Base64.URL_SAFE)) 
+                val discoveredName = backStackEntry.arguments?.getString("name")?.let {
+                    String(android.util.Base64.decode(it, android.util.Base64.URL_SAFE))
+                }
+                val discoveredOwner = backStackEntry.arguments?.getString("owner")?.let {
+                    String(android.util.Base64.decode(it, android.util.Base64.URL_SAFE))
                 }
                 AddEditAgentScreen(
                     agentId = null,
                     discoveredUrl = discoveredUrl,
                     discoveredName = discoveredName,
+                    discoveredOwnerName = discoveredOwner,
                     onNavigateBack = { navController.popBackStack() }
                 )
             }
@@ -171,20 +200,20 @@ fun BatonNavGraph(
                 )
             }
         }
-        
+
         composable("agents/tunnel_setup") {
             com.ekam.baton.feature.agents.tunnel.TunnelSetupGuideScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }
-        
-        composable(Screen.A2A.route) { 
-            com.ekam.baton.feature.agents.a2a.A2AScreen() 
+
+        composable(Screen.A2A.route) {
+            com.ekam.baton.feature.agents.a2a.A2AScreen()
         }
-        
+
         composable("memory") { MemoryScreen() }
-        
-        composable(Screen.Settings.route) { 
+
+        composable(Screen.Settings.route) {
             SettingsScreen(
                 onNavigateToTunnelSetup = {
                     navController.navigate("agents/tunnel_setup")
@@ -192,7 +221,7 @@ fun BatonNavGraph(
                 onNavigateToMemory = {
                     navController.navigate("memory")
                 }
-            ) 
+            )
         }
     }
 }

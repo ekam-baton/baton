@@ -18,6 +18,7 @@ class AgentSecurityConfigProviderImpl constructor(
             val clientPrivateKeyBase64 = json.optString("client_private_key_enc").takeIf { it.isNotEmpty() }
             val clientPrivateKeyIvBase64 = json.optString("client_private_key_iv").takeIf { it.isNotEmpty() }
             val peerPublicKeyHex = json.optString("peer_public_key").takeIf { it.isNotEmpty() }
+            val ratchetStateBase64 = json.optString("ratchet_state").takeIf { it.isNotEmpty() }
             
             val pins = mutableListOf<String>()
             val pinsArray = json.optJSONArray("cert_pins")
@@ -32,7 +33,8 @@ class AgentSecurityConfigProviderImpl constructor(
                 clientPrivateKeyBase64 = clientPrivateKeyBase64,
                 clientPrivateKeyIvBase64 = clientPrivateKeyIvBase64,
                 peerPublicKeyHex = peerPublicKeyHex,
-                certificatePins = pins
+                certificatePins = pins,
+                ratchetStateBase64 = ratchetStateBase64
             )
         } catch (e: Exception) {
             AgentSecurityDetails(
@@ -40,8 +42,20 @@ class AgentSecurityConfigProviderImpl constructor(
                 clientPrivateKeyBase64 = null,
                 clientPrivateKeyIvBase64 = null,
                 peerPublicKeyHex = null,
-                certificatePins = emptyList()
+                certificatePins = emptyList(),
+                ratchetStateBase64 = null
             )
+        }
+    }
+
+    override suspend fun saveRatchetState(agentId: String, stateBase64: String) {
+        val agent = agentDao.getAgentById(agentId) ?: return
+        try {
+            val json = JSONObject(agent.securityConfig)
+            json.put("ratchet_state", stateBase64)
+            agentDao.upsertAgent(agent.copy(securityConfig = json.toString()))
+        } catch (e: Exception) {
+            // Ignore JSON parse errors
         }
     }
 }

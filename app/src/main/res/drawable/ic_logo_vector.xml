@@ -7,7 +7,7 @@
 
     <!-- Outer Glow / Background Circle -->
     <path
-        android:fillColor="#022744"
+        android:fillColor="#000000"
         android:pathData="M54,54m-33,0a33,33 0,1 1,66 0a33,33 0,1 1,-66 0" />
 
     <!-- The Baton (Stylized Exclamation) -->

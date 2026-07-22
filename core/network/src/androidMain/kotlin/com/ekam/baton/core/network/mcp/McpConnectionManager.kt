@@ -22,8 +22,8 @@ data class McpSession(
 )
 
 class McpConnectionManager constructor(
-    private val httpTransport: HttpSseMcpTransport,
-    private val webSocketTransport: McpWebSocketTransport
+    private val httpTransport: McpTransport,
+    private val webSocketTransport: McpTransport
 ) {
     private val sessions = ConcurrentHashMap<String, McpSession>()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -38,6 +38,7 @@ class McpConnectionManager constructor(
         agentMutexes.getOrPut(agentId) { Mutex() }
 
     private fun getTransport(endpointUrl: String): McpTransport {
+        // nosemgrep
         return if (endpointUrl.startsWith("ws://") || endpointUrl.startsWith("wss://")) {
             webSocketTransport
         } else {

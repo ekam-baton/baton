@@ -27,7 +27,7 @@ import com.ekam.baton.core.data.model.toDomainModel
 import com.ekam.baton.core.data.model.toEntity
 import androidx.paging.map
 import kotlinx.coroutines.flow.map
-
+import kotlinx.serialization.json.put
 class ChatRepository constructor(
     private val conversationDao: ConversationDao,
     private val messageDao: MessageDao,
@@ -89,8 +89,8 @@ class ChatRepository constructor(
     suspend fun insertMessage(message: MessageEntity) {
         val lastAudit = auditDao.getLastAuditLog()
         val prevHash = lastAudit?.hash ?: ""
-        // FIX: Use JSONObject to safely escape user content and prevent JSON injection
-        val payload = org.json.JSONObject().apply {
+        // FIX: Use kotlinx.serialization to safely escape user content and prevent JSON injection
+        val payload = kotlinx.serialization.json.buildJsonObject {
             put("id", message.id)
             put("conversationId", message.conversationId)
             put("role", message.role)
@@ -115,8 +115,8 @@ class ChatRepository constructor(
     suspend fun updateMessage(message: MessageEntity) {
         val lastAudit = auditDao.getLastAuditLog()
         val prevHash = lastAudit?.hash ?: ""
-        // FIX: Use JSONObject to safely escape user content and prevent JSON injection
-        val payload = org.json.JSONObject().apply {
+        // FIX: Use kotlinx.serialization to safely escape user content and prevent JSON injection
+        val payload = kotlinx.serialization.json.buildJsonObject {
             put("id", message.id)
             put("conversationId", message.conversationId)
             put("role", message.role)
@@ -146,7 +146,8 @@ class ChatRepository constructor(
         conversationId: String,
         content: String,
         attachments: List<AttachmentDto> = emptyList(),
-        authHeader: String? = null
+        authHeader: String? = null,
+        extractFacts: Boolean = true
     ): kotlinx.coroutines.flow.Flow<String> {
         val attachmentsJson = if (attachments.isNotEmpty()) {
             kotlinx.serialization.json.Json.encodeToString(
@@ -165,7 +166,9 @@ class ChatRepository constructor(
         insertMessage(userMsg)
 
         // 2. Extract working memory facts
-        workingMemoryManager.extractKeyFacts(conversationId, content)
+        if (extractFacts) {
+            workingMemoryManager.extractKeyFacts(conversationId, content)
+        }
 
         // 3. Update conversation metadata
         val conv = conversationDao.getConversationById(conversationId)

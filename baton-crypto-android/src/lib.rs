@@ -11,6 +11,8 @@ use x25519_dalek::{PublicKey, StaticSecret};
 use hkdf::Hkdf;
 use rand::RngCore;
 
+pub mod ratchet;
+
 
 
 // Helper to convert JNI byte array to Rust Vec
@@ -310,5 +312,161 @@ mod tests {
 
         assert_eq!(key1, key2);
         assert_ne!(key1, key3);
+    }
+}
+
+// ----- RATCHET JNI BINDINGS -----
+
+use crate::ratchet::RatchetState;
+
+#[no_mangle]
+pub extern "system" fn Java_com_ekam_baton_core_network_security_ConnectionSecurityManager_ratchetInitAliceRust(
+    mut env: JNIEnv,
+    _class: JClass,
+    shared_secret: jbyteArray,
+    peer_public: jbyteArray,
+) -> jstring {
+    let ss_bytes = match to_vec(&mut env, shared_secret) {
+        Ok(b) if b.len() == 32 => b,
+        _ => return std::ptr::null_mut(),
+    };
+    let peer_pub_bytes = match to_vec(&mut env, peer_public) {
+        Ok(b) if b.len() == 32 => b,
+        _ => return std::ptr::null_mut(),
+    };
+
+    let mut ss = [0u8; 32];
+    ss.copy_from_slice(&ss_bytes);
+    let mut pp = [0u8; 32];
+    pp.copy_from_slice(&peer_pub_bytes);
+    let peer_pub_key = PublicKey::from(pp);
+
+    let state = RatchetState::init_alice(ss, peer_pub_key);
+    let state_json = serde_json::to_string(&state).unwrap_or_default();
+    
+    match env.new_string(state_json) {
+        Ok(js) => js.into_raw(),
+        Err(_) => std::ptr::null_mut(),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_ekam_baton_core_network_security_ConnectionSecurityManager_ratchetInitBobRust(
+    mut env: JNIEnv,
+    _class: JClass,
+    shared_secret: jbyteArray,
+    bob_keypair: jbyteArray,
+) -> jstring {
+    let ss_bytes = match to_vec(&mut env, shared_secret) {
+        Ok(b) if b.len() == 32 => b,
+        _ => return std::ptr::null_mut(),
+    };
+    let my_priv_bytes = match to_vec(&mut env, bob_keypair) {
+        Ok(b) if b.len() == 32 => b,
+        _ => return std::ptr::null_mut(),
+    };
+
+    let mut ss = [0u8; 32];
+    ss.copy_from_slice(&ss_bytes);
+    let mut mp = [0u8; 32];
+    mp.copy_from_slice(&my_priv_bytes);
+
+    let state = RatchetState::init_bob(ss, mp);
+    let state_json = serde_json::to_string(&state).unwrap_or_default();
+    
+    match env.new_string(state_json) {
+        Ok(js) => js.into_raw(),
+        Err(_) => std::ptr::null_mut(),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_ekam_baton_core_network_security_ConnectionSecurityManager_ratchetEncryptRust(
+    mut env: JNIEnv,
+    _class: JClass,
+    state_json: jstring,
+    plaintext: jbyteArray,
+) -> jstring {
+    let state_str = match to_string(&mut env, state_json) {
+        Ok(s) => s,
+        Err(_) => return std::ptr::null_mut(),
+    };
+    let pt_bytes = match to_vec(&mut env, plaintext) {
+        Ok(b) => b,
+        Err(_) => return std::ptr::null_mut(),
+    };
+
+    let mut state: RatchetState = match serde_json::from_str(&state_str) {
+        Ok(s) => s,
+        Err(_) => return std::ptr::null_mut(),
+    };
+
+    let (header_pub, header_n, header_pn, ciphertext_with_iv) = state.ratchet_encrypt(&pt_bytes);
+    let new_state_json = serde_json::to_string(&state).unwrap_or_default();
+    let header_pub_b64 = BASE64.encode(header_pub);
+    let ct_b64 = BASE64.encode(&ciphertext_with_iv);
+
+    let result = format!(
+        r#"{{"state":{},"header_pub":"{}","header_n":{},"header_pn":{},"ciphertext":"{}"}}"#,
+        new_state_json, header_pub_b64, header_n, header_pn, ct_b64
+    );
+
+    match env.new_string(result) {
+        Ok(js) => js.into_raw(),
+        Err(_) => std::ptr::null_mut(),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_ekam_baton_core_network_security_ConnectionSecurityManager_ratchetDecryptRust(
+    mut env: JNIEnv,
+    _class: JClass,
+    state_json: jstring,
+    header_pub_b64: jstring,
+    header_n: i32,
+    header_pn: i32,
+    ciphertext_b64: jstring,
+) -> jstring {
+    let state_str = match to_string(&mut env, state_json) {
+        Ok(s) => s,
+        Err(_) => return std::ptr::null_mut(),
+    };
+    let hpub_str = match to_string(&mut env, header_pub_b64) {
+        Ok(s) => s,
+        Err(_) => return std::ptr::null_mut(),
+    };
+    let ct_str = match to_string(&mut env, ciphertext_b64) {
+        Ok(s) => s,
+        Err(_) => return std::ptr::null_mut(),
+    };
+
+    let mut state: RatchetState = match serde_json::from_str(&state_str) {
+        Ok(s) => s,
+        Err(_) => return std::ptr::null_mut(),
+    };
+
+    let hpub_bytes = match BASE64.decode(hpub_str) {
+        Ok(b) if b.len() == 32 => b,
+        _ => return std::ptr::null_mut(),
+    };
+    let mut hpub_array = [0u8; 32];
+    hpub_array.copy_from_slice(&hpub_bytes);
+
+    let ct_bytes = match BASE64.decode(ct_str) {
+        Ok(b) => b,
+        Err(_) => return std::ptr::null_mut(),
+    };
+
+    match state.ratchet_decrypt(hpub_array, header_n as u32, header_pn as u32, &ct_bytes) {
+        Ok(pt) => {
+            let new_state_json = serde_json::to_string(&state).unwrap_or_default();
+            let pt_b64 = BASE64.encode(&pt);
+            let result = format!(r#"{{"state":{},"plaintext":"{}"}}"#, new_state_json, pt_b64);
+            match env.new_string(result) {
+                Ok(js) => js.into_raw(),
+                Err(_) => std::ptr::null_mut(),
+            }
+        },
+        Err(_) => std::ptr::null_mut()
     }
 }

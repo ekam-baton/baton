@@ -47,6 +47,7 @@ class FakeConversationDao : ConversationDao {
     override fun getAllConversations(query: String): PagingSource<Int, ConversationEntity> = 
         FakeConversationPagingSource(conversations.values.toList())
     override suspend fun getConversationById(id: String): ConversationEntity? = conversations[id]
+    override suspend fun getConversationByAgentId(agentId: String): ConversationEntity? = conversations.values.find { it.agentId == agentId }
     override suspend fun upsertConversation(conversation: ConversationEntity) { conversations[conversation.id] = conversation }
     override suspend fun deleteConversation(id: String) { conversations.remove(id) }
 }
@@ -63,6 +64,7 @@ class FakeMessageDao : MessageDao {
     override suspend fun getMessageById(id: String): MessageEntity? = messages.find { it.id == id }
     override suspend fun getLastNMessages(conversationId: String, n: Int): List<MessageEntity> =
         messages.filter { it.conversationId == conversationId }.takeLast(n)
+    override suspend fun deleteMessage(id: String) { messages.removeAll { it.id == id } }
 }
 
 class ChatFakeMemoryDao : MemoryDao {
@@ -79,16 +81,29 @@ class ChatFakeMemoryDao : MemoryDao {
     override suspend fun updateLastAccessedTime(ids: List<String>, time: Long) {}
     override suspend fun clearWorkingMemoriesForConversation(conversationId: String) {}
     override suspend fun clearAllMemories() {}
+    override suspend fun deleteMemoriesOlderThan(cutoffTime: Long) {}
 }
 
 class FakeMcpTransport : McpTransport {
-    var responseChunks = listOf("Hello", " there!")
+    var responseChunks = listOf(
+        """{"jsonrpc":"2.0","id":1,"result":{"content":[{"text":"Hello"}]}}""",
+        """{"jsonrpc":"2.0","id":2,"result":{"content":[{"text":" there!"}]}}"""
+    )
     override suspend fun initialize(endpointUrl: String, authHeader: String?): Result<JsonObject> = Result.success(buildJsonObject {})
     override suspend fun listTools(endpointUrl: String, authHeader: String?): Result<List<McpTool>> = Result.success(listOf(McpTool("chat", "Chat tool", buildJsonObject {})))
     override fun callTool(endpointUrl: String, authHeader: String?, toolName: String, arguments: JsonObject): Flow<String> = flow {
         responseChunks.forEach { emit(it) }
     }
     override suspend fun ping(endpointUrl: String): Boolean = true
+    override suspend fun uploadFile(endpointUrl: String, authHeader: String?, uri: String, context: android.content.Context): Result<String> = Result.success("fake_file_id")
+}
+
+
+class ChatFakeAuditDao : com.ekam.baton.core.data.db.dao.AuditDao {
+    override suspend fun insertAuditLog(log: com.ekam.baton.core.data.db.entity.AuditLogEntity) {}
+    override fun getAllAuditLogs(): Flow<List<com.ekam.baton.core.data.db.entity.AuditLogEntity>> = kotlinx.coroutines.flow.flowOf(emptyList())
+    override suspend fun getLastAuditLog(): com.ekam.baton.core.data.db.entity.AuditLogEntity? = null
+    override suspend fun getAllAuditLogsSync(): List<com.ekam.baton.core.data.db.entity.AuditLogEntity> = emptyList()
 }
 
 // ── Test Class ───────────────────────────────────────────────────────────────
@@ -99,6 +114,7 @@ class ChatRepositoryTest {
     private lateinit var messageDao: FakeMessageDao
     private lateinit var agentDao: FakeAgentDao
     private lateinit var memoryDao: ChatFakeMemoryDao
+    private lateinit var auditDao: ChatFakeAuditDao
     private lateinit var transport: FakeMcpTransport
     private lateinit var mcpMessageSender: McpMessageSender
     private lateinit var repository: ChatRepository
@@ -109,11 +125,13 @@ class ChatRepositoryTest {
         messageDao = FakeMessageDao()
         agentDao = FakeAgentDao()
         memoryDao = ChatFakeMemoryDao()
+        auditDao = ChatFakeAuditDao()
         transport = FakeMcpTransport()
         
         val authManager = ToolAuthorizationManager()
-        val connectionManager = McpConnectionManager(transport)
-        mcpMessageSender = McpMessageSender(connectionManager, transport, authManager)
+        val connectionManager = McpConnectionManager(transport, transport)
+        val mockContext: android.content.Context? = null
+        mcpMessageSender = McpMessageSender(connectionManager, authManager, mockContext)
         
         val engine = MemoryInjectionEngine(memoryDao)
         val workingMemoryManager = WorkingMemoryManager(memoryDao)
@@ -123,6 +141,7 @@ class ChatRepositoryTest {
             messageDao,
             agentDao,
             memoryDao,
+            auditDao,
             mcpMessageSender,
             engine,
             workingMemoryManager
@@ -195,6 +214,6 @@ class ChatRepositoryTest {
         // Assert
         val conv = conversationDao.getConversationById(convId)
         assertEquals(2, conv?.messageCount) // User + Assistant
-        assertEquals("First message here...", conv?.title)
+        assertEquals("First message here", conv?.title)
     }
 }

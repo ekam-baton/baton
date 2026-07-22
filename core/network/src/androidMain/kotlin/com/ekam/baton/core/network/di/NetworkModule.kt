@@ -82,7 +82,7 @@ val networkModule = module {
         }
     }
 
-    single { HttpSseMcpTransport(get(), get()) }
+    single { HttpSseMcpTransport(get(), get(), get()) }
     single { com.ekam.baton.core.network.mcp.McpWebSocketTransport(get(), get(), get(), get()) }
     single { McpConnectionManager(get(), get()) }
     single { McpMessageSender(get(), get(), get<android.content.Context>()) }

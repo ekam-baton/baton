@@ -13,6 +13,7 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 import java.util.UUID
+import kotlinx.coroutines.flow.firstOrNull
 
 val dataModule = module {
 
@@ -157,13 +158,20 @@ val dataModule = module {
             }
         }
 
+        val MIGRATION_11_12 = object : androidx.room.migration.Migration(11, 12) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE agents ADD COLUMN owner_id TEXT DEFAULT NULL")
+                db.execSQL("ALTER TABLE agents ADD COLUMN owner_name TEXT DEFAULT NULL")
+            }
+        }
+
         val builder = Room.databaseBuilder(
             context,
             BatonDatabase::class.java,
             BatonDatabase.DATABASE_NAME,
         )
             .openHelperFactory(factory)
-            .addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
+            .addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12)
             .fallbackToDestructiveMigration()
 
         try {
@@ -184,7 +192,7 @@ val dataModule = module {
                 BatonDatabase.DATABASE_NAME,
             )
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
+                .addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12)
                 .fallbackToDestructiveMigration()
             freshBuilder.build()
         }
@@ -201,6 +209,14 @@ val dataModule = module {
     single { com.ekam.baton.core.data.repository.WorldRoomRepository(get(), get()) }
 
     single { com.ekam.baton.core.data.preferences.AppPreferences(androidContext()) }
+    single { com.ekam.baton.core.data.preferences.UserProfileManager(androidContext()) }
+    single<com.ekam.baton.core.network.mcp.McpProfileProvider> {
+        val userProfileManager: com.ekam.baton.core.data.preferences.UserProfileManager = get()
+        object : com.ekam.baton.core.network.mcp.McpProfileProvider {
+            override suspend fun getBatonId(): String = userProfileManager.getBatonId()
+            override suspend fun getDisplayName(): String? = userProfileManager.displayName.firstOrNull()
+        }
+    }
     single { com.ekam.baton.core.data.preferences.SessionManager(get()) }
     single { com.ekam.baton.core.data.preferences.SubscriptionManager() }
     

@@ -31,12 +31,11 @@ fun WorldCanvas(
     val rooms by repository.observeAllRooms().collectAsState(initial = emptyList())
     
     // Resolve props for each room
+    @android.annotation.SuppressLint("ProduceStateDoesNotAssignValue")
     val propsMap by produceState<Map<String, List<WorldRoomProp>>>(initialValue = emptyMap(), rooms) {
-        val newMap = mutableMapOf<String, List<WorldRoomProp>>()
-        for (room in rooms) {
-            newMap[room.id] = repository.getPropsForRoom(room.id)
+        value = rooms.associate { room ->
+            room.id to repository.getPropsForRoom(room.id)
         }
-        value = newMap
     }
 
     // Deterministically resolve AvatarComponents for each room (so they stay consistent)

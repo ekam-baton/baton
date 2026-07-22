@@ -84,6 +84,12 @@ private class InjectionFakeDao : MemoryDao {
         memories.clear()
         emit()
     }
+
+    override suspend fun deleteMemoriesOlderThan(cutoffTime: Long) {
+        val toDelete = memories.filter { it.createdAt < cutoffTime }
+        memories.removeAll(toDelete)
+        if (toDelete.isNotEmpty()) emit()
+    }
 }
 
 class MemoryInjectionEngineTest {

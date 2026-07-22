@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ekam.baton.core.data.preferences.AppPreferences
 import com.ekam.baton.core.data.preferences.SubscriptionManager
+import com.ekam.baton.core.data.preferences.UserProfileManager
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -12,8 +13,18 @@ import kotlinx.coroutines.launch
 
 class MainViewModel(
     private val appPreferences: AppPreferences,
-    private val subscriptionManager: SubscriptionManager
+    private val subscriptionManager: SubscriptionManager,
+    private val userProfileManager: UserProfileManager
 ) : ViewModel() {
+
+    val displayName: StateFlow<String?> = userProfileManager.displayName
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    fun setDisplayName(name: String) {
+        viewModelScope.launch {
+            userProfileManager.setDisplayName(name)
+        }
+    }
 
     val themeMode: StateFlow<String> = appPreferences.themeMode
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "system")

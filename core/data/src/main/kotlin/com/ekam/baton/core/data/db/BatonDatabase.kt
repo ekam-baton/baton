@@ -27,6 +27,9 @@ import com.ekam.baton.core.data.db.dao.WorldRoomPropDao
  *   - New agents columns: role, card_did, card_fingerprint, card_issued_at,
  *     card_avatar_seed, world_room_id
  *
+ * Version 12: Adds Global Identity & Ownership features.
+ *   - New agents columns: owner_id, owner_name
+ *
  * Add new [Entity][androidx.room.Entity] classes to [entities] and bump [version]
  * with a matching [Migration][androidx.room.migration.Migration] in [DataModule].
  */
@@ -41,7 +44,7 @@ import com.ekam.baton.core.data.db.dao.WorldRoomPropDao
         WorldRoomEntity::class,
         WorldRoomPropEntity::class,
     ],
-    version = 11,
+    version = 12,
     exportSchema = true,
 )
 abstract class BatonDatabase : RoomDatabase() {

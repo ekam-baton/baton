@@ -80,4 +80,10 @@ class MemoryRepository constructor(
             hash = newHash
         ))
     }
+
+    suspend fun cleanupOldMemories(retentionDays: Int) {
+        if (retentionDays == -1) return // Keep forever
+        val cutoffTime = System.currentTimeMillis() - (retentionDays * 24L * 60L * 60L * 1000L)
+        memoryDao.deleteMemoriesOlderThan(cutoffTime)
+    }
 }

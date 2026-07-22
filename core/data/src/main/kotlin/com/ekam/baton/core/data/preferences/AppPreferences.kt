@@ -104,9 +104,12 @@ class AppPreferences constructor(
         }
     }
 
-    val userEmail: Flow<String> = context.dataStore.data.map { "" }
+    private val _userEmailFlow = MutableStateFlow(securePrefs.getString("user_email", "") ?: "")
+    private val _userPhoneFlow = MutableStateFlow(securePrefs.getString("user_phone", "") ?: "")
 
-    val userPhone: Flow<String> = context.dataStore.data.map { "" }
+    val userEmail: Flow<String> = _userEmailFlow
+
+    val userPhone: Flow<String> = _userPhoneFlow
 
     val isRegistered: Flow<Boolean> = context.dataStore.data.map { preferences ->
         preferences[IS_REGISTERED] ?: false
@@ -286,6 +289,13 @@ class AppPreferences constructor(
     }
 
     suspend fun registerUser(email: String, phone: String) {
+        securePrefs.edit()
+            .putString("user_email", email)
+            .putString("user_phone", phone)
+            .apply()
+        _userEmailFlow.value = email
+        _userPhoneFlow.value = phone
+
         context.dataStore.edit { preferences ->
             // Security Fix: Do not store PII in plaintext DataStore
             preferences.remove(USER_EMAIL)
@@ -298,6 +308,13 @@ class AppPreferences constructor(
     }
 
     suspend fun clearRegistration() {
+        securePrefs.edit()
+            .remove("user_email")
+            .remove("user_phone")
+            .apply()
+        _userEmailFlow.value = ""
+        _userPhoneFlow.value = ""
+
         context.dataStore.edit { preferences ->
             preferences.remove(USER_EMAIL)
             preferences.remove(USER_PHONE)

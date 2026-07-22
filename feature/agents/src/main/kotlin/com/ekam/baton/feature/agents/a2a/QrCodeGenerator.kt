@@ -60,7 +60,7 @@ private fun generateQrCode(content: String, size: Int): Bitmap? {
         bitmap.setPixels(pixels, 0, width, 0, 0, width, height)
         bitmap
     } catch (e: Exception) {
-        e.printStackTrace()
+        android.util.Log.e("QrCodeGenerator", "Failed to generate QR code", e)
         null
     }
 }

@@ -46,4 +46,7 @@ interface MemoryDao {
 
     @Query("DELETE FROM memories")
     suspend fun clearAllMemories()
+
+    @Query("DELETE FROM memories WHERE createdAt < :cutoffTime")
+    suspend fun deleteMemoriesOlderThan(cutoffTime: Long)
 }

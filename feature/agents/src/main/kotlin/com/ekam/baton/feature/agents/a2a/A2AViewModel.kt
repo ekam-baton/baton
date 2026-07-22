@@ -114,7 +114,7 @@ class A2AViewModel(
                     }
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                android.util.Log.e("A2AViewModel", "Error starting server mode", e)
             }
         }
     }
@@ -134,7 +134,7 @@ class A2AViewModel(
                     activeSession?.handleAnswer(sdpAnswer)
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                android.util.Log.e("A2AViewModel", "Error completing handshake", e)
             }
         }
     }

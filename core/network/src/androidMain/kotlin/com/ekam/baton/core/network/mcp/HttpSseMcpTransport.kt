@@ -26,7 +26,8 @@ import java.util.UUID
 
 class HttpSseMcpTransport constructor(
     private val okHttpClient: OkHttpClient,
-    private val json: Json
+    private val json: Json,
+    private val profileProvider: McpProfileProvider
 ) : McpTransport {
 
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
@@ -35,10 +36,13 @@ class HttpSseMcpTransport constructor(
         try {
             val initParams = McpInitializeParams(
                 capabilities = buildJsonObject { },
-                // FIX: Provide required clientInfo per MCP spec
                 clientInfo = buildJsonObject {
                     put("name", kotlinx.serialization.json.JsonPrimitive("baton-android"))
                     put("version", kotlinx.serialization.json.JsonPrimitive("1.0.0"))
+                    put("user_id", kotlinx.serialization.json.JsonPrimitive(profileProvider.getBatonId()))
+                    profileProvider.getDisplayName()?.let {
+                        put("user_name", kotlinx.serialization.json.JsonPrimitive(it))
+                    }
                 }
             )
             val requestPayload = McpRequest(

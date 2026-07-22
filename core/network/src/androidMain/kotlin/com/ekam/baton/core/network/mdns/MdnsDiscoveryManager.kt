@@ -13,7 +13,8 @@ data class DiscoveredAgent(
     val name: String,
     val ipAddress: String,
     val port: Int,
-    val url: String
+    val url: String,
+    val ownerName: String? = null
 )
 
 class MdnsDiscoveryManager(private val context: Context) {
@@ -49,11 +50,16 @@ class MdnsDiscoveryManager(private val context: Context) {
                             val port = serviceInfo.port
                             if (host != null) {
                                 val url = "http://$host:$port"
+                                
+                                val ownerNameAttr = serviceInfo.attributes?.get("owner_name")
+                                val ownerName = ownerNameAttr?.let { String(it, Charsets.UTF_8) }
+                                
                                 val newAgent = DiscoveredAgent(
                                     name = serviceInfo.serviceName,
                                     ipAddress = host,
                                     port = port,
-                                    url = url
+                                    url = url,
+                                    ownerName = ownerName
                                 )
                                 _discoveredAgents.update { current ->
                                     // Remove if already exists to update it, then add

@@ -1,6 +1,6 @@
 package com.ekam.baton.core.network.tunnel
 
-import android.util.Log
+
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -64,7 +64,7 @@ class ConnectionPoolManager constructor() {
             val now = System.currentTimeMillis()
             val toEvict = activeConnections.values.filter { (now - it.lastAccessedAt) > maxIdleTimeMs }
             toEvict.forEach { conn ->
-                Log.d("ConnectionPool", "Evicting idle connection: ${conn.id}")
+                println("ConnectionPool: Evicting idle connection: ${conn.id}")
                 activeConnections.remove(conn.id)
                 conn.disconnect()
             }
@@ -86,7 +86,7 @@ class ConnectionPoolManager constructor() {
                     // requesting a new session when the old one is evicted or closed.
                     // This monitor ensures dead resources are aggressively purged.
                 } catch (e: Exception) {
-                    Log.e("ConnectionPool", "Error in resilience monitor", e)
+                    println("ConnectionPool: Error in resilience monitor: ${e.message}")
                 }
             }
         }

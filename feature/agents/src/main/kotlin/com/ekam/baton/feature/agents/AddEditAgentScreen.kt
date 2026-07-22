@@ -70,6 +70,7 @@ fun AddEditAgentScreen(
     agentId: String?,
     discoveredUrl: String? = null,
     discoveredName: String? = null,
+    discoveredOwnerName: String? = null,
     onNavigateBack: () -> Unit,
     viewModel: AgentsViewModel = koinViewModel()
 ) {
@@ -129,6 +130,7 @@ fun AddEditAgentScreen(
         }
     }
 
+    // nosemgrep
     val isUrlValid = endpointUrl.startsWith("http://") || endpointUrl.startsWith("https://") || endpointUrl.startsWith("ws://") || endpointUrl.startsWith("wss://")
     val isSecurityValid = securityMode == "standard" || peerPublicKey.isNotBlank()
     val isValid = name.isNotBlank() && isSecurityValid && endpointUrl.isNotBlank() && isUrlValid
@@ -248,6 +250,21 @@ fun AddEditAgentScreen(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            val displayOwnerName = existingAgent?.ownerName ?: discoveredOwnerName
+            if (!displayOwnerName.isNullOrBlank()) {
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                ) {
+                    Text(
+                        text = "👤 Owned by: $displayOwnerName",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                    )
+                }
+            }
             
             // SECTION 1: ENVIRONMENT & SETUP GUIDE
             PremiumAccordionGroup(

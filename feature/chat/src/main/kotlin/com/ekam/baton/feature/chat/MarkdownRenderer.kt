@@ -1,5 +1,6 @@
 package com.ekam.baton.feature.chat
 
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.text.selection.SelectionContainer
 
 import android.content.ClipData
@@ -57,11 +58,18 @@ fun parseMarkdownBlocks(text: String): List<MarkdownPart> {
 fun MarkdownRenderer(
     text: String,
     textColor: Color,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    fontSizePref: String = "medium"
 ) {
     val blocks = parseMarkdownBlocks(text)
     val context = LocalContext.current
     val clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+
+    val dynamicFontSize = when (fontSizePref.lowercase()) {
+        "small" -> 14.sp
+        "large" -> 18.sp
+        else -> 16.sp // "medium"
+    }
 
     SelectionContainer(modifier = modifier) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -91,7 +99,7 @@ fun MarkdownRenderer(
                     Text(
                         text = inlineStyles,
                         color = textColor,
-                        style = MaterialTheme.typography.bodyLarge
+                        style = MaterialTheme.typography.bodyLarge.copy(fontSize = dynamicFontSize, lineHeight = (dynamicFontSize.value * 1.5f).sp)
                     )
                 }
                 is MarkdownPart.CodeBlock -> {

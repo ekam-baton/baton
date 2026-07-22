@@ -38,7 +38,7 @@ import kotlinx.coroutines.flow.collectLatest
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AgentsScreen(
-    onAddAgentClick: (String?, String?) -> Unit,
+    onAddAgentClick: (String?, String?, String?) -> Unit,
     onEditAgentClick: (String) -> Unit,
     viewModel: AgentsViewModel = koinViewModel()
 ) {
@@ -67,7 +67,7 @@ fun AgentsScreen(
             TopAppBar(
                 title = { Text("My Agents") },
                 actions = {
-                    IconButton(onClick = { onAddAgentClick(null, null) }) {
+                    IconButton(onClick = { onAddAgentClick(null, null, null) }) {
                         Icon(Icons.Default.Add, contentDescription = "Add Agent")
                     }
                 },
@@ -140,7 +140,7 @@ fun AgentsScreen(
                     ) { discoveredAgent ->
                         DiscoveredAgentCard(
                             agent = discoveredAgent,
-                            onClick = { onAddAgentClick(discoveredAgent.url, discoveredAgent.name) }
+                            onClick = { onAddAgentClick(discoveredAgent.url, discoveredAgent.name, discoveredAgent.ownerName) }
                         )
                     }
                     if (agents.isNotEmpty()) {
