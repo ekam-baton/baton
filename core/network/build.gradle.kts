@@ -14,14 +14,16 @@ kotlin {
         }
     }
     
+    val xcf = org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework("BatonNetwork")
     listOf(
         iosX64(),
         iosArm64(),
         iosSimulatorArm64()
     ).forEach { iosTarget ->
         iosTarget.binaries.framework {
-            baseName = "Network"
+            baseName = "BatonNetwork"
             isStatic = true
+            xcf.add(this)
         }
     }
 

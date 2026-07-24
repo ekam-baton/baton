@@ -37,7 +37,7 @@ jobs:
           path: app/build/outputs/apk/debug/app-debug.apk
 
   build-ios:
-    name: Build iOS
+    name: Build iOS XCFramework
     runs-on: macos-latest
     steps:
       - name: Checkout Code
@@ -53,7 +53,56 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      # This runs the Kotlin Multiplatform shared framework build for iOS
-      # Actual iOS app building will require Xcode setup, but this ensures KMP shared code compiles
-      - name: Build Shared iOS Framework
-        run: ./gradlew :iosApp:compileKotlinIosX64 --no-daemon || echo "iOS compile step finished"
+      - name: Build Shared iOS XCFramework
+        run: ./gradlew :core:network:assembleBatonNetworkXCFramework --no-daemon
+
+      - name: Upload iOS XCFramework Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BatonNetwork.xcframework
+          path: core/network/build/XCFrameworks/debug/BatonNetwork.xcframework
+
+  build-desktop-macos:
+    name: Build macOS Desktop Hub
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin, x86_64-apple-darwin
+
+      - name: Build macOS Desktop Engine
+        run: |
+          cd gateway-engine
+          cargo build --release --target aarch64-apple-darwin
+
+      - name: Upload macOS Desktop Binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: baton-gateway-engine-macos
+          path: gateway-engine/target/aarch64-apple-darwin/release/baton-gateway-engine
+
+  build-desktop-windows:
+    name: Build Windows Desktop Hub
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build Windows Desktop Engine
+        run: |
+          cd gateway-engine
+          cargo build --release
+
+      - name: Upload Windows Desktop Binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: baton-gateway-engine-windows.exe
+          path: gateway-engine/target/release/baton-gateway-engine.exe
+
