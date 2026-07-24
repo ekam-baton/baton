@@ -21,6 +21,7 @@ import com.ekam.baton.feature.chat.ChatScreen
 import com.ekam.baton.feature.chat.ChatsListScreen
 import com.ekam.baton.feature.memory.MemoryScreen
 import com.ekam.baton.feature.settings.SettingsScreen
+import com.ekam.baton.feature.settings.KeyBackupScreen
 
 // ─── Route Definitions ───────────────────────────────────────────────────────
 
@@ -220,7 +221,16 @@ fun BatonNavGraph(
                 },
                 onNavigateToMemory = {
                     navController.navigate("memory")
+                },
+                onNavigateToKeyBackup = {
+                    navController.navigate("settings/key_backup")
                 }
+            )
+        }
+        
+        composable("settings/key_backup") {
+            KeyBackupScreen(
+                onNavigateBack = { navController.popBackStack() }
             )
         }
     }

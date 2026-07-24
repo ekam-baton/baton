@@ -23,13 +23,30 @@ import com.ekam.baton.core.data.model.AgentRole
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CardVerificationSheet(
-    agentId: String,
-    agentName: String,
-    role: AgentRole,
+    agent: com.ekam.baton.core.data.model.Agent,
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     
+    // Parse keys from securityConfig
+    val json = agent.securityConfig.let { 
+        if (it.isNotBlank()) try {
+            kotlinx.serialization.json.Json { ignoreUnknownKeys = true }.parseToJsonElement(it).let { je ->
+                if (je is kotlinx.serialization.json.JsonObject) je else null
+            }
+        } catch (e: Exception) { null }
+        else null
+    }
+    
+    val myKey = json?.get("my_identity_key")?.let { it as? kotlinx.serialization.json.JsonPrimitive }?.content
+    val peerKey = json?.get("peer_identity_key")?.let { it as? kotlinx.serialization.json.JsonPrimitive }?.content
+    
+    val safetyNumber = if (myKey != null && peerKey != null) {
+        com.ekam.baton.core.data.security.SafetyNumberManager.computeSafetyNumber(myKey, peerKey)
+    } else {
+        "NOT PAIRED (NO E2EE IDENTITY)"
+    }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -52,9 +69,9 @@ fun CardVerificationSheet(
             Spacer(modifier = Modifier.height(32.dp))
             
             AgentIdentityCard(
-                agentId = agentId,
-                agentName = agentName,
-                role = role,
+                agentId = agent.id,
+                agentName = agent.name,
+                role = com.ekam.baton.core.data.model.AgentRole.valueOf(agent.role),
                 modifier = Modifier.fillMaxWidth(0.85f)
             )
             
@@ -66,8 +83,29 @@ fun CardVerificationSheet(
             ) {
                 VerificationRow("CRYPTOGRAPHIC HASH", "VERIFIED", Color(0xFF00FF88))
                 VerificationRow("SOVEREIGN CREDENTIAL", "ACTIVE", Color(0xFF00FF88))
-                VerificationRow("ROLE CLEARANCE", role.name, Color(0xFF00BFFF))
+                VerificationRow("ROLE CLEARANCE", agent.role, Color(0xFF00BFFF))
                 VerificationRow("NETWORK STATUS", "CONNECTED", Color(0xFF00FF88))
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                androidx.compose.material3.HorizontalDivider(color = Color(0xFF333344))
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Text(
+                    text = "SAFETY NUMBER",
+                    color = Color.Gray,
+                    fontSize = 12.sp,
+                    fontFamily = FontFamily.Monospace,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                Text(
+                    text = safetyNumber,
+                    color = Color(0xFF00FF88),
+                    fontSize = 16.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
             }
             
             Spacer(modifier = Modifier.height(48.dp))

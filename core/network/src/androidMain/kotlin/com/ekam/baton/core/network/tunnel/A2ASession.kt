@@ -52,9 +52,14 @@ class A2ASession(
 
     private fun createPeerConnection() {
         val iceServers = listOf(
-            PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer()
+            PeerConnection.IceServer.builder("turn:router.baton-app.in:3478")
+                .setUsername("baton")
+                .setPassword("baton_turn_secret")
+                .createIceServer()
         )
-        val rtcConfig = PeerConnection.RTCConfiguration(iceServers)
+        val rtcConfig = PeerConnection.RTCConfiguration(iceServers).apply {
+            iceTransportsType = PeerConnection.IceTransportsType.RELAY
+        }
         
         peerConnection = peerConnectionFactory.createPeerConnection(rtcConfig, object : PeerConnection.Observer {
             override fun onSignalingChange(state: PeerConnection.SignalingState?) {}

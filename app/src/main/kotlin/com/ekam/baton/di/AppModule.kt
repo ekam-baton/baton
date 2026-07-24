@@ -7,6 +7,7 @@ import com.ekam.baton.feature.agents.tunnel.TunnelSetupViewModel
 import com.ekam.baton.feature.chat.ChatViewModel
 import com.ekam.baton.feature.memory.MemoryViewModel
 import com.ekam.baton.feature.settings.SettingsViewModel
+import com.ekam.baton.feature.settings.KeyBackupViewModel
 import com.ekam.baton.ui.auth.AuthViewModel
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
@@ -20,4 +21,5 @@ val appModule = module {
     viewModelOf(::ChatViewModel)
     viewModelOf(::MemoryViewModel)
     viewModelOf(::SettingsViewModel)
+    viewModelOf(::KeyBackupViewModel)
 }

@@ -109,14 +109,16 @@ class AgentsViewModel(
                 
                 // Pair with the agent to exchange keys and get the relay_url
                 val keys = securityManager.generateClientKeys()
-                val pairResult = mcpMessageSender.pairWithAgent(agent.mcpEndpointUrl, keys.publicKeyHex)
+                val identityKeyHex = com.ekam.baton.core.network.security.IdentityKeyManager.getPublicKeyHex()
+                val pairResult = mcpMessageSender.pairWithAgent(agent.mcpEndpointUrl, identityKeyHex, keys.publicKeyHex)
                 
                 val finalAgent = if (pairResult.isSuccess) {
                     val pair = pairResult.getOrNull()
                     if (pair != null) {
                         val peerPublicKey = pair.x25519PublicKey
+                        val peerIdentityKey = pair.ed25519PublicKey
                         val securityConfigJson = if (peerPublicKey != null) {
-                            "{\"client_private_key_enc\": \"${keys.encryptedPrivateKeyBase64}\", \"client_private_key_iv\": \"${keys.privateKeyIvBase64}\", \"peer_public_key\": \"$peerPublicKey\"}"
+                            "{\"client_private_key_enc\": \"${keys.encryptedPrivateKeyBase64}\", \"client_private_key_iv\": \"${keys.privateKeyIvBase64}\", \"peer_public_key\": \"$peerPublicKey\", \"peer_identity_key\": \"$peerIdentityKey\", \"my_identity_key\": \"$identityKeyHex\"}"
                         } else {
                             agent.securityConfig
                         }

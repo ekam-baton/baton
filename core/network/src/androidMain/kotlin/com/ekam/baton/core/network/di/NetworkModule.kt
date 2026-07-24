@@ -39,8 +39,14 @@ val networkModule = module {
     }
 
     single {
+        val certificatePinner = okhttp3.CertificatePinner.Builder()
+            // Placeholder pin for Cloud Router production endpoint — replace with actual SHA-256 cert fingerprint in deployment
+            .add("router.baton-app.in", "sha256/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+            .build()
+
         OkHttpClient.Builder()
             .dns(get<com.ekam.baton.core.network.security.SsrfProtectionDns>())
+            .certificatePinner(certificatePinner)
             .addInterceptor(get<SecurityInterceptor>())
             .addInterceptor(get<HttpLoggingInterceptor>())
             .connectTimeout(30, TimeUnit.SECONDS)
@@ -92,5 +98,6 @@ val networkModule = module {
     single { com.ekam.baton.core.network.tunnel.ConnectionPoolManager() }
     single { com.ekam.baton.core.network.tunnel.A2AWebRtcTransport(get<android.content.Context>(), get()) }
     single { com.ekam.baton.core.network.mdns.MdnsDiscoveryManager(get<android.content.Context>()) }
+    single { com.ekam.baton.core.network.repository.VaultRepository(get()) }
 }
 

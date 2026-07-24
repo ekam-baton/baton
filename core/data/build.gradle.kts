@@ -49,6 +49,7 @@ dependencies {
     implementation(libs.room.paging)
     implementation(libs.paging.runtime)
     ksp(libs.room.compiler)
+    // SQLCipher: AES-256 encryption for the local Room database (Data-at-Rest security)
     implementation("net.zetetic:android-database-sqlcipher:4.5.4")
     implementation("androidx.sqlite:sqlite-ktx:2.4.0")
 

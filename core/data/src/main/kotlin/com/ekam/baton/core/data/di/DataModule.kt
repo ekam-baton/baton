@@ -165,13 +165,27 @@ val dataModule = module {
             }
         }
 
+        val MIGRATION_12_13 = object : androidx.room.migration.Migration(12, 13) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `groups` (
+                        `id` TEXT NOT NULL,
+                        `name` TEXT NOT NULL,
+                        `creatorId` TEXT NOT NULL,
+                        `memberIds` TEXT NOT NULL,
+                        `createdAt` INTEGER NOT NULL,
+                        PRIMARY KEY(`id`))
+                """.trimIndent())
+            }
+        }
+
         val builder = Room.databaseBuilder(
             context,
             BatonDatabase::class.java,
             BatonDatabase.DATABASE_NAME,
         )
             .openHelperFactory(factory)
-            .addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12)
+            .addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13)
             .fallbackToDestructiveMigration()
 
         try {
@@ -192,7 +206,7 @@ val dataModule = module {
                 BatonDatabase.DATABASE_NAME,
             )
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12)
+                .addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13)
                 .fallbackToDestructiveMigration()
             freshBuilder.build()
         }
@@ -206,6 +220,7 @@ val dataModule = module {
     single<com.ekam.baton.core.data.db.dao.AgentActionLogDao> { get<BatonDatabase>().agentActionLogDao() }
     single<com.ekam.baton.core.data.db.dao.WorldRoomDao> { get<BatonDatabase>().worldRoomDao() }
     single<com.ekam.baton.core.data.db.dao.WorldRoomPropDao> { get<BatonDatabase>().worldRoomPropDao() }
+    single<com.ekam.baton.core.data.db.dao.GroupDao> { get<BatonDatabase>().groupDao() }
     single { com.ekam.baton.core.data.repository.WorldRoomRepository(get(), get()) }
 
     single { com.ekam.baton.core.data.preferences.AppPreferences(androidContext()) }

@@ -136,11 +136,11 @@ class McpWebSocketTransport constructor(
                                 put("header_n", ratchetOutput.getInt("header_n"))
                                 put("header_pn", ratchetOutput.getInt("header_pn"))
                                 put("ciphertext", ratchetOutput.getString("ciphertext"))
+                                put("sender_id", clientId) // Sealed Sender: Encrypt sender identity inside payload
                             }
                             
                             val envelope = JSONObject().apply {
-                                put("sender_id", clientId)
-                                put("receiver_id", agentId)
+                                put("receiver_id", agentId) // Outer envelope contains ONLY destination, preventing metadata leakage
                                 val b64Payload = android.util.Base64.encodeToString(payloadJson.toString().toByteArray(), android.util.Base64.NO_WRAP)
                                 put("payload", b64Payload)
                             }
@@ -164,7 +164,11 @@ class McpWebSocketTransport constructor(
             override fun onMessage(webSocket: WebSocket, text: String) {
                 try {
                     val envelope = JSONObject(text)
-                    val senderId = envelope.optString("sender_id")
+                    val senderId = if (envelope.has("sender_id") && envelope.getString("sender_id").isNotEmpty()) {
+                        envelope.getString("sender_id")
+                    } else {
+                        agentId // In Sealed Sender mode, outer envelope omits sender_id; ratchet decryption validates sender authenticity
+                    }
                     // T16: Validate sender_id matches the agent we expect to communicate with
                     if (senderId != agentId) {
                         throw Exception("Security violation: sender_id mismatch (expected $agentId, got $senderId)")

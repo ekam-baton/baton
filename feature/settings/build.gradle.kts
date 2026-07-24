@@ -33,6 +33,7 @@ dependencies {
     implementation(libs.koin.compose.viewmodel)
     implementation(project(":core:ui"))
     implementation(project(":core:data"))
+    implementation(project(":core:network"))
 
     // Play Billing (for settings screen UI access to BillingManager)
     implementation(libs.play.billing)

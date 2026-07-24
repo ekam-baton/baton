@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     id("io.gitlab.arturbosch.detekt") version "1.23.6"
+    id("com.google.gms.google-services") version "4.4.2" // FCM Push Gateway — Pillar 1 V2
 }
 
 android {
@@ -86,6 +87,9 @@ android {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
+        jniLibs {
+            pickFirsts += "**/libsqlcipher.so"
+        }
     }
 }
 
@@ -155,5 +159,11 @@ implementation(libs.work.runtime.ktx)
 
     // Voice / WebRTC
     implementation("io.getstream:stream-webrtc-android:1.3.10")
+
+    // FCM Push Gateway — Pillar 1, V2
+    // Enables blank wakeup notifications so Android wakes from Doze mode
+    // to pull the E2EE message queue. Zero content is ever sent via FCM.
+    implementation(platform("com.google.firebase:firebase-bom:33.1.0"))
+    implementation("com.google.firebase:firebase-messaging-ktx")
 }
 

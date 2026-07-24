@@ -49,7 +49,8 @@ data class PairResponse(
     val relay_token: String? = null,
     val agent_owner_id: String? = null,
     val agent_owner_name: String? = null,
-    val x25519_public_key: String? = null
+    val x25519_public_key: String? = null,
+    val ed25519_public_key: String? = null
 )
 
 data class PairResult(
@@ -57,7 +58,8 @@ data class PairResult(
     val relayToken: String?,
     val ownerId: String?,
     val ownerName: String?,
-    val x25519PublicKey: String?
+    val x25519PublicKey: String?,
+    val ed25519PublicKey: String?
 )
 
 class McpMessageSender constructor(
@@ -158,7 +160,7 @@ class McpMessageSender constructor(
             }
     }
 
-    suspend fun pairWithAgent(endpointUrl: String, publicKeyHex: String): Result<PairResult> {
+    suspend fun pairWithAgent(endpointUrl: String, identityKeyHex: String, x25519KeyHex: String): Result<PairResult> {
         return try {
             val client = okhttp3.OkHttpClient.Builder()
                 .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
@@ -166,7 +168,7 @@ class McpMessageSender constructor(
                 .build()
                 
             val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
-            val jsonBody = json.encodeToString(PairRequest.serializer(), PairRequest(publicKeyHex, publicKeyHex))
+            val jsonBody = json.encodeToString(PairRequest.serializer(), PairRequest(identityKeyHex, x25519KeyHex))
             val requestBody = jsonBody.toByteArray().toRequestBody("application/json; charset=utf-8".toMediaType())
             
             val pairUrl = if (endpointUrl.endsWith("/")) "${endpointUrl}pair" else "$endpointUrl/pair"
@@ -187,7 +189,8 @@ class McpMessageSender constructor(
                     relayToken = pairResponse.relay_token,
                     ownerId = pairResponse.agent_owner_id,
                     ownerName = pairResponse.agent_owner_name,
-                    x25519PublicKey = pairResponse.x25519_public_key
+                    x25519PublicKey = pairResponse.x25519_public_key,
+                    ed25519PublicKey = pairResponse.ed25519_public_key
                 ))
             } else {
                 Result.failure(Exception("Pairing failed with status: ${response.code}"))

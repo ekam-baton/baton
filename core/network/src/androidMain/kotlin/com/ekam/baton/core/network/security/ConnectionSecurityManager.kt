@@ -12,7 +12,9 @@ import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.Mac
 import javax.crypto.SecretKey
+import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.GCMParameterSpec
+import javax.crypto.spec.PBEKeySpec
 import javax.crypto.spec.SecretKeySpec
 
 /**
@@ -218,6 +220,55 @@ class ConnectionSecurityManager constructor(
             result[i] = hex.substring(i * 2, i * 2 + 2).toInt(16).toByte()
         }
         return result
+    }
+
+    /**
+     * Pillar 6: Zero-Knowledge Key Backup.
+     * Encrypts the raw private key using a key derived from a passphrase.
+     * Returns a serialized string: "1:saltBase64:ivBase64:ciphertextBase64"
+     */
+    fun encryptForBackup(privateKey: ByteArray, passphrase: CharArray): String {
+        val salt = ByteArray(16)
+        secureRandom.nextBytes(salt)
+        
+        val spec = PBEKeySpec(passphrase, salt, 100000, 256)
+        val factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
+        val secretKeyBytes = factory.generateSecret(spec).encoded
+        val secretKey = SecretKeySpec(secretKeyBytes, "AES")
+
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        val iv = ByteArray(12)
+        secureRandom.nextBytes(iv)
+        cipher.init(Cipher.ENCRYPT_MODE, secretKey, GCMParameterSpec(128, iv))
+        val ciphertext = cipher.doFinal(privateKey)
+
+        val encoder = Base64.getEncoder()
+        return "1:${encoder.encodeToString(salt)}:${encoder.encodeToString(iv)}:${encoder.encodeToString(ciphertext)}"
+    }
+
+    /**
+     * Pillar 6: Zero-Knowledge Key Backup.
+     * Decrypts the raw private key from a serialized vault string using the passphrase.
+     */
+    fun decryptFromBackup(vaultData: String, passphrase: CharArray): ByteArray {
+        val parts = vaultData.split(":")
+        if (parts.size != 4 || parts[0] != "1") {
+            throw IllegalArgumentException("Invalid vault format or unsupported version")
+        }
+        
+        val decoder = Base64.getDecoder()
+        val salt = decoder.decode(parts[1])
+        val iv = decoder.decode(parts[2])
+        val ciphertext = decoder.decode(parts[3])
+
+        val spec = PBEKeySpec(passphrase, salt, 100000, 256)
+        val factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
+        val secretKeyBytes = factory.generateSecret(spec).encoded
+        val secretKey = SecretKeySpec(secretKeyBytes, "AES")
+
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.DECRYPT_MODE, secretKey, GCMParameterSpec(128, iv))
+        return cipher.doFinal(ciphertext)
     }
 
     companion object {

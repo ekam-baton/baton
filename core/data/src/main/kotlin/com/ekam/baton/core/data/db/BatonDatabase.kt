@@ -12,6 +12,8 @@ import com.ekam.baton.core.data.db.dao.MemoryDao
 import com.ekam.baton.core.data.db.entity.MemoryEntity
 import com.ekam.baton.core.data.db.entity.AuditLogEntity
 import com.ekam.baton.core.data.db.dao.AuditDao
+import com.ekam.baton.core.data.db.entity.GroupEntity
+import com.ekam.baton.core.data.db.dao.GroupDao
 import com.ekam.baton.core.data.db.entity.AgentActionLogEntity
 import com.ekam.baton.core.data.db.dao.AgentActionLogDao
 import com.ekam.baton.core.data.db.entity.WorldRoomEntity
@@ -43,8 +45,9 @@ import com.ekam.baton.core.data.db.dao.WorldRoomPropDao
         AgentActionLogEntity::class,
         WorldRoomEntity::class,
         WorldRoomPropEntity::class,
+        GroupEntity::class,
     ],
-    version = 12,
+    version = 13,
     exportSchema = true,
 )
 abstract class BatonDatabase : RoomDatabase() {
@@ -57,6 +60,7 @@ abstract class BatonDatabase : RoomDatabase() {
     abstract fun agentActionLogDao(): AgentActionLogDao
     abstract fun worldRoomDao(): WorldRoomDao
     abstract fun worldRoomPropDao(): WorldRoomPropDao
+    abstract fun groupDao(): GroupDao
 
     companion object {
         const val DATABASE_NAME = "baton.db"

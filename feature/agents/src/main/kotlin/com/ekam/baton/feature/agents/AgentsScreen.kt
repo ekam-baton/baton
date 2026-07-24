@@ -62,6 +62,16 @@ fun AgentsScreen(
         }
     }
 
+    var selectedAgentForCard by remember { mutableStateOf<Agent?>(null) }
+    
+    if (selectedAgentForCard != null) {
+        val agent = selectedAgentForCard!!
+        com.ekam.baton.feature.agents.a2a.card.CardVerificationSheet(
+            agent = agent,
+            onDismiss = { selectedAgentForCard = null }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -166,7 +176,8 @@ fun AgentsScreen(
                         agent = agent,
                         onDelete = { viewModel.deleteAgent(agent.id) },
                         onEdit = { onEditAgentClick(agent.id) },
-                        onAuthenticate = { viewModel.launchAuthBrowser(agent.mcpEndpointUrl) }
+                        onAuthenticate = { viewModel.launchAuthBrowser(agent.mcpEndpointUrl) },
+                        onViewCard = { selectedAgentForCard = agent }
                     )
                 }
             }
@@ -220,7 +231,8 @@ fun SwipeToDeleteAgentCard(
     agent: Agent,
     onDelete: () -> Unit,
     onEdit: () -> Unit,
-    onAuthenticate: () -> Unit
+    onAuthenticate: () -> Unit,
+    onViewCard: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
     val clipboardManager = LocalClipboardManager.current
@@ -353,6 +365,13 @@ fun SwipeToDeleteAgentCard(
                     onClick = {
                         showMenu = false
                         onEdit()
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("View Identity Card") },
+                    onClick = {
+                        showMenu = false
+                        onViewCard()
                     }
                 )
                 if (agent.authType == "oauth") {

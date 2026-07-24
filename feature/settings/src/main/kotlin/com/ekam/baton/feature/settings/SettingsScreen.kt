@@ -42,6 +42,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 fun SettingsScreen(
     onNavigateToTunnelSetup: () -> Unit = {},
     onNavigateToMemory: () -> Unit = {},
+    onNavigateToKeyBackup: () -> Unit = {},
     viewModel: SettingsViewModel = koinViewModel()
 ) {
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
@@ -284,6 +285,16 @@ fun SettingsScreen(
                     modifier = Modifier.clickable {
                         if (enableHapticFeedback) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         viewModel.logout()
+                    },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                )
+                ListItem(
+                    headlineContent = { Text("Key Backup") },
+                    supportingContent = { Text("Export or import your cryptographic identity") },
+                    leadingContent = { Icon(Icons.Default.VpnKey, contentDescription = null) },
+                    modifier = Modifier.clickable {
+                        if (enableHapticFeedback) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onNavigateToKeyBackup()
                     },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                 )
