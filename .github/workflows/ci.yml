@@ -1,12 +1,28 @@
-name: BATON Mobile App CI
+name: BATON Mobile & Multiplatform CI/CD
 
 on:
   push:
     branches: [ "main" ]
+    tags: [ "v*" ]
   pull_request:
     branches: [ "main" ]
 
 jobs:
+  security-audit:
+    name: Security & Audit Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Check Gateway Engine
+        run: |
+          cd gateway-engine
+          cargo check
+
   build-android:
     name: Build Android
     runs-on: ubuntu-latest
@@ -56,11 +72,16 @@ jobs:
       - name: Build Shared iOS XCFramework
         run: ./gradlew :core:network:assembleBatonNetworkXCFramework --no-daemon
 
+      - name: Zip XCFramework Artifact
+        run: |
+          cd core/network/build/XCFrameworks/debug/
+          zip -r BatonNetwork.xcframework.zip BatonNetwork.xcframework
+
       - name: Upload iOS XCFramework Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: BatonNetwork.xcframework
-          path: core/network/build/XCFrameworks/debug/BatonNetwork.xcframework
+          name: BatonNetwork.xcframework.zip
+          path: core/network/build/XCFrameworks/debug/BatonNetwork.xcframework.zip
 
   build-desktop-macos:
     name: Build macOS Desktop Hub
@@ -105,4 +126,27 @@ jobs:
         with:
           name: baton-gateway-engine-windows.exe
           path: gateway-engine/target/release/baton-gateway-engine.exe
+
+  publish-release:
+    name: Publish Release Assets
+    needs: [security-audit, build-android, build-ios, build-desktop-macos, build-desktop-windows]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Create Release & Upload Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            app-debug.apk/app-debug.apk
+            BatonNetwork.xcframework.zip/BatonNetwork.xcframework.zip
+            baton-gateway-engine-macos/baton-gateway-engine-macos
+            baton-gateway-engine-windows.exe/baton-gateway-engine-windows.exe
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 
