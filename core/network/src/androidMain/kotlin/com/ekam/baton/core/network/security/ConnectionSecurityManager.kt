@@ -97,18 +97,15 @@ class ConnectionSecurityManager constructor(
      * Encrypts the client's X25519 private key using the Keystore-backed master key.
      */
     fun encryptPrivateKey(privateKey: ByteArray): Pair<String, String> {
-        return try {
+        try {
             val cipher = Cipher.getInstance("AES/GCM/NoPadding")
             val iv = ByteArray(12)
             SecureRandom().nextBytes(iv)
             cipher.init(Cipher.ENCRYPT_MODE, getMasterKey(), GCMParameterSpec(128, iv))
             val ciphertext = cipher.doFinal(privateKey)
-            Base64.getEncoder().encodeToString(ciphertext) to Base64.getEncoder().encodeToString(cipher.iv)
+            return Base64.getEncoder().encodeToString(ciphertext) to Base64.getEncoder().encodeToString(cipher.iv)
         } catch (e: Exception) {
-            // Unit test fallback
-            val iv = ByteArray(12)
-            SecureRandom().nextBytes(iv)
-            Base64.getEncoder().encodeToString(privateKey) to Base64.getEncoder().encodeToString(iv)
+            throw SecurityException("Failed to encrypt private key", e)
         }
     }
 
@@ -116,15 +113,14 @@ class ConnectionSecurityManager constructor(
      * Decrypts the client's X25519 private key using the Keystore-backed master key.
      */
     fun decryptPrivateKey(ciphertextBase64: String, ivBase64: String): ByteArray {
-        return try {
+        try {
             val ciphertext = Base64.getDecoder().decode(ciphertextBase64.trim())
             val iv = Base64.getDecoder().decode(ivBase64.trim())
             val cipher = Cipher.getInstance("AES/GCM/NoPadding")
             cipher.init(Cipher.DECRYPT_MODE, getMasterKey(), GCMParameterSpec(128, iv))
-            cipher.doFinal(ciphertext)
+            return cipher.doFinal(ciphertext)
         } catch (e: Exception) {
-            // Unit test fallback
-            Base64.getDecoder().decode(ciphertextBase64.trim())
+            throw SecurityException("Failed to decrypt private key", e)
         }
     }
 
@@ -132,21 +128,17 @@ class ConnectionSecurityManager constructor(
      * Generates a new client X25519 keypair and returns public key + encrypted private key details.
      */
     fun generateClientKeys(): ClientKeyDetails {
-        return try {
+        try {
             val privateKey = generatePrivateKeyRust()
             val publicKey = getPublicKeyRust(privateKey)
             val (encPrivKey, iv) = encryptPrivateKey(privateKey)
-            ClientKeyDetails(
+            return ClientKeyDetails(
                 publicKeyHex = toHex(publicKey),
                 encryptedPrivateKeyBase64 = encPrivKey,
                 privateKeyIvBase64 = iv
             )
         } catch (e: UnsatisfiedLinkError) {
-            // Fallback for JVM unit tests without JNI
-            val mockPrivateKey = ByteArray(32) { 1.toByte() }
-            val mockPublicKey = ByteArray(32) { 2.toByte() }
-            val iv = ByteArray(12).apply { SecureRandom().nextBytes(this) }
-            ClientKeyDetails(toHex(mockPublicKey), Base64.getEncoder().encodeToString(mockPrivateKey), Base64.getEncoder().encodeToString(iv))
+            throw SecurityException("Native crypto library not loaded", e)
         }
     }
 
@@ -154,11 +146,11 @@ class ConnectionSecurityManager constructor(
      * Derives a shared symmetric key from the client's private key and agent's public key.
      */
     fun deriveSharedSecret(privateKey: ByteArray, peerPublicKeyHex: String): ByteArray {
-        return try {
+        try {
             val peerPublicKey = fromHex(peerPublicKeyHex)
-            deriveSharedSecretRust(privateKey, peerPublicKey)
+            return deriveSharedSecretRust(privateKey, peerPublicKey)
         } catch (e: UnsatisfiedLinkError) {
-            ByteArray(32) { 3.toByte() }
+            throw SecurityException("Native crypto library not loaded", e)
         }
     }
 
@@ -166,17 +158,16 @@ class ConnectionSecurityManager constructor(
      * Encrypts payload with AES-256-GCM using a per-request key derived via HKDF.
      */
     fun encryptPayload(plaintext: String, sharedKey: ByteArray, nonce: String, timestamp: Long): EncryptedPayload {
-        return try {
+        try {
             val json = encryptPayloadRust(plaintext.toByteArray(Charsets.UTF_8), sharedKey, nonce, timestamp)
             val ct = json.substringAfter("\"ciphertext\":\"").substringBefore("\"")
             val iv = json.substringAfter("\"iv\":\"").substringBefore("\"")
-            EncryptedPayload(
+            return EncryptedPayload(
                 ciphertextBase64 = ct,
                 ivBase64 = iv
             )
         } catch (e: UnsatisfiedLinkError) {
-            val iv = ByteArray(12).apply { SecureRandom().nextBytes(this) }
-            EncryptedPayload(Base64.getEncoder().encodeToString(plaintext.toByteArray()), Base64.getEncoder().encodeToString(iv))
+            throw SecurityException("Native crypto library not loaded", e)
         }
     }
 
@@ -184,11 +175,11 @@ class ConnectionSecurityManager constructor(
      * Decrypts payload with AES-256-GCM using a per-request key derived via HKDF.
      */
     fun decryptPayload(ciphertextBase64: String, ivBase64: String, sharedKey: ByteArray, nonce: String, timestamp: Long): String {
-        return try {
+        try {
             val decrypted = decryptPayloadRust(ciphertextBase64, ivBase64, sharedKey, nonce, timestamp)
-            String(decrypted, Charsets.UTF_8)
+            return String(decrypted, Charsets.UTF_8)
         } catch (e: UnsatisfiedLinkError) {
-            String(Base64.getDecoder().decode(ciphertextBase64), Charsets.UTF_8)
+            throw SecurityException("Native crypto library not loaded", e)
         }
     }
 
@@ -201,12 +192,10 @@ class ConnectionSecurityManager constructor(
         ciphertextBase64: String,
         sharedKey: ByteArray
     ): String {
-        return try {
-            computeSignatureRust(timestamp, nonce, ciphertextBase64, sharedKey)
+        try {
+            return computeSignatureRust(timestamp, nonce, ciphertextBase64, sharedKey)
         } catch (e: UnsatisfiedLinkError) {
-            val input = "$timestamp$nonce$ciphertextBase64${toHex(sharedKey)}"
-            val digest = java.security.MessageDigest.getInstance("SHA-256")
-            toHex(digest.digest(input.toByteArray(Charsets.UTF_8)))
+            throw SecurityException("Native crypto library not loaded", e)
         }
     }
 
@@ -231,7 +220,7 @@ class ConnectionSecurityManager constructor(
         val salt = ByteArray(16)
         secureRandom.nextBytes(salt)
         
-        val spec = PBEKeySpec(passphrase, salt, 100000, 256)
+        val spec = PBEKeySpec(passphrase, salt, 600000, 256)
         val factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
         val secretKeyBytes = factory.generateSecret(spec).encoded
         val secretKey = SecretKeySpec(secretKeyBytes, "AES")
@@ -261,7 +250,7 @@ class ConnectionSecurityManager constructor(
         val iv = decoder.decode(parts[2])
         val ciphertext = decoder.decode(parts[3])
 
-        val spec = PBEKeySpec(passphrase, salt, 100000, 256)
+        val spec = PBEKeySpec(passphrase, salt, 600000, 256)
         val factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
         val secretKeyBytes = factory.generateSecret(spec).encoded
         val secretKey = SecretKeySpec(secretKeyBytes, "AES")

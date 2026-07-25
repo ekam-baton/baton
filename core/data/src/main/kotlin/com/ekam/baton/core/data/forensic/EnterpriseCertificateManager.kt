@@ -31,9 +31,11 @@ class EnterpriseCertificateManager(
      * Injects a third-party PKCS#12 or BKS keystore containing a Qualified Certificate.
      * This is typically called by an MDM policy or enterprise config payload.
      */
-    suspend fun injectQualifiedCertificate(keystoreBytes: ByteArray) = withContext(Dispatchers.IO) {
+    suspend fun injectQualifiedCertificate(keystoreBytes: ByteArray, password: CharArray) = withContext(Dispatchers.IO) {
         val fos = File(certDir, "enterprise_keystore.bks").outputStream()
         fos.use { it.write(keystoreBytes) }
+        appPreferences.qtspPassword = password
+        android.util.Log.d("EnterpriseCertMgr", "Injected QTSP certificate successfully.")
     }
 
     /**
@@ -48,9 +50,15 @@ class EnterpriseCertificateManager(
                 ks.load(fis, ksPassword)
             }
             val alias = ks.aliases().toList().firstOrNull() ?: return null
-            ks.getKey(alias, ksPassword) as? PrivateKey
+            val key = ks.getKey(alias, ksPassword) as? PrivateKey
+            if (key != null) {
+                android.util.Log.d("EnterpriseCertMgr", "Successfully loaded QTSP private key for alias: $alias")
+            } else {
+                android.util.Log.w("EnterpriseCertMgr", "Private key not found for alias: $alias")
+            }
+            key
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.e("EnterpriseCertMgr", "Failed to retrieve enterprise private key", e)
             null
         }
     }

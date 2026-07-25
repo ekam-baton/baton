@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import androidx.security.crypto.EncryptedSharedPreferences
@@ -39,6 +40,11 @@ class AppPreferences constructor(
         val JWT_SECRET = stringPreferencesKey("jwt_secret")
         val ALLOW_LOCAL_NETWORK_AGENTS = booleanPreferencesKey("allow_local_network_agents")
         val PIPELINE_MODE = stringPreferencesKey("pipeline_mode")
+        val CLIENT_ID = stringPreferencesKey("client_id")
+        val CONSENT_TIMESTAMP = longPreferencesKey("consent_timestamp")
+        val POLICY_VERSION = stringPreferencesKey("policy_version")
+        val HAS_SEEN_WALKTHROUGH = booleanPreferencesKey("has_seen_walkthrough")
+        val REGION = stringPreferencesKey("region")
     }
 
     private val securePrefs = try {
@@ -166,8 +172,24 @@ class AppPreferences constructor(
         preferences[MEMORY_RETENTION_DAYS] ?: 30
     }
 
-    val backendUrl: Flow<String> = context.dataStore.data.map { preferences ->
-        preferences[BACKEND_URL] ?: "http://10.0.2.2:8080/"
+    val backendUrl: Flow<String> = combine(
+        context.dataStore.data.map { it[PIPELINE_MODE] ?: "MANAGED" },
+        context.dataStore.data.map { it[REGION] ?: "Global" },
+        context.dataStore.data.map { it[BACKEND_URL] ?: "http://10.0.2.2:8080/" }
+    ) { mode, region, url ->
+        if (mode == "MANAGED") {
+            when (region) {
+                "India" -> "https://in.relay.baton.app/"
+                "US" -> "https://us.relay.baton.app/"
+                "UK/EU" -> "https://eu.relay.baton.app/"
+                "UAE" -> "https://ae.relay.baton.app/"
+                "South Africa" -> "https://za.relay.baton.app/"
+                "Brazil" -> "https://br.relay.baton.app/"
+                else -> "https://global.relay.baton.app/"
+            }
+        } else {
+            url
+        }
     }
 
     val jwtSecret: Flow<String> = _jwtSecretFlow
@@ -188,6 +210,34 @@ class AppPreferences constructor(
 
     val pipelineMode: Flow<String> = context.dataStore.data.map { preferences ->
         preferences[PIPELINE_MODE] ?: "MANAGED"
+    }
+
+    val clientId: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[CLIENT_ID] ?: ""
+    }
+
+    val consentTimestamp: Flow<Long> = context.dataStore.data.map { preferences ->
+        preferences[CONSENT_TIMESTAMP] ?: 0L
+    }
+
+    val policyVersion: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[POLICY_VERSION] ?: ""
+    }
+
+    val hasSeenWalkthrough: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[HAS_SEEN_WALKTHROUGH] ?: false
+    }
+
+    val region: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[REGION] ?: "Global"
+    }
+
+    suspend fun setHasSeenWalkthrough(seen: Boolean) {
+        context.dataStore.edit { preferences -> preferences[HAS_SEEN_WALKTHROUGH] = seen }
+    }
+
+    suspend fun setClientId(id: String) {
+        context.dataStore.edit { preferences -> preferences[CLIENT_ID] = id }
     }
 
     suspend fun setThemeMode(mode: String) {
@@ -288,7 +338,7 @@ class AppPreferences constructor(
         }
     }
 
-    suspend fun registerUser(email: String, phone: String) {
+    suspend fun registerUser(email: String, phone: String, consentTimestamp: Long = 0L, policyVersion: String = "", region: String = "Global") {
         securePrefs.edit()
             .putString("user_email", email)
             .putString("user_phone", phone)
@@ -302,6 +352,9 @@ class AppPreferences constructor(
             preferences.remove(USER_PHONE)
             preferences[IS_REGISTERED] = true
             preferences[TRIAL_START_TIME] = System.currentTimeMillis()
+            preferences[CONSENT_TIMESTAMP] = consentTimestamp
+            preferences[POLICY_VERSION] = policyVersion
+            preferences[REGION] = region
             preferences.remove(IS_PREMIUM_UNLOCKED)
         }
         setPremiumUnlocked(false)

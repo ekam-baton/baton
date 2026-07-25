@@ -101,20 +101,21 @@ class McpMessageSender constructor(
 
         val transport = connectionManager.getTransportForUrl(endpointUrl)
 
-        val uploadedAttachments = attachments.map { att ->
+        val uploadedAttachments = mutableListOf<AttachmentDto>()
+        for (att in attachments) {
             if (att.uri != null && att.fileId == null) {
                 if (context == null) {
-                    return@map att
+                    uploadedAttachments.add(att)
+                    continue
                 }
                 val uploadResult = transport.uploadFile(endpointUrl, authHeader, att.uri, context)
                 if (uploadResult.isSuccess) {
-                    att.copy(fileId = uploadResult.getOrNull())
+                    uploadedAttachments.add(att.copy(fileId = uploadResult.getOrNull()))
                 } else {
-                    // Return the attachment unmodified if upload failed, or we could handle it otherwise
-                    att
+                    return flow { emit("Error uploading attachment: ${uploadResult.exceptionOrNull()?.message}") }
                 }
             } else {
-                att
+                uploadedAttachments.add(att)
             }
         }
 

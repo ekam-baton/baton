@@ -53,7 +53,6 @@ class ConnectionPoolManager constructor() {
         }
 
         oldestConn?.let {
-            println("ConnectionPoolManager: Evicting LRU connection: ${it.id}")
             activeConnections.remove(it.id)
             it.disconnect()
         }
@@ -64,7 +63,6 @@ class ConnectionPoolManager constructor() {
             val now = System.currentTimeMillis()
             val toEvict = activeConnections.values.filter { (now - it.lastAccessedAt) > maxIdleTimeMs }
             toEvict.forEach { conn ->
-                println("ConnectionPool: Evicting idle connection: ${conn.id}")
                 activeConnections.remove(conn.id)
                 conn.disconnect()
             }
@@ -86,7 +84,6 @@ class ConnectionPoolManager constructor() {
                     // requesting a new session when the old one is evicted or closed.
                     // This monitor ensures dead resources are aggressively purged.
                 } catch (e: Exception) {
-                    println("ConnectionPool: Error in resilience monitor: ${e.message}")
                 }
             }
         }

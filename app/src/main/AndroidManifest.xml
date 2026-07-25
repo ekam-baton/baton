@@ -64,7 +64,7 @@
         <!-- FCM Push Gateway Service (Pillar 1 — V2) -->
         <service
             android:name=".push.BatonFirebaseMessagingService"
-            android:exported="true">
+            android:exported="false">
             <intent-filter>
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>

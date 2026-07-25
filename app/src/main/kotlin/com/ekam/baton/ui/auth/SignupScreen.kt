@@ -12,6 +12,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.outlined.PersonOutline
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.ArrowDropDown
+import java.util.Calendar
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -34,7 +37,7 @@ import androidx.fragment.app.FragmentActivity
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SignupScreen(
-    onSignupSuccess: (String, String) -> Unit
+    onSignupSuccess: (String, String, Long, String, String) -> Unit
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
@@ -63,8 +66,30 @@ fun SignupScreen(
     var emailError by remember { mutableStateOf<String?>(null) }
     var phoneError by remember { mutableStateOf<String?>(null) }
     var generalError by remember { mutableStateOf<String?>(null) }
+    
     // DPDP Act, 2023: Consent must be explicit, affirmative, and un-ticked by default.
     var hasExplicitConsent by remember { mutableStateOf(false) }
+
+    // Global Compliance
+    val regions = listOf("Global", "India", "US", "UK/EU", "UAE", "South Africa", "Brazil")
+    var expandedRegion by remember { mutableStateOf(false) }
+    var selectedRegion by remember { mutableStateOf(regions[0]) }
+
+    var showDatePicker by remember { mutableStateOf(false) }
+    val datePickerState = rememberDatePickerState(
+        initialSelectedDateMillis = null
+    )
+    
+    fun isOver18(selectedMillis: Long?): Boolean {
+        if (selectedMillis == null) return false
+        val dob = Calendar.getInstance().apply { timeInMillis = selectedMillis }
+        val today = Calendar.getInstance()
+        var age = today.get(Calendar.YEAR) - dob.get(Calendar.YEAR)
+        if (today.get(Calendar.DAY_OF_YEAR) < dob.get(Calendar.DAY_OF_YEAR)) {
+            age--
+        }
+        return age >= 18
+    }
 
     fun validate(): Boolean {
         var isValid = true
@@ -81,6 +106,12 @@ fun SignupScreen(
         } else {
             phoneError = null
         }
+        
+        if (!isOver18(datePickerState.selectedDateMillis)) {
+            generalError = "You must be 18 or older to use BATON."
+            isValid = false
+        }
+        
         return isValid
     }
 
@@ -111,7 +142,11 @@ fun SignupScreen(
                     super.onAuthenticationSucceeded(result)
                     generalError = null
                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    onSignupSuccess(email.trim(), phone.trim())
+                    
+                    val consentTimestamp = System.currentTimeMillis()
+                    val policyVersion = "v1.0"
+                    
+                    onSignupSuccess(email.trim(), phone.trim(), consentTimestamp, policyVersion, selectedRegion)
                 }
 
                 override fun onAuthenticationFailed() {
@@ -289,6 +324,70 @@ fun SignupScreen(
                         )
                     }
 
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Date of Birth (Age Gate)
+                    OutlinedButton(
+                        onClick = { showDatePicker = true },
+                        shape = RoundedCornerShape(4.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF232D4B)),
+                        modifier = Modifier.fillMaxWidth().height(56.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Start,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.DateRange, contentDescription = null, tint = Color(0xFF7A8B9E))
+                            Spacer(modifier = Modifier.width(16.dp))
+                            val dateStr = if (datePickerState.selectedDateMillis != null) {
+                                val cal = Calendar.getInstance().apply { timeInMillis = datePickerState.selectedDateMillis!! }
+                                "${cal.get(Calendar.DAY_OF_MONTH)}/${cal.get(Calendar.MONTH) + 1}/${cal.get(Calendar.YEAR)}"
+                            } else {
+                                "Date of Birth (Must be 18+)"
+                            }
+                            Text(text = dateStr, color = if (datePickerState.selectedDateMillis != null) Color.White else Color(0xFF7A8B9E))
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Region Selector
+                    Box {
+                        OutlinedButton(
+                            onClick = { expandedRegion = true },
+                            shape = RoundedCornerShape(4.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF232D4B)),
+                            modifier = Modifier.fillMaxWidth().height(56.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(text = "Region: $selectedRegion", color = Color.White)
+                                Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = Color(0xFF7A8B9E))
+                            }
+                        }
+                        DropdownMenu(
+                            expanded = expandedRegion,
+                            onDismissRequest = { expandedRegion = false },
+                            modifier = Modifier.background(Color(0xFF131A2C))
+                        ) {
+                            regions.forEach { region ->
+                                DropdownMenuItem(
+                                    text = { Text(region, color = Color.White) },
+                                    onClick = {
+                                        selectedRegion = region
+                                        expandedRegion = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+
                     Spacer(modifier = Modifier.height(24.dp))
 
                     generalError?.let {
@@ -391,10 +490,55 @@ fun SignupScreen(
                                     )
                                 }
                             }
+                            
+                            if (selectedRegion == "UAE") {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "By selecting UAE, you confirm you will adhere to TRA regulations regarding VoIP and encryption.",
+                                    fontSize = 10.sp,
+                                    color = MaterialTheme.colorScheme.error,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
                         }
                     }
                 }
             }
+        }
+    }
+
+    if (showDatePicker) {
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = { 
+                    showDatePicker = false
+                    generalError = null // Clear error on change
+                }) {
+                    Text("OK", color = MaterialTheme.colorScheme.tertiary)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text("Cancel", color = Color(0xFF7A8B9E))
+                }
+            },
+            colors = DatePickerDefaults.colors(
+                containerColor = Color(0xFF0F1623)
+            )
+        ) {
+            DatePicker(
+                state = datePickerState,
+                colors = DatePickerDefaults.colors(
+                    titleContentColor = Color.White,
+                    headlineContentColor = Color.White,
+                    weekdayContentColor = Color(0xFFCFD8DC),
+                    dayContentColor = Color.White,
+                    selectedDayContainerColor = MaterialTheme.colorScheme.tertiary,
+                    todayDateBorderColor = MaterialTheme.colorScheme.tertiary,
+                    todayContentColor = MaterialTheme.colorScheme.tertiary
+                )
+            )
         }
     }
 

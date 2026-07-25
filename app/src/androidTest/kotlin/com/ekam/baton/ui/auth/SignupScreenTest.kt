@@ -15,7 +15,7 @@ class SignupScreenTest {
     @Test
     fun signupScreen_invalidEmail_showsError() {
         composeTestRule.setContent {
-            SignupScreen(onSignupSuccess = { _, _ -> })
+            SignupScreen(onSignupSuccess = { _, _, _, _ -> })
         }
 
         composeTestRule.onNodeWithText("Email Address").performTextInput("invalid-email")
@@ -29,7 +29,7 @@ class SignupScreenTest {
     @Test
     fun signupScreen_invalidPhone_showsError() {
         composeTestRule.setContent {
-            SignupScreen(onSignupSuccess = { _, _ -> })
+            SignupScreen(onSignupSuccess = { _, _, _, _ -> })
         }
 
         composeTestRule.onNodeWithText("Email Address").performTextInput("test@test.com")
@@ -43,7 +43,7 @@ class SignupScreenTest {
     @Test
     fun signupScreen_validInput_notFragmentActivity_showsError() {
         composeTestRule.setContent {
-            SignupScreen(onSignupSuccess = { _, _ -> })
+            SignupScreen(onSignupSuccess = { _, _, _, _ -> })
         }
 
         composeTestRule.onNodeWithText("Email Address").performTextInput("test@test.com")

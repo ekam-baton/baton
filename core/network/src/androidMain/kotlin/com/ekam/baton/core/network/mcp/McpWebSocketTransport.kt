@@ -18,12 +18,20 @@ import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import org.json.JSONObject
 
+import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+
 class McpWebSocketTransport constructor(
     private val okHttpClient: OkHttpClient,
     private val json: Json,
     private val securityManager: ConnectionSecurityManager,
     private val configProvider: AgentSecurityConfigProvider
 ) : McpTransport {
+
+    companion object {
+        private val agentMutexes = ConcurrentHashMap<String, Mutex>()
+    }
 
     override suspend fun initialize(endpointUrl: String, authHeader: String?): Result<JsonObject> {
         return Result.success(JsonObject(emptyMap())) 
@@ -83,6 +91,7 @@ class McpWebSocketTransport constructor(
         val clientId = uri.lastPathSegment ?: "unknown"
 
         val secureUrl = if (endpointUrl.startsWith("ws://")) {
+            android.util.Log.w("McpWebSocketTransport", "Upgrading insecure ws:// to wss://. Local/BYOS relays without TLS will fail to connect.")
             endpointUrl.replaceFirst("ws://", "wss://")
         } else {
             endpointUrl
@@ -167,6 +176,9 @@ class McpWebSocketTransport constructor(
                     val senderId = if (envelope.has("sender_id") && envelope.getString("sender_id").isNotEmpty()) {
                         envelope.getString("sender_id")
                     } else {
+                        if (securityMode == "standard") {
+                            throw Exception("Security violation: missing sender_id in standard mode")
+                        }
                         agentId // In Sealed Sender mode, outer envelope omits sender_id; ratchet decryption validates sender authenticity
                     }
                     // T16: Validate sender_id matches the agent we expect to communicate with
@@ -177,41 +189,45 @@ class McpWebSocketTransport constructor(
                     val payloadStr = String(android.util.Base64.decode(payloadB64, android.util.Base64.NO_WRAP))
                     
                     if (securityMode != "standard" && sharedSecret != null) {
-                        GlobalScope.launch(Dispatchers.IO) {
-                            val payloadJson = JSONObject(payloadStr)
-                            val hpub = payloadJson.getString("header_pub")
-                            val hn = payloadJson.getInt("header_n")
-                            val hpn = payloadJson.getInt("header_pn")
-                            val ct = payloadJson.getString("ciphertext")
-                            
-                            val details = configProvider.getSecurityConfig(agentId)
-                            val ratchetStateJson = details?.ratchetStateBase64?.let {
-                                String(android.util.Base64.decode(it, android.util.Base64.NO_WRAP))
+                        val scope = kotlinx.coroutines.CoroutineScope(Dispatchers.IO + kotlinx.coroutines.SupervisorJob())
+                        scope.launch {
+                            val mutex = agentMutexes.getOrPut(agentId) { Mutex() }
+                            mutex.withLock {
+                                val payloadJson = JSONObject(payloadStr)
+                                val hpub = payloadJson.getString("header_pub")
+                                val hn = payloadJson.getInt("header_n")
+                                val hpn = payloadJson.getInt("header_pn")
+                                val ct = payloadJson.getString("ciphertext")
+                                
+                                val details = configProvider.getSecurityConfig(agentId)
+                                val ratchetStateJson = details?.ratchetStateBase64?.let {
+                                    String(android.util.Base64.decode(it, android.util.Base64.NO_WRAP))
+                                }
+                                if (ratchetStateJson == null) {
+                                    webSocket.close(1001, "No ratchet state")
+                                    return@withLock
+                                }
+                                
+                                val decryptOutputStr = ConnectionSecurityManager.ratchetDecryptRust(
+                                    ratchetStateJson,
+                                    hpub,
+                                    hn,
+                                    hpn,
+                                    ct
+                                )
+                                val decryptOutput = JSONObject(decryptOutputStr)
+                                val newStateJson = decryptOutput.getString("state")
+                                val decryptedB64 = decryptOutput.getString("plaintext")
+                                val decrypted = String(android.util.Base64.decode(decryptedB64, android.util.Base64.NO_WRAP), Charsets.UTF_8)
+                                
+                                configProvider.saveRatchetState(
+                                    agentId,
+                                    android.util.Base64.encodeToString(newStateJson.toByteArray(), android.util.Base64.NO_WRAP)
+                                )
+                                
+                                trySend(decrypted)
+                                webSocket.close(1000, "Done")
                             }
-                            if (ratchetStateJson == null) {
-                                webSocket.close(1001, "No ratchet state")
-                                return@launch
-                            }
-                            
-                            val decryptOutputStr = ConnectionSecurityManager.ratchetDecryptRust(
-                                ratchetStateJson,
-                                hpub,
-                                hn,
-                                hpn,
-                                ct
-                            )
-                            val decryptOutput = JSONObject(decryptOutputStr)
-                            val newStateJson = decryptOutput.getString("state")
-                            val decryptedB64 = decryptOutput.getString("plaintext")
-                            val decrypted = String(android.util.Base64.decode(decryptedB64, android.util.Base64.NO_WRAP), Charsets.UTF_8)
-                            
-                            configProvider.saveRatchetState(
-                                agentId,
-                                android.util.Base64.encodeToString(newStateJson.toByteArray(), android.util.Base64.NO_WRAP)
-                            )
-                            
-                            trySend(decrypted)
-                            webSocket.close(1000, "Done")
                         }
                     } else {
                         trySend(payloadStr)

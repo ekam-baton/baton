@@ -26,6 +26,9 @@ import com.ekam.baton.ui.auth.LoginScreen
 import com.ekam.baton.ui.auth.OnboardingScreen
 import com.ekam.baton.ui.auth.SignupScreen
 import com.ekam.baton.ui.auth.UpgradeScreen
+import com.ekam.baton.ui.walkthrough.WalkthroughOverlay
+import com.ekam.baton.ui.walkthrough.rememberWalkthroughState
+import androidx.compose.foundation.layout.Box
 import org.koin.androidx.compose.koinViewModel
 import org.koin.androidx.viewmodel.ext.android.viewModel
 
@@ -172,8 +175,8 @@ internal fun BatonAppShell(
                 )
             } else {
                 SignupScreen(
-                    onSignupSuccess = { email, phone ->
-                        authViewModel.register(email, phone)
+                    onSignupSuccess = { email, phone, consentTimestamp, policyVersion, region ->
+                        authViewModel.register(email, phone, consentTimestamp, policyVersion, region)
                     }
                 )
             }
@@ -209,29 +212,42 @@ internal fun BatonAppShell(
                         }
                     )
                 } else {
-                    Scaffold(
-                        modifier = Modifier.fillMaxSize(),
-                        containerColor = Color(0xFF070B14),
-                        bottomBar = {
-                            val isRootRoute = currentRoute in listOf(
-                                "chats_list",
-                                "agents",
-                                "a2a_root",
-                                "settings"
-                            )
-                            if (isRootRoute) {
-                                BatonBottomBar(
-                                    navController = navController
+                    val hasSeenWalkthrough by mainViewModel.hasSeenWalkthrough.collectAsStateWithLifecycle()
+                    val walkthroughState = rememberWalkthroughState()
+                    
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        Scaffold(
+                            modifier = Modifier.fillMaxSize(),
+                            containerColor = Color(0xFF070B14),
+                            bottomBar = {
+                                val isRootRoute = currentRoute in listOf(
+                                    "chats_list",
+                                    "agents",
+                                    "a2a_root",
+                                    "settings"
                                 )
-                            }
-                        },
-                    ) { innerPadding ->
-                        BatonNavGraph(
-                            navController = navController,
-                            modifier = Modifier
-                                .padding(innerPadding)
-                                .consumeWindowInsets(innerPadding),
-                        )
+                                if (isRootRoute) {
+                                    BatonBottomBar(
+                                        navController = navController,
+                                        walkthroughState = walkthroughState
+                                    )
+                                }
+                            },
+                        ) { innerPadding ->
+                            BatonNavGraph(
+                                navController = navController,
+                                modifier = Modifier
+                                    .padding(innerPadding)
+                                    .consumeWindowInsets(innerPadding),
+                            )
+                        }
+                        
+                        if (!hasSeenWalkthrough) {
+                            WalkthroughOverlay(
+                                walkthroughState = walkthroughState,
+                                onFinish = { mainViewModel.completeWalkthrough() }
+                            )
+                        }
                     }
                 }
             }

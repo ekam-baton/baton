@@ -26,6 +26,15 @@ class MainViewModel(
         }
     }
 
+    val hasSeenWalkthrough: StateFlow<Boolean> = appPreferences.hasSeenWalkthrough
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    fun completeWalkthrough() {
+        viewModelScope.launch {
+            appPreferences.setHasSeenWalkthrough(true)
+        }
+    }
+
     val themeMode: StateFlow<String> = appPreferences.themeMode
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "system")
 

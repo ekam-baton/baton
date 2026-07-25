@@ -51,10 +51,10 @@ class AuthViewModel(
     private val _loginError = MutableStateFlow<String?>(null)
     val loginError: StateFlow<String?> = _loginError.asStateFlow()
 
-    fun register(email: String, phone: String) {
+    fun register(email: String, phone: String, consentTimestamp: Long, policyVersion: String, region: String) {
         viewModelScope.launch {
             try {
-                sessionManager.register(email, phone)
+                sessionManager.register(email, phone, consentTimestamp, policyVersion, region)
                 sessionManager.setLoggedIn(true)
             } catch (ignored: Exception) {
                 Log.e(TAG, "Registration failed", ignored)
@@ -71,9 +71,8 @@ class AuthViewModel(
             val isPremium = appPreferences.isPremiumUnlocked.first()
 
             if (!isPremium) {
-                // Temporarily bypassed for testing
-                // _loginError.value = "Premium access required (250 RS). Please upgrade in Settings."
-                // return@launch
+                _loginError.value = "Premium access required (250 RS). Please upgrade in Settings."
+                return@launch
             }
 
             if (pipelineMode == "MANAGED") {

@@ -66,6 +66,26 @@ class TunnelEndpointValidator constructor(
         }
     }
 
+    /**
+     * SECURITY FIX (H1): Check if a URL is safe for internal routing without performing MCP reachability probes.
+     * Prevents SSRF when connecting to the Cloud Router for Vault sync or FCM registration.
+     */
+    fun isUrlSafe(urlString: String): Boolean {
+        if (!urlString.startsWith("https://") && !urlString.startsWith("http://")) return false
+        val url = try {
+            URL(urlString)
+        } catch (e: Exception) {
+            return false
+        }
+        val host = url.host
+        val isTunnel = ALLOWED_TUNNEL_SUFFIXES.any { host.endsWith(it) }
+        val isExplicitLocal = ALLOWED_LOCAL_HOSTS.contains(host.lowercase())
+        if (!isTunnel && !isExplicitLocal && isPrivateOrReservedAddress(host)) {
+            return false
+        }
+        return true
+    }
+
     suspend fun validateEndpoint(urlString: String): TunnelValidationResult = withContext(Dispatchers.IO) {
         // a. Scheme check — only http/https
         if (!urlString.startsWith("https://") && !urlString.startsWith("http://")) {

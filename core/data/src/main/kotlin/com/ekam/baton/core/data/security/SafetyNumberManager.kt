@@ -37,7 +37,7 @@ object SafetyNumberManager {
             val digits = v % 100000
 
             if (i > 0) sb.append(" ")
-            sb.append(String.format("%05d", digits))
+            sb.append(String.format(java.util.Locale.US, "%05d", digits))
         }
 
         return sb.toString()

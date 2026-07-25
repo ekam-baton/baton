@@ -102,10 +102,10 @@ impl RatchetState {
     }
 
     /// Try to decrypt a skipped message key.
-    fn try_skipped_message_keys(&mut self, header_dhr: &[u8; 32], n: u32, ciphertext: &[u8]) -> Option<Vec<u8>> {
+    fn try_skipped_message_keys(&mut self, header_dhr: &[u8; 32], n: u32, header_pn: u32, ciphertext: &[u8]) -> Option<Vec<u8>> {
         let dhr_hex = hex::encode(header_dhr);
         if let Some(mk) = self.mkskipped.remove(&(dhr_hex.clone(), n)) {
-            return Self::decrypt_with_mk(&mk, ciphertext);
+            return Self::decrypt_with_mk(&mk, header_dhr, n, header_pn, ciphertext);
         }
         None
     }
@@ -174,15 +174,24 @@ impl RatchetState {
         let cipher = Aes256Gcm::new(aes_gcm::Key::<Aes256Gcm>::from_slice(&mk));
         let nonce_gcm = Nonce::from_slice(&iv);
         
-        let ciphertext_only = cipher.encrypt(nonce_gcm, plaintext).unwrap();
+        let header_pub = self.dhs_pub.clone();
+        let header_n = self.ns;
+        let header_pn = self.pn;
+        
+        let mut ad = Vec::new();
+        ad.extend_from_slice(&header_pub);
+        ad.extend_from_slice(&header_n.to_be_bytes());
+        ad.extend_from_slice(&header_pn.to_be_bytes());
+        
+        let payload = aes_gcm::aead::Payload {
+            msg: plaintext,
+            aad: &ad,
+        };
+        let ciphertext_only = cipher.encrypt(nonce_gcm, payload).unwrap();
         
         // Final payload structure: IV (12 bytes) || Ciphertext
         let mut final_payload = iv.to_vec();
         final_payload.extend(ciphertext_only);
-        
-        let header_pub = self.dhs_pub.clone();
-        let header_n = self.ns;
-        let header_pn = self.pn;
         
         self.ns += 1;
         
@@ -192,7 +201,7 @@ impl RatchetState {
     /// Decrypt a payload.
     pub fn ratchet_decrypt(&mut self, header_dhr: [u8; 32], header_n: u32, header_pn: u32, ciphertext_with_iv: &[u8]) -> Result<Vec<u8>, &'static str> {
         // 1. Check if this is a delayed message we already skipped over
-        if let Some(plaintext) = self.try_skipped_message_keys(&header_dhr, header_n, ciphertext_with_iv) {
+        if let Some(plaintext) = self.try_skipped_message_keys(&header_dhr, header_n, header_pn, ciphertext_with_iv) {
             return Ok(plaintext);
         }
 
@@ -212,19 +221,29 @@ impl RatchetState {
         self.nr += 1;
 
         // 5. Decrypt
-        match Self::decrypt_with_mk(&mk, ciphertext_with_iv) {
+        match Self::decrypt_with_mk(&mk, &header_dhr, header_n, header_pn, ciphertext_with_iv) {
             Some(pt) => Ok(pt),
             None => Err("Decryption failed")
         }
     }
 
-    fn decrypt_with_mk(mk: &[u8; 32], ciphertext_with_iv: &[u8]) -> Option<Vec<u8>> {
+    fn decrypt_with_mk(mk: &[u8; 32], header_pub: &[u8; 32], header_n: u32, header_pn: u32, ciphertext_with_iv: &[u8]) -> Option<Vec<u8>> {
         if ciphertext_with_iv.len() < 12 { return None; }
         let (iv, ciphertext) = ciphertext_with_iv.split_at(12);
         
         let cipher = Aes256Gcm::new(aes_gcm::Key::<Aes256Gcm>::from_slice(mk));
         let nonce_gcm = Nonce::from_slice(iv);
         
-        cipher.decrypt(nonce_gcm, ciphertext).ok()
+        let mut ad = Vec::new();
+        ad.extend_from_slice(header_pub);
+        ad.extend_from_slice(&header_n.to_be_bytes());
+        ad.extend_from_slice(&header_pn.to_be_bytes());
+        
+        let payload = aes_gcm::aead::Payload {
+            msg: ciphertext,
+            aad: &ad,
+        };
+        
+        cipher.decrypt(nonce_gcm, payload).ok()
     }
 }

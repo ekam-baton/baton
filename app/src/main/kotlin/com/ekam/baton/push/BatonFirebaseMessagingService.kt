@@ -7,6 +7,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
+import org.koin.android.ext.android.getKoin
 import org.koin.android.ext.android.inject
 
 private const val TAG = "BatonFCMService"
@@ -65,12 +67,19 @@ class BatonFirebaseMessagingService : FirebaseMessagingService() {
      */
     override fun onNewToken(token: String) {
         Log.d(TAG, "FCM token refreshed. Re-registering with Cloud Router.")
-        fcmTokenManager.onTokenRefresh(
-            newToken = token,
-            routerBaseUrl = getSharedPreferences("baton_prefs", MODE_PRIVATE)
-                .getString("router_url", "wss://router.baton-app.in") ?: "wss://router.baton-app.in",
-            clientId = getSharedPreferences("baton_prefs", MODE_PRIVATE)
-                .getString("client_id", "") ?: ""
-        )
+        serviceScope.launch {
+            try {
+                val appPrefs: com.ekam.baton.core.data.preferences.AppPreferences = getKoin().get()
+                val routerBaseUrl = kotlinx.coroutines.flow.first(appPrefs.backendUrl)
+                val clientId = kotlinx.coroutines.flow.first(appPrefs.clientId)
+                fcmTokenManager.onTokenRefresh(
+                    newToken = token,
+                    routerBaseUrl = routerBaseUrl,
+                    clientId = clientId
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to read preferences for FCM token refresh", e)
+            }
+        }
     }
 }

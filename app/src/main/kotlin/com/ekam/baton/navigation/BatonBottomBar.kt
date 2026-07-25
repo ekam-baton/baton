@@ -12,12 +12,17 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navOptions
+import com.ekam.baton.ui.walkthrough.WalkthroughState
 
 // ─── Model ───────────────────────────────────────────────────────────────────
 
@@ -83,7 +88,8 @@ private val NavBarUnselected = Color.White.copy(alpha = 0.60f) // 60% white
  */
 @Composable
 fun BatonBottomBar(
-    navController: NavController
+    navController: NavController,
+    walkthroughState: WalkthroughState? = null
 ) {
     val navBackStackEntry = navController.currentBackStackEntryAsState().value
     val currentDestination = navBackStackEntry?.destination
@@ -96,6 +102,9 @@ fun BatonBottomBar(
             val selected = currentDestination?.hierarchy?.any { it.route == item.route } == true
 
             NavigationBarItem(
+                modifier = Modifier.onGloballyPositioned { coordinates ->
+                    walkthroughState?.updateElementBounds(item.contentDescription, coordinates.boundsInWindow())
+                },
                 selected = selected,
                 onClick = {
                     // Guard against re-navigating to the already-visible destination

@@ -9,11 +9,15 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 
 class VaultRepository constructor(
-    private val okHttpClient: OkHttpClient
+    private val okHttpClient: OkHttpClient,
+    private val tunnelEndpointValidator: com.ekam.baton.core.network.tunnel.TunnelEndpointValidator
 ) {
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
 
     suspend fun uploadVault(endpointUrl: String, authHeader: String?, clientId: String, vaultData: String): Result<Unit> = withContext(Dispatchers.IO) {
+        if (!tunnelEndpointValidator.isUrlSafe(endpointUrl)) {
+            return@withContext Result.failure(Exception("SSRF Protection: Endpoint resolves to a private or reserved address."))
+        }
         try {
             val json = JSONObject().apply {
                 put("client_id", clientId)
@@ -38,6 +42,9 @@ class VaultRepository constructor(
     }
 
     suspend fun downloadVault(endpointUrl: String, authHeader: String?, clientId: String): Result<String> = withContext(Dispatchers.IO) {
+        if (!tunnelEndpointValidator.isUrlSafe(endpointUrl)) {
+            return@withContext Result.failure(Exception("SSRF Protection: Endpoint resolves to a private or reserved address."))
+        }
         try {
             val url = if (endpointUrl.endsWith("/")) "${endpointUrl}admin/api/vault/$clientId" else "$endpointUrl/admin/api/vault/$clientId"
             val requestBuilder = Request.Builder().url(url).get()

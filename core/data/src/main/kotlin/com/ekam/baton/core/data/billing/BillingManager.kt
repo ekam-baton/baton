@@ -240,10 +240,18 @@ class BillingManager(
 
             billingClient.queryPurchasesAsync(params) { billingResult, purchases ->
                 if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
-                    val hasActiveSub = purchases.any { it.purchaseState == Purchase.PurchaseState.PURCHASED }
-                    _isPremium.value = hasActiveSub
-                    if (hasActiveSub) {
-                        coroutineScope.launch { appPreferences.setPremiumUnlocked(true) }
+                    coroutineScope.launch {
+                        var hasActiveSub = false
+                        for (purchase in purchases) {
+                            if (purchase.purchaseState == Purchase.PurchaseState.PURCHASED) {
+                                if (verifyPurchaseWithBackend(purchase.purchaseToken)) {
+                                    hasActiveSub = true
+                                    break
+                                }
+                            }
+                        }
+                        _isPremium.value = hasActiveSub
+                        appPreferences.setPremiumUnlocked(hasActiveSub)
                     }
                 }
             }

@@ -22,4 +22,5 @@ val appModule = module {
     viewModelOf(::MemoryViewModel)
     viewModelOf(::SettingsViewModel)
     viewModelOf(::KeyBackupViewModel)
+    single { com.ekam.baton.push.FcmTokenManager(get(), get()) }
 }

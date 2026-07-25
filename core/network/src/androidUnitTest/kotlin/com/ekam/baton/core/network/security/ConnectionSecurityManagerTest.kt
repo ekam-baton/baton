@@ -45,12 +45,6 @@ class ConnectionSecurityManagerTest {
         // Derive agent-side shared secret
         val agentSharedSecret = securityManager.deriveSharedSecret(agentPrivBytes, clientPubHex)
 
-        println("Client Private: " + securityManager.toHex(clientPrivBytes))
-        println("Client Public: " + clientPubHex)
-        println("Agent Private: " + securityManager.toHex(agentPrivBytes))
-        println("Agent Public: " + agentPubHex)
-        println("Client Shared: " + securityManager.toHex(clientSharedSecret))
-        println("Agent Shared: " + securityManager.toHex(agentSharedSecret))
 
         // They must match
         assertEquals(securityManager.toHex(clientSharedSecret), securityManager.toHex(agentSharedSecret))

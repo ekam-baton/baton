@@ -158,7 +158,7 @@ room-testing                    = { group = "androidx.room", name = "room-testin
 # ── Cloud Services ────────────────────────────────────────────────────────────
 firebase-bom                    = { group = "com.google.firebase", name = "firebase-bom", version = "33.1.2" }
 firebase-auth                   = { group = "com.google.firebase", name = "firebase-auth" }
-play-billing                    = { group = "com.android.billingclient", name = "billing-ktx", version = "7.0.0" }
+play-billing                    = { group = "com.android.billingclient", name = "billing-ktx", version = "8.0.0" }
 
 [plugins]
 android-application     = { id = "com.android.application",     version.ref = "agp" }

@@ -20,3 +20,5 @@ hex = "0.4"
 governor = { version = "0.6", features = ["std", "dashmap"] }
 # Non-zero duration support required by governor
 nonzero_ext = "0.3"
+# HTTP Client for internal tool server (e.g. OSV.dev CVE lookups)
+reqwest = { version = "0.12", features = ["json"] }

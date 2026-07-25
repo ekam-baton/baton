@@ -20,6 +20,9 @@ use serde::{Deserialize, Serialize};
 use zeroize::Zeroize;
 
 type HmacSha256 = Hmac<Sha256>;
+use std::net::SocketAddr;
+
+mod sbom;
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -170,6 +173,221 @@ impl NonceStore {
 }
 
 // ---------------------------------------------------------------------------
+// Telemetry & Internal Tool Server
+// ---------------------------------------------------------------------------
+use std::collections::VecDeque;
+
+#[derive(Serialize, Clone, Debug)]
+pub struct LogEntry {
+    pub timestamp: u64,
+    pub level: String,
+    pub msg: String,
+}
+
+pub struct TelemetryStore {
+    logs: VecDeque<LogEntry>,
+    capacity: usize,
+}
+
+impl TelemetryStore {
+    fn new(capacity: usize) -> Self {
+        Self {
+            logs: VecDeque::with_capacity(capacity),
+            capacity,
+        }
+    }
+
+    fn push(&mut self, level: &str, msg: String) {
+        if self.logs.len() >= self.capacity {
+            self.logs.pop_front();
+        }
+        let timestamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
+        self.logs.push_back(LogEntry {
+            timestamp,
+            level: level.to_string(),
+            msg: msg.clone(),
+        });
+        eprintln!("[{}] {}", level, msg);
+    }
+
+    fn get_logs(&self, limit: usize) -> Vec<LogEntry> {
+        self.logs.iter().rev().take(limit).cloned().collect()
+    }
+}
+
+async fn run_tool_server(telemetry: Arc<Mutex<TelemetryStore>>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let listener = TcpListener::bind("127.0.0.1:8081").await?;
+    eprintln!("[TOOL SERVER] Internal management API listening on 127.0.0.1:8081");
+    let client = reqwest::Client::new();
+
+    loop {
+        let (mut socket, _) = listener.accept().await?;
+        let telemetry = Arc::clone(&telemetry);
+        let client = client.clone();
+
+        tokio::spawn(async move {
+            let mut buf = [0u8; 4096];
+            let mut raw = Vec::new();
+            let header_end: usize;
+            loop {
+                match socket.read(&mut buf).await {
+                    Ok(0) => return,
+                    Ok(n) => {
+                        raw.extend_from_slice(&buf[..n]);
+                        if let Some(pos) = raw.windows(4).position(|w| w == b"\r\n\r\n") {
+                            header_end = pos;
+                            break;
+                        }
+                    }
+                    Err(_) => return,
+                }
+            }
+
+            let header_str = String::from_utf8_lossy(&raw[..header_end]).into_owned();
+            let content_length: usize = header_str
+                .lines()
+                .find_map(|line| {
+                    let lower = line.to_lowercase();
+                    if lower.starts_with("content-length:") {
+                        line.splitn(2, ':').nth(1)?.trim().parse().ok()
+                    } else {
+                        None
+                    }
+                })
+                .unwrap_or(0);
+
+            let body_end = header_end + 4 + content_length;
+            while raw.len() < body_end {
+                match socket.read(&mut buf).await {
+                    Ok(0) => return,
+                    Ok(n) => raw.extend_from_slice(&buf[..n]),
+                    Err(_) => return,
+                }
+            }
+
+            let body_str = String::from_utf8_lossy(&raw[header_end + 4..body_end]);
+            let Ok(req_json) = serde_json::from_str::<serde_json::Value>(&body_str) else {
+                let _ = socket.write_all(b"HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n").await;
+                return;
+            };
+
+            let tool_name = req_json.get("tool").and_then(|v| v.as_str()).unwrap_or("");
+            let empty_kwargs = serde_json::json!({});
+            let kwargs = req_json.get("kwargs").unwrap_or(&empty_kwargs);
+
+            let response_body = if tool_name == "fetch_gateway_logs" {
+                let limit = kwargs.get("limit").and_then(|v| v.as_u64()).unwrap_or(100) as usize;
+                let logs = telemetry.lock().await.get_logs(limit);
+                serde_json::json!({ "result": logs })
+            } else if tool_name == "lookup_cve" {
+                let pkg = kwargs.get("package_name").and_then(|v| v.as_str()).unwrap_or("");
+                let ver = kwargs.get("version").and_then(|v| v.as_str()).unwrap_or("");
+                let eco = kwargs.get("ecosystem").and_then(|v| v.as_str()).unwrap_or("Maven");
+                
+                let osv_req = serde_json::json!({
+                    "version": ver,
+                    "package": {
+                        "name": pkg,
+                        "ecosystem": eco
+                    }
+                });
+
+                let res = client.post("https://api.osv.dev/v1/query")
+                    .json(&osv_req)
+                    .send()
+                    .await;
+                
+                match res {
+                    Ok(resp) => {
+                        let json_resp = resp.json::<serde_json::Value>().await.unwrap_or(serde_json::json!({}));
+                        serde_json::json!({ "result": json_resp })
+                    }
+                    Err(e) => {
+                        serde_json::json!({ "error": e.to_string() })
+                    }
+                }
+            } else {
+                serde_json::json!({ "error": "Unknown tool" })
+            };
+
+            let body_bytes = serde_json::to_string(&response_body).unwrap_or_default();
+            let http_response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                body_bytes.len(),
+                body_bytes
+            );
+            
+            let _ = socket.write_all(http_response.as_bytes()).await;
+        });
+    }
+}
+
+async fn orchestrator_loop(telemetry: Arc<Mutex<TelemetryStore>>) {
+    let client = reqwest::Client::new();
+    let llm_endpoint = std::env::var("LLM_ENDPOINT").unwrap_or_else(|_| "http://127.0.0.1:11434/api/chat".to_string());
+    
+    // We track the timestamp of the last processed log to avoid duplicate alerts.
+    let mut last_processed_ts = 0;
+
+    loop {
+        tokio::time::sleep(tokio::time::Duration::from_secs(30)).await;
+
+        let logs = telemetry.lock().await.get_logs(100);
+        
+        let recent_warnings: Vec<_> = logs.into_iter()
+            .filter(|l| l.level == "WARN" && l.timestamp > last_processed_ts)
+            .collect();
+
+        if recent_warnings.is_empty() {
+            continue;
+        }
+
+        // Update last processed timestamp
+        if let Some(latest) = recent_warnings.first() {
+            last_processed_ts = latest.timestamp;
+        }
+
+        let prompt = format!(
+            "You are BATON, an autonomous Endpoint Security Agent.\n\
+             The gateway has detected the following anomalous behavior (WARN logs):\n\
+             {:#?}\n\
+             Based on this telemetry, does this look like an active attack? \
+             Respond with a concise analysis, and end your response with 'ACTION: BLOCK' if the gateway should block the offending IP, or 'ACTION: PASS' if it's benign.",
+            recent_warnings
+        );
+
+        let req_body = serde_json::json!({
+            "model": "qwen2.5-coder:3b",
+            "messages": [
+                { "role": "system", "content": "You are a highly capable cybersecurity agent analyzing gateway telemetry." },
+                { "role": "user", "content": prompt }
+            ],
+            "stream": false
+        });
+
+        match client.post(&llm_endpoint).json(&req_body).send().await {
+            Ok(resp) => {
+                if let Ok(json) = resp.json::<serde_json::Value>().await {
+                    let content = json.get("message")
+                        .and_then(|m| m.get("content"))
+                        .and_then(|c| c.as_str())
+                        .unwrap_or("");
+                    
+                    if content.contains("ACTION: BLOCK") {
+                        telemetry.lock().await.push("CRITICAL", format!("LLM Orchestrator recommended BLOCK action. Reason: {}", content.lines().next().unwrap_or("")));
+                    } else {
+                        telemetry.lock().await.push("INFO", "LLM Orchestrator analyzed warnings and recommended PASS.".to_string());
+                    }
+                }
+            }
+            Err(e) => {
+                eprintln!("[ORCHESTRATOR] LLM consultation failed: {}", e);
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Entry point
 // ---------------------------------------------------------------------------
 
@@ -198,6 +416,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Shared nonce store — tokio::sync::Mutex is non-blocking in async context
     let nonce_store: Arc<Mutex<NonceStore>> = Arc::new(Mutex::new(NonceStore::new()));
 
+    // Shared telemetry store
+    let telemetry_store: Arc<Mutex<TelemetryStore>> = Arc::new(Mutex::new(TelemetryStore::new(1000)));
+    let telemetry_for_server = Arc::clone(&telemetry_store);
+
+    tokio::spawn(async move {
+        if let Err(e) = run_tool_server(telemetry_for_server).await {
+            eprintln!("[TOOL SERVER] Fatal error: {}", e);
+        }
+    });
+
+    let telemetry_for_orchestrator = Arc::clone(&telemetry_store);
+    tokio::spawn(async move {
+        orchestrator_loop(telemetry_for_orchestrator).await;
+    });
+
+    let telemetry_for_sbom = Arc::clone(&telemetry_store);
+    tokio::spawn(async move {
+        sbom::scan_dependencies(telemetry_for_sbom).await;
+    });
+
     // Per-IP rate limiter: 30 requests per minute per IP
     // This stops brute-force, replay flood, and DoS in one shot.
     let rate_limiter: Arc<DefaultKeyedRateLimiter<IpAddr>> = Arc::new(
@@ -208,19 +446,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     //    In production, put a TLS-terminating reverse-proxy (nginx/caddy) in front.
     let bind_addr = std::env::var("GATEWAY_BIND").unwrap_or_else(|_| "0.0.0.0:8080".to_string());
     let listener = TcpListener::bind(&bind_addr).await?;
-    eprintln!("[GATEWAY] Listening on {}", bind_addr);
+    telemetry_store.lock().await.push("INFO", format!("Gateway listening on {}", bind_addr));
 
     loop {
         let (mut socket, addr) = listener.accept().await?;
         let nonce_store = Arc::clone(&nonce_store);
         let private_key = Arc::clone(&private_key);
         let rate_limiter = Arc::clone(&rate_limiter);
+        let telemetry = Arc::clone(&telemetry_store);
 
         tokio::spawn(async move {
             // ------------------------------------------------------------------
             // Rate limiting — check before reading ANY request bytes
             // ------------------------------------------------------------------
             if rate_limiter.check_key(&addr.ip()).is_err() {
+                telemetry.lock().await.push("WARN", format!("Rate limit exceeded for IP {}", addr.ip()));
                 send_status_error(&mut socket, 429, "Rate limit exceeded").await;
                 return;
             }
@@ -274,6 +514,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                 })
                 .unwrap_or(0);
+
+            let authorization = header_str
+                .lines()
+                .find_map(|line| {
+                    let lower = line.to_lowercase();
+                    if lower.starts_with("authorization:") {
+                        Some(line.splitn(2, ':').nth(1)?.trim())
+                    } else {
+                        None
+                    }
+                })
+                .unwrap_or("");
+
+            let Some(Ok(trusted_client)) = authorization.strip_prefix("Bearer ").map(authorize_client_key) else {
+                telemetry.lock().await.push("WARN", format!("Auth rejected from {}: Invalid/unknown token", addr.ip()));
+                send_status_error(&mut socket, 401, "Invalid authorization token").await;
+                return;
+            };
 
             let body_end = header_end + 4 + content_length;
             if body_end > MAX_REQUEST_BYTES {
@@ -461,7 +719,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             hk_hmac.expand(b"baton-hmac-signing", &mut signing_key)
                 .expect("HKDF expand is infallible for 32-byte output");
 
-            let signature_input = format!("{}:{}:{}", ts, n, ciphertext_b64);
+            let signature_input = format!("ts={}:n_len={}:n={}:ct_len={}:ct={}", ts, n.len(), n, ciphertext_b64.len(), ciphertext_b64);
             let mut mac_verify = <HmacSha256 as hmac::Mac>::new_from_slice(&signing_key)
                 .expect("HMAC key size is always valid");
             mac_verify.update(signature_input.as_bytes());
@@ -477,7 +735,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             };
 
             if mac_verify.verify_slice(&sig_bytes).is_err() {
-                send_status_error(&mut socket, 401, "Invalid signature").await;
+                telemetry.lock().await.push("WARN", format!("Invalid HMAC signature from {}", trusted_client.user_email));
+                send_status_error(&mut socket, 403, "Invalid HMAC signature").await;
                 shared_secret.zeroize();
                 return;
             }
@@ -537,10 +796,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             derived_key.zeroize();
 
             // SECURITY: Log only byte count, never plaintext content
-            eprintln!(
-                "[GATEWAY] Payload received from user ({}B)",
-                decrypted_bytes.len()
-            );
+            telemetry.lock().await.push("INFO", format!("Payload received from user {} ({}B)", trusted_client.user_email, decrypted_bytes.len()));
 
             // ------------------------------------------------------------------
             // Step 7 — Forward to real MCP agent (mock response for now)
@@ -599,7 +855,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let _ = socket.write_all(http_response.as_bytes()).await;
             let _ = socket.flush().await;
 
-            eprintln!("[GATEWAY] Request for '{}' handled successfully", trusted_client.user_email);
+            telemetry.lock().await.push("INFO", format!("Request for '{}' handled successfully", trusted_client.user_email));
         });
     }
 }

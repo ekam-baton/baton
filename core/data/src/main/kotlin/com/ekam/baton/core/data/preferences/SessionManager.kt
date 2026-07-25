@@ -17,8 +17,8 @@ class SessionManager constructor(
         _isLoggedIn.value = loggedIn
     }
 
-    suspend fun register(email: String, phone: String) {
-        appPreferences.registerUser(email, phone)
+    suspend fun register(email: String, phone: String, consentTimestamp: Long = 0L, policyVersion: String = "", region: String = "Global") {
+        appPreferences.registerUser(email, phone, consentTimestamp, policyVersion, region)
         setLoggedIn(true)
     }
 
