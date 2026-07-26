@@ -202,12 +202,23 @@ impl TelemetryStore {
             self.logs.pop_front();
         }
         let timestamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
-        self.logs.push_back(LogEntry {
+        let entry = LogEntry {
             timestamp,
             level: level.to_string(),
             msg: msg.clone(),
-        });
+        };
+        self.logs.push_back(entry.clone());
         eprintln!("[{}] {}", level, msg);
+
+        // Persistent Dataset Recording for PyTorch Fine-Tuning
+        if level == "WARN" || level == "CRITICAL" {
+            if let Ok(json_line) = serde_json::to_string(&entry) {
+                use std::io::Write;
+                if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open("telemetry_dataset.jsonl") {
+                    let _ = writeln!(file, "{}", json_line);
+                }
+            }
+        }
 
         if level == "CRITICAL" {
             let msg_clone = msg.clone();
