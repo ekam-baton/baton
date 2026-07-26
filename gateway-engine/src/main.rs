@@ -586,11 +586,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 return;
             }
 
+            // Resolve real client IP behind proxy (e.g. NGINX)
+            let client_ip = ShieldFirewall::resolve_real_ip(addr.ip(), &header_str);
+
             // ------------------------------------------------------------------
-            // BATON-Shield Payload & Entropy Firewall Inspection
+            // BATON-Shield Header & Obfuscation Firewall Inspection
             // ------------------------------------------------------------------
-            if let Err(reason) = shield_firewall.inspect_payload(addr.ip(), &raw) {
-                telemetry.lock().await.push("CRITICAL", format!("BATON-Shield dropped connection: {}", reason));
+            if let Err(reason) = shield_firewall.inspect_headers_and_uri(client_ip, &header_str) {
+                telemetry.lock().await.push("CRITICAL", format!("BATON-Shield dropped connection from {}: {}", client_ip, reason));
                 send_status_error(&mut socket, 403, "Forbidden by BATON-Shield Firewall").await;
                 return;
             }
@@ -791,6 +794,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             };
 
             if mac_verify.verify_slice(&sig_bytes).is_err() {
+                shield_firewall.record_violation(client_ip, "Invalid HMAC signature");
                 telemetry.lock().await.push("WARN", format!("Invalid HMAC signature from {}", trusted_client.user_email));
                 send_status_error(&mut socket, 403, "Invalid HMAC signature").await;
                 shared_secret.zeroize();

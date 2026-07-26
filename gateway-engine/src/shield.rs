@@ -1,10 +1,10 @@
-use std::collections::HashMap;
+use dashmap::DashMap;
 use std::net::IpAddr;
-use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
+const MAX_IP_TRACK_CAPACITY: usize = 50_000;
+
 /// Calculates Shannon Entropy on a byte slice: H(X) = - sum(P(x) * log2(P(x)))
-/// High entropy (> 7.2) on unauthenticated raw payloads indicates binary shellcode or encrypted exploit strings.
 pub fn calculate_shannon_entropy(data: &[u8]) -> f64 {
     if data.is_empty() {
         return 0.0;
@@ -24,6 +24,19 @@ pub fn calculate_shannon_entropy(data: &[u8]) -> f64 {
     entropy
 }
 
+/// Checks sliding 64-byte chunks for localized high entropy spikes (shellcode detection)
+pub fn check_chunked_entropy(data: &[u8], threshold: f64) -> bool {
+    if data.len() < 64 {
+        return calculate_shannon_entropy(data) > threshold;
+    }
+    for chunk in data.chunks(64) {
+        if chunk.len() >= 32 && calculate_shannon_entropy(chunk) > threshold {
+            return true;
+        }
+    }
+    false
+}
+
 #[derive(Debug, Clone)]
 pub struct IpReputation {
     pub violations: usize,
@@ -32,7 +45,8 @@ pub struct IpReputation {
 }
 
 pub struct ShieldFirewall {
-    reputation_matrix: Mutex<HashMap<IpAddr, IpReputation>>,
+    // Lock-free concurrent hashmap for multi-gigabit throughput
+    reputation_matrix: DashMap<IpAddr, IpReputation>,
     max_violations: usize,
     blacklist_duration: Duration,
 }
@@ -40,19 +54,41 @@ pub struct ShieldFirewall {
 impl ShieldFirewall {
     pub fn new(max_violations: usize, blacklist_secs: u64) -> Self {
         Self {
-            reputation_matrix: Mutex::new(HashMap::new()),
+            reputation_matrix: DashMap::new(),
             max_violations,
             blacklist_duration: Duration::from_secs(blacklist_secs),
         }
     }
 
-    /// Checks if an IP is currently blacklisted by BATON-Shield.
+    /// Extracts real client IP behind proxy. NEVER returns loopback (127.0.0.1) for blacklisting.
+    pub fn resolve_real_ip(socket_ip: IpAddr, header_str: &str) -> IpAddr {
+        if socket_ip.is_loopback() {
+            for line in header_str.lines() {
+                let lower = line.to_lowercase();
+                if lower.starts_with("x-real-ip:") || lower.starts_with("x-forwarded-for:") {
+                    if let Some(val) = line.splitn(2, ':').nth(1) {
+                        let client_ip_str = val.split(',').next().unwrap_or("").trim();
+                        if let Ok(ip) = client_ip_str.parse::<IpAddr>() {
+                            if !ip.is_loopback() {
+                                return ip;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        socket_ip
+    }
+
+    /// Checks if an IP is currently blacklisted.
     pub fn is_blacklisted(&self, ip: &IpAddr) -> bool {
-        let mut map = self.reputation_matrix.lock().unwrap();
-        if let Some(rep) = map.get_mut(ip) {
+        if ip.is_loopback() {
+            return false; // Loopback is never blacklisted
+        }
+        if let Some(mut ref_mut) = self.reputation_matrix.get_mut(ip) {
+            let rep = ref_mut.value_mut();
             if rep.is_blacklisted {
                 if rep.last_violation.elapsed() > self.blacklist_duration {
-                    // Blacklist expired - rehabilitate IP
                     rep.is_blacklisted = false;
                     rep.violations = 0;
                     eprintln!("[BATON-SHIELD] IP {} blacklist expired. Rehabilitated.", ip);
@@ -64,39 +100,45 @@ impl ShieldFirewall {
         false
     }
 
-    /// Records a security violation against an IP address.
+    /// Records a security violation with OOM protection (capping map at MAX_IP_TRACK_CAPACITY).
     pub fn record_violation(&self, ip: IpAddr, reason: &str) {
-        let mut map = self.reputation_matrix.lock().unwrap();
-        let rep = map.entry(ip).or_insert(IpReputation {
+        if ip.is_loopback() {
+            eprintln!("[BATON-SHIELD] Warning on Loopback IP: {}", reason);
+            return;
+        }
+
+        // Memory Guard: Prune map if flooded with unique botnet IPs
+        if self.reputation_matrix.len() >= MAX_IP_TRACK_CAPACITY {
+            self.reputation_matrix.retain(|_, v| v.is_blacklisted || v.last_violation.elapsed() < Duration::from_secs(300));
+        }
+
+        let mut entry = self.reputation_matrix.entry(ip).or_insert(IpReputation {
             violations: 0,
             last_violation: Instant::now(),
             is_blacklisted: false,
         });
 
-        rep.violations += 1;
-        rep.last_violation = Instant::now();
+        entry.violations += 1;
+        entry.last_violation = Instant::now();
 
-        eprintln!("[BATON-SHIELD] Security violation logged for IP {}: {} (Total: {})", ip, reason, rep.violations);
+        eprintln!("[BATON-SHIELD] Security violation logged for IP {}: {} (Total: {})", ip, reason, entry.violations);
 
-        if rep.violations >= self.max_violations {
-            rep.is_blacklisted = true;
-            eprintln!("[BATON-SHIELD] 🚨 IP {} BLACKLISTED for breach of threshold ({}/{} violations)", ip, rep.violations, self.max_violations);
+        if entry.violations >= self.max_violations {
+            entry.is_blacklisted = true;
+            eprintln!("[BATON-SHIELD] 🚨 IP {} BLACKLISTED for breach of threshold ({}/{} violations)", ip, entry.violations, self.max_violations);
         }
     }
 
-    /// Deep Packet & Entropy Inspection
-    pub fn inspect_payload(&self, ip: IpAddr, raw_bytes: &[u8]) -> Result<(), String> {
+    /// Inspects HTTP Header strings and URI paths for high entropy obfuscation / shellcode
+    pub fn inspect_headers_and_uri(&self, ip: IpAddr, header_str: &str) -> Result<(), String> {
         if self.is_blacklisted(&ip) {
             return Err(format!("IP {} is blacklisted by BATON-Shield Firewall", ip));
         }
 
-        // Entropy Inspection for payload bytes
-        if raw_bytes.len() > 128 {
-            let entropy = calculate_shannon_entropy(raw_bytes);
-            if entropy > 7.5 {
-                self.record_violation(ip, &format!("High payload entropy detected (H = {:.2})", entropy));
-                return Err(format!("BATON-Shield: High entropy payload dropped (H = {:.2})", entropy));
-            }
+        // Check header strings for localized high-entropy shellcode (threshold > 7.2)
+        if check_chunked_entropy(header_str.as_bytes(), 7.2) {
+            self.record_violation(ip, "High entropy detected in HTTP headers (Obfuscated attack vector)");
+            return Err("BATON-Shield: High entropy detected in HTTP headers".to_string());
         }
 
         Ok(())

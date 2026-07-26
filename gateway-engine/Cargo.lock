@@ -61,6 +61,7 @@ version = "1.0.0"
 dependencies = [
  "aes-gcm",
  "base64 0.21.7",
+ "dashmap",
  "governor",
  "hex",
  "hkdf",
