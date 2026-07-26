@@ -1,0 +1,13 @@
+[package]
+name = "baton-dev-console"
+version = "0.1.0"
+edition = "2021"
+authors = ["BATON Developer Team <dev@baton.ai>"]
+description = "Developer Command & Control Console for BATON Ecosystem"
+
+[dependencies]
+tokio = { version = "1.35", features = ["full"] }
+reqwest = { version = "0.11", features = ["json"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+colored = "2.0"
