@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  gateway-engine:
+    build:
+      context: ./gateway-engine
+      dockerfile: Dockerfile
+    container_name: baton-gateway-engine
+    restart: always
+    environment:
+      - GATEWAY_BIND=0.0.0.0:8080
+      - TRUSTED_CLIENTS_PATH=/app/trusted_clients.json
+      - SWARM_WEBHOOK_SECRET=${SWARM_WEBHOOK_SECRET:-baton-super-secret-key-2026}
+    volumes:
+      - ./gateway-engine/trusted_clients.json:/app/trusted_clients.json
+      - ./gateway-engine/telemetry_dataset.jsonl:/app/telemetry_dataset.jsonl
+    networks:
+      - baton-internal-net
+
+  nginx-firewall:
+    image: nginx:alpine
+    container_name: baton-nginx-firewall
+    restart: always
+    ports:
+      - "443:443"
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/nginx.conf:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    depends_on:
+      - gateway-engine
+    networks:
+      - baton-internal-net
+
+networks:
+  baton-internal-net:
+    driver: bridge
