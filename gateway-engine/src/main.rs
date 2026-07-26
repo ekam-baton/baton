@@ -208,6 +208,36 @@ impl TelemetryStore {
             msg: msg.clone(),
         });
         eprintln!("[{}] {}", level, msg);
+
+        if level == "CRITICAL" {
+            let msg_clone = msg.clone();
+            tokio::spawn(async move {
+                let secret = std::env::var("SWARM_WEBHOOK_SECRET").unwrap_or_else(|_| "baton-super-secret-key-2026".to_string());
+                let payload = serde_json::json!({
+                    "title": "CRITICAL Gateway Alert",
+                    "description": msg_clone,
+                    "timestamp": timestamp,
+                });
+                let payload_str = payload.to_string();
+                if let Ok(mut mac) = <HmacSha256 as hmac::Mac>::new_from_slice(secret.as_bytes()) {
+                    mac.update(payload_str.as_bytes());
+                    let signature = hex::encode(mac.finalize().into_bytes());
+
+                    let client = reqwest::Client::new();
+                    if let Err(e) = client.post("http://127.0.0.1:8000/webhook/alert")
+                        .header("X-Baton-Signature", signature)
+                        .header("Content-Type", "application/json")
+                        .body(payload_str)
+                        .send()
+                        .await 
+                    {
+                        eprintln!("[GATEWAY-SWARM-BRIDGE] Alert webhook failed: {}", e);
+                    } else {
+                        eprintln!("[GATEWAY-SWARM-BRIDGE] Successfully dispatched HMAC-signed CRITICAL alert to Python Swarm.");
+                    }
+                }
+            });
+        }
     }
 
     fn get_logs(&self, limit: usize) -> Vec<LogEntry> {
