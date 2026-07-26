@@ -1,6 +1,5 @@
 use std::fs;
 use std::net::IpAddr;
-use std::num::NonZeroU32;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -20,7 +19,6 @@ use serde::{Deserialize, Serialize};
 use zeroize::Zeroize;
 
 type HmacSha256 = Hmac<Sha256>;
-use std::net::SocketAddr;
 
 mod sbom;
 mod shield;
@@ -574,7 +572,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 })
                 .unwrap_or("");
 
-            let Some(Ok(trusted_client)) = authorization.strip_prefix("Bearer ").map(authorize_client_key) else {
+            let Some(Ok(_trusted_client)) = authorization.strip_prefix("Bearer ").map(authorize_client_key) else {
                 telemetry.lock().await.push("WARN", format!("Auth rejected from {}: Invalid/unknown token", addr.ip()));
                 send_status_error(&mut socket, 401, "Invalid authorization token").await;
                 return;
