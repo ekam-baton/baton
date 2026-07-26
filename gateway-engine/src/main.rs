@@ -23,6 +23,8 @@ type HmacSha256 = Hmac<Sha256>;
 use std::net::SocketAddr;
 
 mod sbom;
+mod shield;
+use shield::ShieldFirewall;
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -483,6 +485,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         RateLimiter::keyed(Quota::per_minute(nonzero!(30u32)))
     );
 
+    // BATON-Shield Custom AI-Aware Firewall Engine
+    let shield_firewall = Arc::new(ShieldFirewall::new(3, 3600));
+
     // 2. Bind on all interfaces (0.0.0.0) so VPS clients can connect.
     //    In production, put a TLS-terminating reverse-proxy (nginx/caddy) in front.
     let bind_addr = std::env::var("GATEWAY_BIND").unwrap_or_else(|_| "0.0.0.0:8080".to_string());
@@ -494,6 +499,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let nonce_store = Arc::clone(&nonce_store);
         let private_key = Arc::clone(&private_key);
         let rate_limiter = Arc::clone(&rate_limiter);
+        let shield_firewall = Arc::clone(&shield_firewall);
         let telemetry = Arc::clone(&telemetry_store);
 
         tokio::spawn(async move {
@@ -577,6 +583,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let body_end = header_end + 4 + content_length;
             if body_end > MAX_REQUEST_BYTES {
                 send_status_error(&mut socket, 413, "Request too large").await;
+                return;
+            }
+
+            // ------------------------------------------------------------------
+            // BATON-Shield Payload & Entropy Firewall Inspection
+            // ------------------------------------------------------------------
+            if let Err(reason) = shield_firewall.inspect_payload(addr.ip(), &raw) {
+                telemetry.lock().await.push("CRITICAL", format!("BATON-Shield dropped connection: {}", reason));
+                send_status_error(&mut socket, 403, "Forbidden by BATON-Shield Firewall").await;
                 return;
             }
 
