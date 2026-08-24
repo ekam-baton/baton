@@ -57,27 +57,15 @@ class AuthViewModel(
             try {
                 val backendUrlStr = appPreferences.backendUrl.first()
                 val registerUrl = if (backendUrlStr.endsWith("/")) {
-                    "${backendUrlStr}auth/register"
+                    "auth/register"
                 } else {
-                    "$backendUrlStr/auth/register"
+                    "/auth/register"
                 }
-
-                val encPrivKey = appPreferences.encryptedPrivateKey.first()
-                val privKeyIv = appPreferences.privateKeyIv.first()
-
-                if (encPrivKey.isNullOrBlank() || privKeyIv.isNullOrBlank()) {
-                    _loginError.value = "Local keys missing. Cannot backup."
-                    return@launch
-                }
-
-                val rawPrivateKey = securityManager.decryptPrivateKey(encPrivKey, privKeyIv)
-                val encryptedBackup = CryptoHelper.encryptBackupKey(password, rawPrivateKey)
 
                 val jsonInput = JSONObject().apply {
                     put("email", email)
                     if (phone.isNotBlank()) put("phone_number", phone)
                     put("password", password)
-                    put("encrypted_key_backup", encryptedBackup)
                 }.toString()
 
                 val body = jsonInput.toRequestBody("application/json".toMediaTypeOrNull())
@@ -127,9 +115,9 @@ class AuthViewModel(
             try {
                 val backendUrlStr = appPreferences.backendUrl.first()
                 val loginUrl = if (backendUrlStr.endsWith("/")) {
-                    "${backendUrlStr}auth/login"
+                    "auth/login"
                 } else {
-                    "$backendUrlStr/auth/login"
+                    "/auth/login"
                 }
 
                 val jsonInput = JSONObject().apply {
@@ -189,5 +177,8 @@ class AuthViewModel(
 
     fun logout() {
         sessionManager.setLoggedIn(false)
+        viewModelScope.launch {
+            appPreferences.setJwtSecret("")
+        }
     }
 }
