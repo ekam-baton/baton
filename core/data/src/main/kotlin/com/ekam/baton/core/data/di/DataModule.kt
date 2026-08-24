@@ -302,7 +302,7 @@ val dataModule = module {
     }
 
     single<com.ekam.baton.core.network.security.LocalNetworkPolicyProvider> {
-        com.ekam.baton.core.data.repository.LocalNetworkPolicyProviderImpl(get())
+        com.ekam.baton.core.data.repository.LocalNetworkPolicyProviderImpl(get(), get())
     }
 
     // Forensic Auditing & eIDAS QES Compliance
