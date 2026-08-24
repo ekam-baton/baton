@@ -4,17 +4,22 @@ import com.ekam.baton.core.data.db.dao.AgentDao
 import com.ekam.baton.core.data.preferences.AppPreferences
 import com.ekam.baton.core.network.security.LocalNetworkPolicyProvider
 import kotlinx.coroutines.flow.first
+import java.util.Collections
 
 class LocalNetworkPolicyProviderImpl(
     private val appPreferences: AppPreferences,
     private val agentDao: AgentDao
 ) : LocalNetworkPolicyProvider {
     // We temporarily allow hosts that are currently being paired by caching them in memory.
-    // This allows the pairing probe to succeed before the agent is saved to the database.
-    private val pairingHosts = mutableSetOf<String>()
+    // Thread-safe because it's accessed concurrently from OkHttp's DNS resolution threads.
+    private val pairingHosts = Collections.synchronizedSet(mutableSetOf<String>())
 
-    fun allowDuringPairing(hostname: String) {
+    override fun allowDuringPairing(hostname: String) {
         pairingHosts.add(hostname)
+    }
+
+    override fun removePairingHost(hostname: String) {
+        pairingHosts.remove(hostname)
     }
 
     override suspend fun isLocalNetworkAllowed(hostname: String): Boolean {

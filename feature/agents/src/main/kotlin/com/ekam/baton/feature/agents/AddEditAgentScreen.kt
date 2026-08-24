@@ -396,14 +396,14 @@ fun AddEditAgentScreen(
                 var validationResult by remember { mutableStateOf<TunnelValidationResult?>(null) }
                 var isValidating by remember { mutableStateOf(false) }
                 val coroutineScope = rememberCoroutineScope()
-                val tunnelValidator = viewModel.getTunnelValidator()
+                
 
                 Box(modifier = Modifier.fillMaxWidth().padding(8.dp), contentAlignment = Alignment.CenterEnd) {
                     TextButton(
                         onClick = {
                             coroutineScope.launch {
                                 isValidating = true
-                                validationResult = tunnelValidator.validateEndpoint(endpointUrl)
+                                validationResult = viewModel.validateEndpoint(endpointUrl)
                                 isValidating = false
                             }
                         },

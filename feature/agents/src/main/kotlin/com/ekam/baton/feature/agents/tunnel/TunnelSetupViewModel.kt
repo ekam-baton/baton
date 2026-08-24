@@ -9,7 +9,8 @@ import com.ekam.baton.core.network.tunnel.TunnelEndpointValidator
 import com.ekam.baton.core.network.tunnel.TunnelValidationResult
 
 class TunnelSetupViewModel(
-    private val endpointValidator: TunnelEndpointValidator
+    private val endpointValidator: TunnelEndpointValidator,
+    private val localNetworkPolicyProvider: com.ekam.baton.core.network.security.LocalNetworkPolicyProvider
 ) : ViewModel() {
 
     private val _validationResult = MutableStateFlow<TunnelValidationResult?>(null)
@@ -21,7 +22,10 @@ class TunnelSetupViewModel(
     fun validateUrl(url: String) {
         viewModelScope.launch {
             _isValidating.value = true
+            val host = try { java.net.URL(url).host } catch (e: Exception) { null }
+            if (host != null) localNetworkPolicyProvider.allowDuringPairing(host)
             _validationResult.value = endpointValidator.validateEndpoint(url)
+            if (host != null) localNetworkPolicyProvider.removePairingHost(host)
             _isValidating.value = false
         }
     }

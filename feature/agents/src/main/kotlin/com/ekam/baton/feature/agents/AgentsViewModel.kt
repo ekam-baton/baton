@@ -25,7 +25,8 @@ class AgentsViewModel(
     private val tunnelValidator: TunnelEndpointValidator,
     private val securityManager: com.ekam.baton.core.network.security.ConnectionSecurityManager,
     private val mdnsDiscoveryManager: com.ekam.baton.core.network.mdns.MdnsDiscoveryManager,
-    private val mcpMessageSender: com.ekam.baton.core.network.mcp.McpMessageSender
+    private val mcpMessageSender: com.ekam.baton.core.network.mcp.McpMessageSender,
+    private val localNetworkPolicyProvider: com.ekam.baton.core.network.security.LocalNetworkPolicyProvider
 ) : ViewModel() {
 
     private val _uiEvents = Channel<AgentsUiEvent>()
@@ -90,7 +91,13 @@ class AgentsViewModel(
             initialValue = emptyList()
         )
 
-    fun getTunnelValidator() = tunnelValidator
+        suspend fun validateEndpoint(urlString: String): com.ekam.baton.core.network.tunnel.TunnelValidationResult {
+        val host = try { java.net.URL(urlString).host } catch (e: Exception) { null }
+        if (host != null) localNetworkPolicyProvider.allowDuringPairing(host)
+        val result = tunnelValidator.validateEndpoint(urlString)
+        if (host != null) localNetworkPolicyProvider.removePairingHost(host)
+        return result
+    }
 
     fun addAgent(agent: Agent) {
         viewModelScope.launch {

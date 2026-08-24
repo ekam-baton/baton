@@ -8,6 +8,8 @@ import java.net.UnknownHostException
 
 interface LocalNetworkPolicyProvider {
     suspend fun isLocalNetworkAllowed(hostname: String): Boolean
+    fun allowDuringPairing(hostname: String)
+    fun removePairingHost(hostname: String)
 }
 
 class SsrfProtectionDns(
