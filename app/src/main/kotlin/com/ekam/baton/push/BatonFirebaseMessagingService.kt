@@ -54,7 +54,9 @@ class BatonFirebaseMessagingService : FirebaseMessagingService() {
         serviceScope.launch {
             try {
                 // Send a local broadcast that the connection manager listens for.
-                val intent = android.content.Intent("com.ekam.baton.ACTION_FCM_WAKEUP")
+                val intent = android.content.Intent("com.ekam.baton.ACTION_FCM_WAKEUP").apply { 
+                setPackage(packageName)
+                }
                 applicationContext.sendBroadcast(intent)
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to send wakeup broadcast: ${e.message}")

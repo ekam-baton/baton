@@ -57,10 +57,10 @@ class TunnelEndpointValidator constructor(
     private fun isPrivateOrReservedAddress(host: String): Boolean {
         return try {
             val addr = InetAddress.getByName(host)
-            addr.isSiteLocalAddress ||
-                    addr.isLoopbackAddress ||
-                    addr.isLinkLocalAddress ||
-                    addr.isAnyLocalAddress
+            com.ekam.baton.core.network.security.NetworkSecurityConstraints.isLocalOrPrivate(addr)
+
+
+
         } catch (e: Exception) {
             false
         }
