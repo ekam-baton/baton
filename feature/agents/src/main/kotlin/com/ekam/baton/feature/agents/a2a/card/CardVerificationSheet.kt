@@ -12,6 +12,10 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -42,10 +46,18 @@ fun CardVerificationSheet(
     val peerKey = json?.get("peer_identity_key")?.let { it as? kotlinx.serialization.json.JsonPrimitive }?.content
     
     val safetyNumber = if (myKey != null && peerKey != null) {
-        com.ekam.baton.core.data.security.SafetyNumberManager.computeSafetyNumber(myKey, peerKey)
+        CardCrypto.generateSecurityNumber(myKey, peerKey)
     } else {
         "NOT PAIRED (NO E2EE IDENTITY)"
     }
+
+    val displaySafetyNumber = if (safetyNumber.length == 60) {
+        safetyNumber.chunked(5).joinToString(" ")
+    } else {
+        safetyNumber
+    }
+
+    var isVerified by remember { mutableStateOf(false) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -98,14 +110,31 @@ fun CardVerificationSheet(
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
                 Text(
-                    text = safetyNumber,
-                    color = Color(0xFF00FF88),
+                    text = displaySafetyNumber,
+                    color = if (isVerified) Color(0xFF00FF88) else Color(0xFF00BFFF),
                     fontSize = 16.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                     modifier = Modifier.fillMaxWidth(),
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
+                
+                Spacer(modifier = Modifier.height(24.dp))
+                
+                androidx.compose.material3.Button(
+                    onClick = { isVerified = true },
+                    modifier = Modifier.align(Alignment.CenterHorizontally),
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                        containerColor = if (isVerified) Color(0xFF00FF88) else Color(0xFF333344)
+                    )
+                ) {
+                    Text(
+                        text = if (isVerified) "VERIFIED" else "MARK AS VERIFIED",
+                        color = if (isVerified) Color.Black else Color.White,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                    )
+                }
             }
             
             Spacer(modifier = Modifier.height(48.dp))

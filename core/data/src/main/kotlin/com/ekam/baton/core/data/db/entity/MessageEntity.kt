@@ -32,6 +32,9 @@ data class MessageEntity(
     @ColumnInfo(name = "is_streaming")
     val isStreaming: Boolean = false,
 
+    @ColumnInfo(name = "is_failed", defaultValue = "0")
+    val isFailed: Boolean = false,
+
     @ColumnInfo(name = "tool_call_json")
     val toolCallJson: String? = null, // raw MCP tool call/result JSON if applicable
 

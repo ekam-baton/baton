@@ -2,6 +2,8 @@ package com.ekam.baton.feature.agents.a2a.card
 
 import java.security.MessageDigest
 import java.util.UUID
+import org.matrix.olm.OlmAccount
+import org.matrix.olm.OlmManager
 
 /**
  * Handles cryptographic identity generation for Agent Identity Cards.
@@ -54,5 +56,26 @@ object CardCrypto {
         val uuid = runCatching { UUID.fromString(agentId) }.getOrNull() ?: UUID.nameUUIDFromBytes(agentId.toByteArray())
         val parts = uuid.toString().uppercase().split("-")
         return "${parts[0]}-${parts[1]}-${parts[2]}-${parts[3]}"
+    }
+
+    /**
+     * Generates a 60-digit security number for Man-in-the-Middle protection.
+     */
+    fun generateSecurityNumber(pubKeyA: String, pubKeyB: String): String {
+        val sortedKeys = listOf(pubKeyA, pubKeyB).sorted()
+        val concatenated = sortedKeys.joinToString("")
+        val md = MessageDigest.getInstance("SHA-256")
+        val hashBytes = md.digest(concatenated.toByteArray())
+        
+        val bigIntStr = java.math.BigInteger(1, hashBytes).toString()
+        return bigIntStr.padStart(60, '0').substring(0, 60)
+    }
+
+    fun generateOlmAccount(): OlmAccount {
+        return OlmAccount()
+    }
+
+    fun generateOneTimeKeys(account: OlmAccount, count: Int) {
+        account.generateOneTimeKeys(count)
     }
 }

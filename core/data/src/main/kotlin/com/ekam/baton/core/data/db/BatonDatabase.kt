@@ -47,7 +47,7 @@ import com.ekam.baton.core.data.db.dao.WorldRoomPropDao
         WorldRoomPropEntity::class,
         GroupEntity::class,
     ],
-    version = 13,
+    version = 14,
     exportSchema = true,
 )
 abstract class BatonDatabase : RoomDatabase() {

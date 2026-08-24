@@ -28,6 +28,8 @@ import com.ekam.baton.core.data.model.toEntity
 import androidx.paging.map
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.put
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.GlobalScope
 class ChatRepository constructor(
     private val conversationDao: ConversationDao,
     private val messageDao: MessageDao,
@@ -38,6 +40,19 @@ class ChatRepository constructor(
     private val memoryInjectionEngine: MemoryInjectionEngine,
     private val workingMemoryManager: WorkingMemoryManager
 ) {
+    init {
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO + kotlinx.coroutines.SupervisorJob()).launch {
+            try {
+                messageDao.clearStreamingStates()
+            } catch (e: Exception) {
+                // ignore
+            }
+        }
+    }
+
+    suspend fun clearStreamingStates() {
+        messageDao.clearStreamingStates()
+    }
     fun getAllAgents(): Flow<List<Agent>> {
         return agentDao.getAllAgents().map { list -> list.map { it.toDomainModel() } }
     }
@@ -232,6 +247,7 @@ class ChatRepository constructor(
                     finalMsg.copy(
                         content = finalMsg.content + "\n\nError: ${e.message}",
                         isStreaming = false,
+                        isFailed = true,
                         timestamp = System.currentTimeMillis()
                     )
                 )
@@ -270,6 +286,71 @@ class ChatRepository constructor(
     }
 
     suspend fun getMessageById(id: String): MessageEntity? = messageDao.getMessageById(id)
+
+    suspend fun retryMessageWithResponse(
+        conversationId: String,
+        userMsg: MessageEntity,
+        authHeader: String? = null
+    ): kotlinx.coroutines.flow.Flow<String> {
+        val tempMessageId = UUID.randomUUID().toString()
+        val assistantMsg = MessageEntity(
+            id = tempMessageId,
+            conversationId = conversationId,
+            role = "assistant",
+            content = "",
+            isStreaming = true
+        )
+        insertMessage(assistantMsg)
+
+        val conv = conversationDao.getConversationById(conversationId) ?: throw IllegalStateException("Conversation not found")
+        val agent = agentDao.getAgentById(conv.agentId) ?: throw IllegalStateException("Agent not found")
+        
+        val enrichedContextMessage = memoryInjectionEngine.buildContextBlock(
+            agentId = agent.id,
+            conversationId = conversationId,
+            userMessage = userMsg.content
+        )
+
+        val history = messageDao.getLastNMessages(conversationId, 20)
+            .filter { it.id != tempMessageId && it.id != userMsg.id }
+            .sortedBy { it.timestamp }
+            .map { com.ekam.baton.core.network.dto.McpMessageDto(role = it.role, content = it.content) }
+
+        val attachments = userMsg.attachments?.let {
+            kotlinx.serialization.json.Json { ignoreUnknownKeys = true }.decodeFromString<List<AttachmentDto>>(it)
+        } ?: emptyList()
+
+        return mcpMessageSender.sendUserMessage(
+            agentId = agent.id,
+            endpointUrl = agent.mcpEndpointUrl,
+            authHeader = authHeader,
+            conversationHistory = history,
+            newUserMessage = enrichedContextMessage,
+            attachments = attachments,
+            relayUrl = agent.relayUrl,
+            relayToken = agent.relayToken
+        ).catch { e ->
+            val finalMsg = messageDao.getMessageById(tempMessageId)
+            if (finalMsg != null) {
+                updateMessage(finalMsg.copy(content = finalMsg.content + "\n\nError: ${e.message}", isStreaming = false, isFailed = true, timestamp = System.currentTimeMillis()))
+            }
+            throw e
+        }.onEach { chunk ->
+            val currentMsg = messageDao.getMessageById(tempMessageId)
+            if (currentMsg != null) {
+                updateMessage(currentMsg.copy(content = currentMsg.content + chunk, timestamp = System.currentTimeMillis()))
+            }
+        }.onCompletion {
+            val finalMsg = messageDao.getMessageById(tempMessageId)
+            if (finalMsg != null && finalMsg.isStreaming) {
+                updateMessage(finalMsg.copy(isStreaming = false))
+            }
+            val finalConv = conversationDao.getConversationById(conversationId)
+            if (finalConv != null) {
+                conversationDao.upsertConversation(finalConv.copy(updatedAt = System.currentTimeMillis(), messageCount = finalConv.messageCount + 1))
+            }
+        }
+    }
 
     suspend fun deleteMessage(id: String) {
         messageDao.deleteMessage(id)
@@ -310,7 +391,7 @@ class ChatRepository constructor(
         ).catch { e ->
             val finalMsg = messageDao.getMessageById(tempMessageId)
             if (finalMsg != null) {
-                updateMessage(finalMsg.copy(content = finalMsg.content + "\n\nError: ${e.message}", isStreaming = false))
+                updateMessage(finalMsg.copy(content = finalMsg.content + "\n\nError: ${e.message}", isStreaming = false, isFailed = true))
             }
             throw e
         }.onEach { chunk ->

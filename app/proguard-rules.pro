@@ -47,3 +47,18 @@
 # ─── General ─────────────────────────────────────────────────────────────────
 -keepattributes SourceFile,LineNumberTable
 -renamesourcefileattribute SourceFile
+
+# SQLCipher
+-keep class net.zetetic.database.** { *; }
+
+# AndroidX Security Crypto
+-keep class androidx.security.crypto.** { *; }
+
+# JNI native methods (Rust crypto bindings)
+-keepclasseswithmembernames class * {
+    native <methods>;
+}
+
+# Baton Crypto JNI bridge
+-keep class com.ekam.baton.core.network.security.ConnectionSecurityManager { *; }
+-keep class com.ekam.baton.core.network.security.CryptoHelper { *; }

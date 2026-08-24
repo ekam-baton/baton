@@ -35,6 +35,9 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.first
 
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.GlobalScope
+
 private const val TAG = "ChatViewModel"
 
 class ChatViewModel(
@@ -430,6 +433,40 @@ class ChatViewModel(
             } finally {
                 _isStreaming.value = false
                 _agentActivityStatus.value = null
+            }
+        }
+    }
+
+    fun retryMessage(message: Message) {
+        val cid = conversationId ?: return
+        if (_isStreaming.value) return
+        viewModelScope.launch {
+            try {
+                chatRepository.deleteMessage(message.id)
+                val history = chatRepository.getLastNMessages(cid, 2)
+                val lastUserMsg = history.find { it.role == "user" }
+                if (lastUserMsg != null) {
+                    _isStreaming.value = true
+                    _agentActivityStatus.value = "Retrying..."
+                    val authHeader = fetchJwtToken()
+                    chatRepository.retryMessageWithResponse(cid, lastUserMsg, authHeader).collect {}
+                }
+            } catch (e: Exception) {
+                _uiError.value = "Failed to retry: ${e.message}"
+            } finally {
+                _isStreaming.value = false
+                _agentActivityStatus.value = null
+            }
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        GlobalScope.launch {
+            try {
+                chatRepository.clearStreamingStates()
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to clear streaming states on exit", e)
             }
         }
     }

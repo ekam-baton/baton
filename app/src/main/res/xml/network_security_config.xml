@@ -10,7 +10,7 @@
 
     <!-- Certificate pinning for the Baton backend API -->
     <domain-config cleartextTrafficPermitted="false">
-        <domain includeSubdomains="true">api.baton.com</domain>
+        <domain includeSubdomains="true">baton.com</domain>
         <pin-set expiration="2027-01-01">
             <!-- Primary pin — SHA-256 of the SubjectPublicKeyInfo -->
             <pin digest="SHA-256">7HIpactkIAq2Y49orFOOQKurWxmmSFZhBCoQYcRhJ3Y=</pin>

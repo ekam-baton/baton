@@ -51,6 +51,7 @@ implementation(libs.work.runtime.ktx)
 
     implementation("com.google.zxing:core:3.5.3")
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
+    implementation("org.matrix.android:olm-sdk:3.2.12")
 
     testImplementation(libs.junit4)
     testImplementation(libs.kotlinx.coroutines.test)

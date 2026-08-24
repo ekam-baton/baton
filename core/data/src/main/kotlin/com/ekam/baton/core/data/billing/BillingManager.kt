@@ -78,9 +78,10 @@ class BillingManager(
             )
             .build()
 
-        billingClient.queryProductDetailsAsync(queryProductDetailsParams) { billingResult, productDetailsList ->
-            if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
-                _products.value = productDetailsList
+        coroutineScope.launch {
+            val result = billingClient.queryProductDetails(queryProductDetailsParams)
+            if (result.billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
+                _products.value = result.productDetailsList ?: emptyList()
             }
         }
     }
@@ -152,9 +153,29 @@ class BillingManager(
         val pipelineMode = appPreferences.pipelineMode.first()
 
         if (pipelineMode == "MANAGED") {
-            // For Managed EKAM Cloud, Google Play receipt validation would happen via api.baton.com
-            // Until the official backend is live, we trust the local Play Billing Library's success state.
-            return true
+            try {
+                val jsonInput = JSONObject().apply {
+                    put("purchaseToken", purchaseToken)
+                    put("productId", PREMIUM_PRODUCT_ID)
+                }.toString()
+                
+                val body = jsonInput.toRequestBody("application/json".toMediaTypeOrNull())
+                val request = Request.Builder()
+                    .url("https://api.baton.com/billing/verify")
+                    .post(body)
+                    .build()
+                    
+                val response = httpClient.newCall(request).execute()
+                if (response.isSuccessful) {
+                    val responseBody = response.body?.string() ?: ""
+                    val jsonResponse = JSONObject(responseBody)
+                    return jsonResponse.optBoolean("valid", false)
+                }
+                return false
+            } catch (e: Exception) {
+                Log.e(TAG, "Managed purchase verification failed", e)
+                return false
+            }
         }
 
         // SECURITY FIX (CRIT-1): No fallback. No backend = no premium.
@@ -166,18 +187,16 @@ class BillingManager(
 
         return try {
             val verifyUrl = if (backendUrlStr.endsWith("/")) {
-                "${backendUrlStr}verify-purchase"
+                "${backendUrlStr}auth/verify-google-play"
             } else {
-                "${backendUrlStr}/verify-purchase"
+                "${backendUrlStr}/auth/verify-google-play"
             }
 
             // SECURITY FIX (CRIT-6): Use JSONObject.put() — never string interpolation.
-            // The JWT secret is NOT sent in this request. Instead, the server uses
-            // the secret to sign a challenge that the client validates (see auth flow).
-            // For now, we send only the purchase token and a request identifier.
+            // Send purchaseToken and productId to the new Identity Server endpoint
             val jsonInput = JSONObject().apply {
-                put("purchaseToken", purchaseToken)
-                put("productId", PREMIUM_PRODUCT_ID)
+                put("purchase_token", purchaseToken)
+                put("product_id", PREMIUM_PRODUCT_ID)
             }.toString()
 
             val body = jsonInput.toRequestBody("application/json".toMediaTypeOrNull())

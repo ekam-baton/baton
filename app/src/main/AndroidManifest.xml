@@ -47,12 +47,18 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- Secure App Link handler: https://baton-app.in/connect?url=... -->
+            <!-- Secure App Link handler: https://baton.com/connect?url=... -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" android:host="baton-app.in" android:pathPrefix="/connect" />
+                <data android:scheme="https" android:host="baton.com" android:pathPrefix="/connect" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="baton" android:host="connect" />
             </intent-filter>
         </activity>
 

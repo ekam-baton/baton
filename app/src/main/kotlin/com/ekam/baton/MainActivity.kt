@@ -175,8 +175,11 @@ internal fun BatonAppShell(
                 )
             } else {
                 SignupScreen(
-                    onSignupSuccess = { email, phone, consentTimestamp, policyVersion, region ->
-                        authViewModel.register(email, phone, consentTimestamp, policyVersion, region)
+                    onSignupSuccess = { email, phone, password, consentTimestamp, policyVersion, region ->
+                        authViewModel.register(email, phone, password, consentTimestamp, policyVersion, region)
+                    },
+                    onLoginSubmit = { email, password ->
+                        authViewModel.cloudLogin(email, password)
                     }
                 )
             }

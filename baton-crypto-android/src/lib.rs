@@ -37,7 +37,8 @@ fn to_string(env: &mut JNIEnv, jstr: jstring) -> Result<String, jni::errors::Err
 // Helper to derive the symmetric key using HKDF-Extract-and-Expand
 fn derive_hkdf_key(shared_key: &[u8], timestamp: jlong, nonce: &str) -> [u8; 32] {
     let info = format!("{timestamp}:{nonce}");
-    let hk = Hkdf::<Sha256>::new(Some(b"baton-gateway-v1-hkdf-salt-2024"), shared_key);
+    let salt = b"baton-mobile-crypto-v1-hkdf-salt-2024";
+    let hk = Hkdf::<Sha256>::new(Some(salt), shared_key);
     let mut okm = [0u8; 32];
     hk.expand(info.as_bytes(), &mut okm).expect("HKDF expand must succeed for 32 bytes");
     okm

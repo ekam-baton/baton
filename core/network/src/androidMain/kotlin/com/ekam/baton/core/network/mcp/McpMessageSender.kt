@@ -65,7 +65,8 @@ data class PairResult(
 class McpMessageSender constructor(
     private val connectionManager: McpConnectionManager,
     private val authorizationManager: ToolAuthorizationManager,
-    private val context: android.content.Context?
+    private val context: android.content.Context?,
+    private val httpClient: okhttp3.OkHttpClient
 ) {
     /**
      * @param agentId The ID of the agent to route to.
@@ -163,11 +164,6 @@ class McpMessageSender constructor(
 
     suspend fun pairWithAgent(endpointUrl: String, identityKeyHex: String, x25519KeyHex: String): Result<PairResult> {
         return try {
-            val client = okhttp3.OkHttpClient.Builder()
-                .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
-                .readTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
-                .build()
-                
             val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
             val jsonBody = json.encodeToString(PairRequest.serializer(), PairRequest(identityKeyHex, x25519KeyHex))
             val requestBody = jsonBody.toByteArray().toRequestBody("application/json; charset=utf-8".toMediaType())
@@ -179,7 +175,7 @@ class McpMessageSender constructor(
                 .build()
                 
             val response = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                client.newCall(request).execute()
+                httpClient.newCall(request).execute()
             }
             
             if (response.isSuccessful) {

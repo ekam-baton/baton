@@ -29,8 +29,10 @@ fun CallScreen(
     var isMuted by remember { mutableStateOf(false) }
     var isSpeaker by remember { mutableStateOf(true) }
 
+    val context = androidx.compose.ui.platform.LocalContext.current
+    
     LaunchedEffect(Unit) {
-        val webRtcManager = com.ekam.baton.core.network.webrtc.WebRtcManager()
+        val webRtcManager = com.ekam.baton.core.network.webrtc.WebRtcManager(context)
         webRtcManager.initialize()
         webRtcManager.startVoiceCall(agentName)
     }

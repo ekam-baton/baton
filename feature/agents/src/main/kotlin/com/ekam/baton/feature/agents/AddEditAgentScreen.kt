@@ -133,7 +133,19 @@ fun AddEditAgentScreen(
     // nosemgrep
     val isUrlValid = endpointUrl.startsWith("http://") || endpointUrl.startsWith("https://") || endpointUrl.startsWith("ws://") || endpointUrl.startsWith("wss://")
     val isSecurityValid = securityMode == "standard" || peerPublicKey.isNotBlank()
-    val isValid = name.isNotBlank() && isSecurityValid && endpointUrl.isNotBlank() && isUrlValid
+    
+    var certPinError by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(certPins) {
+        val pinsList = certPins.split(",").map { it.trim() }.filter { it.isNotBlank() }
+        val invalidPin = pinsList.find { !it.matches(Regex("^[a-fA-F0-9]{64}$")) }
+        if (invalidPin != null) {
+            certPinError = "Invalid pin format. Expected 64-character SHA-256 hex hash."
+        } else {
+            certPinError = null
+        }
+    }
+
+    val isValid = name.isNotBlank() && isSecurityValid && endpointUrl.isNotBlank() && isUrlValid && certPinError == null
 
     val handleSave = {
         val authType = "none"
@@ -495,7 +507,15 @@ fun AddEditAgentScreen(
                     HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
                     PremiumTextField(value = peerPublicKey, onValueChange = { peerPublicKey = it }, label = "Agent Public Key (X25519 hex, required)", isError = peerPublicKey.isBlank())
                     HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                    PremiumTextField(value = certPins, onValueChange = { certPins = it }, label = "Certificate Pins (comma-separated SHA-256 hashes)")
+                    PremiumTextField(
+                        value = certPins, 
+                        onValueChange = { certPins = it }, 
+                        label = "Certificate Pins (comma-separated SHA-256 hashes)",
+                        isError = certPinError != null
+                    )
+                    if (certPinError != null) {
+                        Text(certPinError!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(start = 16.dp, top = 4.dp))
+                    }
                 }
             }
 

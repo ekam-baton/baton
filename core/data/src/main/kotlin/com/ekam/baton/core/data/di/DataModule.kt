@@ -79,6 +79,53 @@ val dataModule = module {
         System.loadLibrary("sqlcipher")
         val factory = SupportOpenHelperFactory(dbPassphrase.toByteArray())
 
+        // ---------------------------------------------------------------
+        // Missing migrations 1→6 — prevent data loss on legacy upgrades
+        // ---------------------------------------------------------------
+
+        val MIGRATION_1_2 = object : androidx.room.migration.Migration(1, 2) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS `agents` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `description` TEXT NOT NULL, `avatar_uri` TEXT, `mcp_endpoint_url` TEXT NOT NULL, `auth_type` TEXT NOT NULL, `auth_config` TEXT NOT NULL, `is_active` INTEGER NOT NULL, `created_at` INTEGER NOT NULL, `last_used_at` INTEGER, `color_accent` TEXT NOT NULL, PRIMARY KEY(`id`))")
+            }
+        }
+
+        val MIGRATION_2_3 = object : androidx.room.migration.Migration(2, 3) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Recreate conversations: PK type change (INTEGER AUTOINCREMENT → TEXT), add is_pinned, message_count
+                db.execSQL("CREATE TABLE IF NOT EXISTS `conversations_new` (`id` TEXT NOT NULL, `agent_id` TEXT NOT NULL, `title` TEXT NOT NULL, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, `is_pinned` INTEGER NOT NULL DEFAULT 0, `message_count` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`id`))")
+                db.execSQL("INSERT INTO `conversations_new` (`id`, `agent_id`, `title`, `created_at`, `updated_at`, `is_pinned`, `message_count`) SELECT CAST(`id` AS TEXT), `agent_id`, `title`, `created_at`, `updated_at`, 0, 0 FROM `conversations`")
+                db.execSQL("DROP TABLE `conversations`")
+                db.execSQL("ALTER TABLE `conversations_new` RENAME TO `conversations`")
+                // Add messages table
+                db.execSQL("CREATE TABLE IF NOT EXISTS `messages` (`id` TEXT NOT NULL, `conversation_id` TEXT NOT NULL, `role` TEXT NOT NULL, `content` TEXT NOT NULL, `attachments` TEXT, `timestamp` INTEGER NOT NULL, `is_streaming` INTEGER NOT NULL, `tool_call_json` TEXT, `token_count` INTEGER, PRIMARY KEY(`id`))")
+            }
+        }
+
+        val MIGRATION_3_4 = object : androidx.room.migration.Migration(3, 4) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS `memories` (`id` TEXT NOT NULL, `layer` TEXT NOT NULL, `agentId` TEXT, `conversationId` TEXT, `title` TEXT NOT NULL, `content` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `lastAccessedAt` INTEGER NOT NULL, `relevanceScore` REAL NOT NULL, `tags` TEXT NOT NULL, `isActive` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+            }
+        }
+
+        val MIGRATION_4_5 = object : androidx.room.migration.Migration(4, 5) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE agents ADD COLUMN `is_authenticated` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE agents ADD COLUMN `last_auth_at` INTEGER")
+                db.execSQL("ALTER TABLE agents ADD COLUMN `security_mode` TEXT NOT NULL DEFAULT 'standard'")
+                db.execSQL("ALTER TABLE agents ADD COLUMN `security_config` TEXT NOT NULL DEFAULT '{}'")
+            }
+        }
+
+        val MIGRATION_5_6 = object : androidx.room.migration.Migration(5, 6) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE agents ADD COLUMN `provider_type` TEXT NOT NULL DEFAULT 'local_mcp'")
+            }
+        }
+
+        // ---------------------------------------------------------------
+        // Existing migrations 6→14
+        // ---------------------------------------------------------------
+
         val MIGRATION_6_7 = object : androidx.room.migration.Migration(6, 7) {
             override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
                 // Add columns to agents
@@ -179,14 +226,19 @@ val dataModule = module {
             }
         }
 
+        val MIGRATION_13_14 = object : androidx.room.migration.Migration(13, 14) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE messages ADD COLUMN is_failed INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         val builder = Room.databaseBuilder(
             context,
             BatonDatabase::class.java,
             BatonDatabase.DATABASE_NAME,
         )
             .openHelperFactory(factory)
-            .addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13)
-            .fallbackToDestructiveMigration()
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14)
 
         try {
             val db = builder.build()
@@ -206,8 +258,7 @@ val dataModule = module {
                 BatonDatabase.DATABASE_NAME,
             )
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13)
-                .fallbackToDestructiveMigration()
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14)
             freshBuilder.build()
         }
     }

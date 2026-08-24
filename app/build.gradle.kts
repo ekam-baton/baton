@@ -13,7 +13,7 @@ android {
 
     defaultConfig {
         applicationId = "com.ekam.baton"
-        minSdk = 34
+        minSdk = 33
         targetSdk = 36
         versionCode = 1
         versionName = "1.0.0"
@@ -133,11 +133,9 @@ dependencies {
     implementation(libs.navigation.compose)
     implementation(libs.bundles.lifecycle)
 
-    // Hilt
 
 implementation(libs.work.runtime.ktx)
 
-    // AppCompat (Required for Hilt KSP to resolve AppCompatActivity/FragmentActivity)
     implementation("androidx.appcompat:appcompat:1.6.1")
 
     // Coroutines
@@ -161,9 +159,9 @@ implementation(libs.work.runtime.ktx)
     implementation("io.getstream:stream-webrtc-android:1.3.10")
 
     // FCM Push Gateway — Pillar 1, V2
-    // Enables blank wakeup notifications so Android wakes from Doze mode
+    // enables blank wakeup notifications so Android wakes from Doze mode
     // to pull the E2EE message queue. Zero content is ever sent via FCM.
-    implementation(platform("com.google.firebase:firebase-bom:33.1.0"))
+    implementation(platform(libs.firebase.bom))
     implementation("com.google.firebase:firebase-messaging-ktx")
 }
 

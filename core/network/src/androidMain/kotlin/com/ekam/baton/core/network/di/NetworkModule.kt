@@ -40,8 +40,10 @@ val networkModule = module {
 
     single {
         val certificatePinner = okhttp3.CertificatePinner.Builder()
-            // Placeholder pin for Cloud Router production endpoint — replace with actual SHA-256 cert fingerprint in deployment
-            .add("router.baton-app.in", "sha256/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+            .add("api.baton.com", "sha256/TODO_REPLACE_WITH_REAL_API_PIN_1")
+            .add("api.baton.com", "sha256/TODO_REPLACE_WITH_REAL_API_PIN_2")
+            .add("router.baton.com", "sha256/TODO_REPLACE_WITH_REAL_ROUTER_PIN_1")
+            .add("relay.baton.com", "sha256/TODO_REPLACE_WITH_REAL_RELAY_PIN_1")
             .build()
 
         OkHttpClient.Builder()
@@ -91,13 +93,13 @@ val networkModule = module {
     single { HttpSseMcpTransport(get(), get(), get()) }
     single { com.ekam.baton.core.network.mcp.McpWebSocketTransport(get(), get(), get(), get()) }
     single { McpConnectionManager(get(), get()) }
-    single { McpMessageSender(get(), get(), get<android.content.Context>()) }
+    single { McpMessageSender(get(), get(), get<android.content.Context>(), get()) }
     single { ToolAuthorizationManager() }
     single { com.ekam.baton.core.network.security.ConnectionSecurityManager(get<android.content.Context>()) }
     single { com.ekam.baton.core.network.tunnel.TunnelEndpointValidator(get(), get()) }
     single { com.ekam.baton.core.network.tunnel.ConnectionPoolManager() }
     single { com.ekam.baton.core.network.tunnel.A2AWebRtcTransport(get<android.content.Context>(), get()) }
     single { com.ekam.baton.core.network.mdns.MdnsDiscoveryManager(get<android.content.Context>()) }
-    single { com.ekam.baton.core.network.repository.VaultRepository(get()) }
+    single { com.ekam.baton.core.network.repository.VaultRepository(get(), get()) }
 }
 

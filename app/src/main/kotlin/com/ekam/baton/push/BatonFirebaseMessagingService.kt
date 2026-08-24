@@ -8,6 +8,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.first
 import org.koin.android.ext.android.getKoin
 import org.koin.android.ext.android.inject
 
@@ -70,8 +71,8 @@ class BatonFirebaseMessagingService : FirebaseMessagingService() {
         serviceScope.launch {
             try {
                 val appPrefs: com.ekam.baton.core.data.preferences.AppPreferences = getKoin().get()
-                val routerBaseUrl = kotlinx.coroutines.flow.first(appPrefs.backendUrl)
-                val clientId = kotlinx.coroutines.flow.first(appPrefs.clientId)
+                val routerBaseUrl = appPrefs.backendUrl.first()
+                val clientId = appPrefs.clientId.first()
                 fcmTokenManager.onTokenRefresh(
                     newToken = token,
                     routerBaseUrl = routerBaseUrl,

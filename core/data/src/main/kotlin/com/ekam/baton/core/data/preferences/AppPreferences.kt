@@ -45,6 +45,7 @@ class AppPreferences constructor(
         val POLICY_VERSION = stringPreferencesKey("policy_version")
         val HAS_SEEN_WALKTHROUGH = booleanPreferencesKey("has_seen_walkthrough")
         val REGION = stringPreferencesKey("region")
+        val REFRESH_TOKEN = stringPreferencesKey("refresh_token")
     }
 
     private val securePrefs = try {
@@ -95,6 +96,7 @@ class AppPreferences constructor(
     }
 
     private val _jwtSecretFlow = MutableStateFlow(securePrefs.getString("jwt_secret", "") ?: "")
+    private val _refreshTokenFlow = MutableStateFlow(securePrefs.getString("refresh_token", "") ?: "")
     private val _isPremiumUnlockedFlow = MutableStateFlow(securePrefs.getBoolean("is_premium_unlocked", false))
 
     init {
@@ -175,17 +177,17 @@ class AppPreferences constructor(
     val backendUrl: Flow<String> = combine(
         context.dataStore.data.map { it[PIPELINE_MODE] ?: "MANAGED" },
         context.dataStore.data.map { it[REGION] ?: "Global" },
-        context.dataStore.data.map { it[BACKEND_URL] ?: "http://10.0.2.2:8080/" }
+        context.dataStore.data.map { it[BACKEND_URL] ?: "https://api.baton.com/" }
     ) { mode, region, url ->
         if (mode == "MANAGED") {
             when (region) {
-                "India" -> "https://in.relay.baton.app/"
-                "US" -> "https://us.relay.baton.app/"
-                "UK/EU" -> "https://eu.relay.baton.app/"
-                "UAE" -> "https://ae.relay.baton.app/"
-                "South Africa" -> "https://za.relay.baton.app/"
-                "Brazil" -> "https://br.relay.baton.app/"
-                else -> "https://global.relay.baton.app/"
+                "India" -> "https://in.relay.baton.com/"
+                "US" -> "https://us.relay.baton.com/"
+                "UK/EU" -> "https://eu.relay.baton.com/"
+                "UAE" -> "https://ae.relay.baton.com/"
+                "South Africa" -> "https://za.relay.baton.com/"
+                "Brazil" -> "https://br.relay.baton.com/"
+                else -> "https://global.relay.baton.com/"
             }
         } else {
             url
@@ -193,6 +195,7 @@ class AppPreferences constructor(
     }
 
     val jwtSecret: Flow<String> = _jwtSecretFlow
+    val refreshToken: Flow<String> = _refreshTokenFlow
 
     var qtspPassword: CharArray?
         get() = securePrefs.getString("qtsp_password", null)?.toCharArray()
@@ -290,6 +293,12 @@ class AppPreferences constructor(
         _jwtSecretFlow.value = secret
         // Clear from plaintext datastore if it was previously stored there
         context.dataStore.edit { preferences -> preferences.remove(JWT_SECRET) }
+    }
+
+    suspend fun setRefreshToken(token: String) {
+        securePrefs.edit().putString("refresh_token", token).apply()
+        _refreshTokenFlow.value = token
+        context.dataStore.edit { preferences -> preferences.remove(REFRESH_TOKEN) }
     }
 
     suspend fun setPremiumUnlocked(unlocked: Boolean) {

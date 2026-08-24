@@ -20,6 +20,9 @@ interface MessageDao {
     @Update
     suspend fun updateMessage(message: MessageEntity)
 
+    @Query("UPDATE messages SET is_streaming = 0 WHERE is_streaming = 1")
+    suspend fun clearStreamingStates()
+
     @Query("SELECT * FROM messages WHERE conversation_id = :conversationId ORDER BY timestamp DESC LIMIT :n")
     suspend fun getLastNMessages(conversationId: String, n: Int): List<MessageEntity>
 

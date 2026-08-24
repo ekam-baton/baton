@@ -11,6 +11,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.outlined.PersonOutline
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -37,7 +38,8 @@ import androidx.fragment.app.FragmentActivity
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SignupScreen(
-    onSignupSuccess: (String, String, Long, String, String) -> Unit
+    onSignupSuccess: (String, String, String, Long, String, String) -> Unit,
+    onLoginSubmit: (String, String) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
@@ -63,9 +65,13 @@ fun SignupScreen(
 
     var email by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
     var emailError by remember { mutableStateOf<String?>(null) }
     var phoneError by remember { mutableStateOf<String?>(null) }
+    var passwordError by remember { mutableStateOf<String?>(null) }
     var generalError by remember { mutableStateOf<String?>(null) }
+    
+    var isLoginMode by remember { mutableStateOf(false) }
     
     // DPDP Act, 2023: Consent must be explicit, affirmative, and un-ticked by default.
     var hasExplicitConsent by remember { mutableStateOf(false) }
@@ -100,14 +106,23 @@ fun SignupScreen(
             emailError = null
         }
 
-        if (phone.isBlank() || phone.trim().length < 8) {
-            phoneError = "Please enter a valid phone number"
-            isValid = false
-        } else {
-            phoneError = null
+        if (!isLoginMode) {
+            if (phone.isBlank() || phone.trim().length < 8) {
+                phoneError = "Please enter a valid phone number"
+                isValid = false
+            } else {
+                phoneError = null
+            }
         }
         
-        if (!isOver18(datePickerState.selectedDateMillis)) {
+        if (password.isBlank() || password.length < 8) {
+            passwordError = "Password must be at least 8 characters"
+            isValid = false
+        } else {
+            passwordError = null
+        }
+        
+        if (!isLoginMode && !isOver18(datePickerState.selectedDateMillis)) {
             generalError = "You must be 18 or older to use BATON."
             isValid = false
         }
@@ -115,9 +130,14 @@ fun SignupScreen(
         return isValid
     }
 
-    fun handleSignup() {
+    fun handleSubmit() {
         if (!validate()) {
             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            return
+        }
+
+        if (isLoginMode) {
+            onLoginSubmit(email.trim(), password)
             return
         }
 
@@ -146,7 +166,7 @@ fun SignupScreen(
                     val consentTimestamp = System.currentTimeMillis()
                     val policyVersion = "v1.0"
                     
-                    onSignupSuccess(email.trim(), phone.trim(), consentTimestamp, policyVersion, selectedRegion)
+                    onSignupSuccess(email.trim(), phone.trim(), password, consentTimestamp, policyVersion, selectedRegion)
                 }
 
                 override fun onAuthenticationFailed() {
@@ -231,22 +251,25 @@ fun SignupScreen(
                 Column(
                     modifier = Modifier.padding(24.dp)
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            Icons.Outlined.PersonOutline,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.tertiary
+                    TabRow(
+                        selectedTabIndex = if (isLoginMode) 1 else 0,
+                        containerColor = Color.Transparent,
+                        contentColor = MaterialTheme.colorScheme.tertiary,
+                        divider = {} // Remove default divider
+                    ) {
+                        Tab(
+                            selected = !isLoginMode,
+                            onClick = { isLoginMode = false },
+                            text = { Text("Sign Up", color = if (!isLoginMode) MaterialTheme.colorScheme.tertiary else Color(0xFF7A8B9E)) }
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Create Your Profile",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color.White
+                        Tab(
+                            selected = isLoginMode,
+                            onClick = { isLoginMode = true },
+                            text = { Text("Log In", color = if (isLoginMode) MaterialTheme.colorScheme.tertiary else Color(0xFF7A8B9E)) }
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
 
                     // Email Input
                     OutlinedTextField(
@@ -287,9 +310,10 @@ fun SignupScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Phone Input
-                    OutlinedTextField(
-                        value = phone,
+                    if (!isLoginMode) {
+                        // Phone Input
+                        OutlinedTextField(
+                            value = phone,
                         onValueChange = {
                             phone = it
                             phoneError = null
@@ -314,8 +338,49 @@ fun SignupScreen(
                             unfocusedTextColor = Color.White
                         ),
                         modifier = Modifier.fillMaxWidth()
+                        )
+                        phoneError?.let {
+                            Text(
+                                text = it,
+                                color = MaterialTheme.colorScheme.error,
+                                fontSize = 12.sp,
+                                modifier = Modifier.padding(start = 4.dp, top = 4.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
+
+                    // Password Input
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = {
+                            password = it
+                            passwordError = null
+                        },
+                        label = { Text("Password") },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Lock,
+                                contentDescription = null,
+                                tint = Color(0xFF7A8B9E)
+                            )
+                        },
+                        isError = passwordError != null,
+                        singleLine = true,
+                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.tertiary,
+                            unfocusedBorderColor = Color(0xFF232D4B),
+                            focusedLabelColor = MaterialTheme.colorScheme.tertiary,
+                            unfocusedLabelColor = Color(0xFF7A8B9E),
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White
+                        ),
+                        modifier = Modifier.fillMaxWidth()
                     )
-                    phoneError?.let {
+                    passwordError?.let {
                         Text(
                             text = it,
                             color = MaterialTheme.colorScheme.error,
@@ -326,8 +391,9 @@ fun SignupScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Date of Birth (Age Gate)
-                    OutlinedButton(
+                    if (!isLoginMode) {
+                        // Date of Birth (Age Gate)
+                        OutlinedButton(
                         onClick = { showDatePicker = true },
                         shape = RoundedCornerShape(4.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
@@ -401,8 +467,8 @@ fun SignupScreen(
                     }
 
                     Button(
-                        onClick = { handleSignup() },
-                        enabled = hasExplicitConsent,
+                        onClick = { handleSubmit() },
+                        enabled = isLoginMode || hasExplicitConsent,
                         shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.tertiary,
@@ -415,7 +481,7 @@ fun SignupScreen(
                             .height(50.dp)
                     ) {
                         Text(
-                            text = "Get Started",
+                            text = if (isLoginMode) "Log In" else "Get Started",
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -423,7 +489,8 @@ fun SignupScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // DPDP Act, 2023 – Explicit, affirmative consent block.
+                    if (!isLoginMode) {
+                        // DPDP Act, 2023 – Explicit, affirmative consent block.
                     // Consent must be un-ticked by default and the user must actively check it.
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -499,11 +566,12 @@ fun SignupScreen(
                                     color = MaterialTheme.colorScheme.error,
                                     fontWeight = FontWeight.SemiBold
                                 )
-                            }
                         }
+                    }
                     }
                 }
             }
+        }
         }
     }
 
@@ -587,4 +655,5 @@ fun SignupScreen(
             shape = RoundedCornerShape(24.dp)
         )
     }
+}
 }

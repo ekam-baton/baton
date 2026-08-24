@@ -10,6 +10,7 @@ data class Message(
     val attachments: String?,
     val timestamp: Long,
     val isStreaming: Boolean,
+    val isFailed: Boolean,
     val tokenCount: Int?
 )
 
@@ -21,6 +22,7 @@ fun MessageEntity.toDomainModel() = Message(
     attachments = attachments,
     timestamp = timestamp,
     isStreaming = isStreaming,
+    isFailed = isFailed,
     tokenCount = tokenCount
 )
 
@@ -32,5 +34,6 @@ fun Message.toEntity() = MessageEntity(
     attachments = attachments,
     timestamp = timestamp,
     isStreaming = isStreaming,
+    isFailed = isFailed,
     tokenCount = tokenCount
 )

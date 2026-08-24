@@ -52,7 +52,7 @@ class A2ASession(
 
     private fun createPeerConnection() {
         val iceServers = listOf(
-            PeerConnection.IceServer.builder("turn:router.baton-app.in:3478")
+            PeerConnection.IceServer.builder("turn:router.baton.com:3478")
                 .setUsername("baton")
                 .setPassword("baton_turn_secret")
                 .createIceServer()

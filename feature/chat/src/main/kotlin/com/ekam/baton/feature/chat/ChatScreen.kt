@@ -408,6 +408,7 @@ fun ChatScreen(
                             modifier = Modifier.animateItem(),
                             onReply = { replyingTo = it },
                             onLongClick = { contextMenuMessage = it },
+                            onRetry = { viewModel.retryMessage(it) },
                             isStreamingAndLast = isStreaming && index == 0
                         )
                     }
@@ -425,6 +426,7 @@ fun MessageBubble(
     modifier: Modifier = Modifier, 
     onReply: ((Message) -> Unit)? = null,
     onLongClick: ((Message) -> Unit)? = null,
+    onRetry: ((Message) -> Unit)? = null,
     isStreamingAndLast: Boolean = false
 ) {
     val isUser = message.role == "user"
@@ -683,6 +685,20 @@ fun MessageBubble(
                         textColor = MaterialTheme.colorScheme.onBackground,
                         fontSizePref = fontSizePref
                     )
+                }
+                
+                if (message.isFailed) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Failed to send", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            "Retry", 
+                            color = MaterialTheme.colorScheme.primary, 
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.clickable { onRetry?.invoke(message) }
+                        )
+                    }
                 }
             }
         }

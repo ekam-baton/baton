@@ -94,6 +94,7 @@ fun SettingsScreen(
     var showClearMemoriesDialog by remember { mutableStateOf(false) }
     var showBackendUrlDialog by remember { mutableStateOf(false) }
     var backendUrlInput by remember { mutableStateOf("") }
+    var backendUrlError by remember { mutableStateOf<String?>(null) }
     var showPipelineModeDialog by remember { mutableStateOf(false) }
     var showJwtSecretDialog by remember { mutableStateOf(false) }
     var jwtSecretInput by remember { mutableStateOf("") }
@@ -692,9 +693,14 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                     OutlinedTextField(
                         value = backendUrlInput,
-                        onValueChange = { backendUrlInput = it },
+                        onValueChange = { 
+                            backendUrlInput = it
+                            backendUrlError = null
+                        },
                         label = { Text("Server URL (e.g. https://myserver.com)") },
                         singleLine = true,
+                        isError = backendUrlError != null,
+                        supportingText = backendUrlError?.let { { Text(it) } },
                         modifier = Modifier.fillMaxWidth()
                     )
                     Spacer(modifier = Modifier.height(8.dp))
@@ -708,8 +714,19 @@ fun SettingsScreen(
             },
             confirmButton = {
                 TextButton(onClick = {
-                    viewModel.setBackendUrl(backendUrlInput)
-                    showBackendUrlDialog = false
+                    val uri = try { java.net.URI(backendUrlInput) } catch (e: Exception) { null }
+                    val host = uri?.host ?: ""
+                    val scheme = uri?.scheme ?: ""
+                    val isLocal = host == "localhost" || host == "127.0.0.1" || host == "10.0.2.2" ||
+                        host.startsWith("192.168.") || host.startsWith("10.") ||
+                        host.matches(Regex("^172\\.(1[6-9]|2[0-9]|3[0-1])\\..*"))
+                    if ((scheme == "http" || scheme == "ws") && !isLocal) {
+                        backendUrlError = "For security, remote servers must use HTTPS."
+                    } else {
+                        viewModel.setBackendUrl(backendUrlInput)
+                        showBackendUrlDialog = false
+                        backendUrlError = null
+                    }
                 }) {
                     Text("Save")
                 }
