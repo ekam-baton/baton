@@ -29,3 +29,14 @@ keystore.properties
 # Gateway Engine
 gateway_keypair.hex
 trusted_clients.json
+
+# AI and Scratch files
+*.patch
+*.zip
+temp_*
+temp_*/
+list.txt
+tree.json
+task.md
+resize.ps1
+
