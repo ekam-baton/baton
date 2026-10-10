@@ -127,8 +127,8 @@ fun KeyBackupScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Button(
-                    onClick = { viewModel.exportKeys(password) },
-                    enabled = password.isNotBlank() && uiState !is KeyBackupUiState.Loading,
+                    onClick = { viewModel.exportVault(password) },
+                    enabled = password.isNotBlank() && uiState !is BackupUiState.Loading,
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth().height(56.dp)
@@ -139,8 +139,8 @@ fun KeyBackupScreen(
                 }
 
                 OutlinedButton(
-                    onClick = { viewModel.importKeys(password) },
-                    enabled = password.isNotBlank() && uiState !is KeyBackupUiState.Loading,
+                    onClick = { viewModel.importVault(password) },
+                    enabled = password.isNotBlank() && uiState !is BackupUiState.Loading,
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
                     modifier = Modifier.fillMaxWidth().height(56.dp)
@@ -153,8 +153,8 @@ fun KeyBackupScreen(
 
             // Status Messages
             when (val state = uiState) {
-                is KeyBackupUiState.Loading -> CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                is KeyBackupUiState.Success -> {
+                is BackupUiState.Loading -> CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                is BackupUiState.Success -> {
                     Text(
                         text = state.message,
                         color = Color(0xFF10B981), // Emerald
@@ -162,7 +162,7 @@ fun KeyBackupScreen(
                         textAlign = TextAlign.Center
                     )
                 }
-                is KeyBackupUiState.Error -> {
+                is BackupUiState.Error -> {
                     Text(
                         text = state.message,
                         color = Color(0xFFEF4444), // Red

@@ -29,9 +29,15 @@ import org.koin.compose.viewmodel.koinViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun A2AScreen(
+    onNavigateToQr: () -> Unit,
+    onNavigateToScanner: () -> Unit,
     viewModel: A2AViewModel = koinViewModel()
 ) {
     val pendingRoleAgent by viewModel.pendingRoleAssignment.collectAsState()
+    val swarmTopology by viewModel.swarmTopology.collectAsState()
+    val dataChannelStatus by viewModel.dataChannelStatus.collectAsState()
+    val burnRate by viewModel.burnRate.collectAsState()
+    
     var devModeActive by remember { mutableStateOf(false) }
     
     if (pendingRoleAgent != null) {
@@ -96,7 +102,7 @@ fun A2AScreen(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "34.2 tk/s",
+                        text = burnRate,
                         style = MaterialTheme.typography.titleMedium.copy(fontFamily = FontFamily.Monospace),
                         color = Color(0xFFEF4444) // Warning Red for cost
                     )
@@ -214,13 +220,11 @@ fun A2AScreen(
                         .glassCard(shape = RoundedCornerShape(12.dp))
                         .padding(16.dp)
                 ) {
-                    WebRtcMetricRow("Routing Topology", "Mesh Network (SFU)")
+                    WebRtcMetricRow("Routing Topology", swarmTopology)
                     Spacer(modifier = Modifier.height(6.dp))
-                    WebRtcMetricRow("Signaling Server", "Detached (Active P2P)")
+                    WebRtcMetricRow("Signaling Server", if(swarmTopology == "Detached") "Detached" else "Active")
                     Spacer(modifier = Modifier.height(6.dp))
-                    WebRtcMetricRow("SDP Negotiation", "Answer Accepted")
-                    Spacer(modifier = Modifier.height(6.dp))
-                    WebRtcMetricRow("Data Channel (DC)", "Open [Events: 42]")
+                    WebRtcMetricRow("Data Channel (DC)", dataChannelStatus)
                     Spacer(modifier = Modifier.height(6.dp))
                     WebRtcMetricRow("Stream Channel", "Muted (Context Phase)")
                 }
@@ -245,20 +249,46 @@ fun A2AScreen(
                 }
             }
 
+            // Air-Gapped Options
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onNavigateToQr,
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.weight(1f).height(56.dp)
+                ) {
+                    Text("SHOW QR OFFER", style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace))
+                }
+                
+                Button(
+                    onClick = onNavigateToScanner,
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.weight(1f).height(56.dp)
+                ) {
+                    Text("SCAN PEER", style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold))
+                }
+            }
+
             // Massive Kill Switch
             Button(
-                onClick = { /* Implement Force Halt Logic */ },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)),
+                onClick = { viewModel.forceHaltSwarm() },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626).copy(alpha = 0.8f)),
                 shape = RoundedCornerShape(24.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 16.dp)
+                    .padding(horizontal = 24.dp, vertical = 8.dp)
                     .height(64.dp)
             ) {
                 Icon(Icons.Default.Warning, contentDescription = null, tint = Color.White)
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
-                    text = "HALT NEGOTIATION",
+                    text = "HALT SWARM",
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp),
                     color = Color.White
                 )

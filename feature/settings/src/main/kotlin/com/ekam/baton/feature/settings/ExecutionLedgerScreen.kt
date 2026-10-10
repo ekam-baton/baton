@@ -22,11 +22,21 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ekam.baton.core.ui.components.glassCard
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import org.koin.compose.viewmodel.koinViewModel
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExecutionLedgerScreen(
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    viewModel: ExecutionLedgerViewModel = koinViewModel()
 ) {
+    val auditLogs by viewModel.auditLogs.collectAsStateWithLifecycle()
+    val dateFormatter = remember { SimpleDateFormat("MMM dd, yyyy - HH:mm:ss", Locale.getDefault()) }
+
     Scaffold(
         containerColor = Color(0xFF0D131F), // Deep Ocean Blue
         topBar = {
@@ -67,41 +77,14 @@ fun ExecutionLedgerScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Simulated Ledger Blocks
-            item {
+            items(auditLogs.size) { index ->
+                val log = auditLogs[index]
                 LedgerBlockCard(
-                    action = "INSERT",
-                    entity = "MemoryEntity",
-                    timestamp = "Oct 10, 2026 - 21:55:12",
-                    hash = "0x8f3c...9a12",
-                    isVerified = true
-                )
-            }
-            item {
-                LedgerBlockCard(
-                    action = "UPDATE",
-                    entity = "AgentEntity",
-                    timestamp = "Oct 10, 2026 - 21:54:08",
-                    hash = "0x2b11...e45f",
-                    isVerified = true
-                )
-            }
-            item {
-                LedgerBlockCard(
-                    action = "DELETE",
-                    entity = "SwarmEntity",
-                    timestamp = "Oct 10, 2026 - 21:35:40",
-                    hash = "0x7c99...d33a",
-                    isVerified = true
-                )
-            }
-            item {
-                LedgerBlockCard(
-                    action = "INSERT",
-                    entity = "TokenLedgerEntity",
-                    timestamp = "Oct 10, 2026 - 21:34:02",
-                    hash = "0x1a22...f88b",
-                    isVerified = false // Simulating an unverified block
+                    action = log.action,
+                    entity = log.entityName,
+                    timestamp = dateFormatter.format(Date(log.timestamp)),
+                    hash = "0x" + log.hash.take(8) + "..." + log.hash.takeLast(4),
+                    isVerified = log.signature != "unsigned"
                 )
             }
             
@@ -115,7 +98,7 @@ fun ExecutionLedgerScreen(
                         Icon(Icons.Default.Gavel, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(32.dp))
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "GENESIS BLOCK REACHED",
+                            text = if (auditLogs.isEmpty()) "LEDGER EMPTY" else "GENESIS BLOCK REACHED",
                             style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

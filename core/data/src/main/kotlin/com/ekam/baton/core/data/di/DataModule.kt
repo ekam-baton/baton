@@ -237,6 +237,43 @@ val dataModule = module {
                 db.execSQL("ALTER TABLE messages ADD COLUMN suggestions TEXT DEFAULT NULL")
             }
         }
+        
+        val MIGRATION_15_16 = object : androidx.room.migration.Migration(15, 16) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `swarms` (
+                        `id` TEXT NOT NULL,
+                        `name` TEXT NOT NULL,
+                        `leader_agent_id` TEXT NOT NULL,
+                        `topology_type` TEXT NOT NULL DEFAULT 'P2P',
+                        `worker_agent_ids` TEXT NOT NULL,
+                        `intent_context` TEXT NOT NULL,
+                        `is_active` INTEGER NOT NULL,
+                        `created_at` INTEGER NOT NULL,
+                        `disbanded_at` INTEGER,
+                        `total_uptime_ms` INTEGER NOT NULL DEFAULT 0,
+                        PRIMARY KEY(`id`)
+                    )
+                """.trimIndent())
+                
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `token_ledger` (
+                        `id` TEXT NOT NULL,
+                        `agent_id` TEXT NOT NULL,
+                        `swarm_id` TEXT,
+                        `model_name` TEXT NOT NULL,
+                        `prompt_tokens` INTEGER NOT NULL DEFAULT 0,
+                        `completion_tokens` INTEGER NOT NULL DEFAULT 0,
+                        `total_tokens` INTEGER NOT NULL DEFAULT 0,
+                        `estimated_cost_usd` REAL NOT NULL,
+                        `burn_rate_tks` REAL NOT NULL,
+                        `timestamp` INTEGER NOT NULL,
+                        `action_context` TEXT NOT NULL,
+                        PRIMARY KEY(`id`)
+                    )
+                """.trimIndent())
+            }
+        }
 
         val builder = Room.databaseBuilder(
             context,
@@ -244,7 +281,7 @@ val dataModule = module {
             BatonDatabase.DATABASE_NAME,
         )
             .openHelperFactory(factory)
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16)
 
         try {
             val db = builder.build()
@@ -264,7 +301,7 @@ val dataModule = module {
                 BatonDatabase.DATABASE_NAME,
             )
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16)
             freshBuilder.build()
         }
     }
@@ -278,6 +315,8 @@ val dataModule = module {
     single<com.ekam.baton.core.data.db.dao.WorldRoomDao> { get<BatonDatabase>().worldRoomDao() }
     single<com.ekam.baton.core.data.db.dao.WorldRoomPropDao> { get<BatonDatabase>().worldRoomPropDao() }
     single<com.ekam.baton.core.data.db.dao.GroupDao> { get<BatonDatabase>().groupDao() }
+    single<com.ekam.baton.core.data.db.dao.SwarmDao> { get<BatonDatabase>().swarmDao() }
+    single<com.ekam.baton.core.data.db.dao.TokenLedgerDao> { get<BatonDatabase>().tokenLedgerDao() }
     single { com.ekam.baton.core.data.repository.WorldRoomRepository(get(), get()) }
 
     single { com.ekam.baton.core.data.preferences.AppPreferences(androidContext()) }

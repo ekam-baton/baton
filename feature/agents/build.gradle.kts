@@ -38,6 +38,12 @@ dependencies {
 
     val composeBom = platform(libs.compose.bom)
     implementation(composeBom)
+    implementation(libs.zxing.core)
+    implementation(libs.camerax.camera2)
+    implementation(libs.camerax.lifecycle)
+    implementation(libs.camerax.view)
+    implementation(libs.mlkit.barcode)
+    implementation(libs.guava)
     implementation(libs.bundles.compose.feature)
     implementation(libs.compose.material.icons.extended)
     implementation(libs.navigation.compose)

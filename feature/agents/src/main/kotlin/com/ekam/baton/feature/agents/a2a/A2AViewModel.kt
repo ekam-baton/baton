@@ -18,6 +18,9 @@ import com.ekam.baton.core.data.model.Agent
 import com.ekam.baton.core.data.model.AgentRole
 import com.ekam.baton.core.data.model.WorldRoom
 import java.util.UUID
+import com.ekam.baton.core.data.db.dao.SwarmDao
+import com.ekam.baton.core.data.db.dao.TokenLedgerDao
+import com.ekam.baton.core.data.db.entity.SwarmEntity
 import org.webrtc.PeerConnection
 import kotlin.random.Random
 
@@ -25,7 +28,9 @@ class A2AViewModel(
     private val securityManager: ConnectionSecurityManager,
     private val webRtcTransport: A2AWebRtcTransport,
     private val agentRepository: AgentRepository,
-    private val worldRoomRepository: WorldRoomRepository
+    private val worldRoomRepository: WorldRoomRepository,
+    private val swarmDao: SwarmDao,
+    private val tokenLedgerDao: TokenLedgerDao
 ) : ViewModel() {
     private val _ephemeralPublicKey = MutableStateFlow("")
     val ephemeralPublicKey: StateFlow<String> = _ephemeralPublicKey.asStateFlow()
@@ -41,6 +46,16 @@ class A2AViewModel(
 
     private val _sdpAnswer = MutableStateFlow<String?>(null)
     val sdpAnswer: StateFlow<String?> = _sdpAnswer.asStateFlow()
+    
+    // WebRTC Telemetry States
+    private val _swarmTopology = MutableStateFlow("Mesh Network (SFU)")
+    val swarmTopology: StateFlow<String> = _swarmTopology.asStateFlow()
+
+    private val _dataChannelStatus = MutableStateFlow("Muted (Context Phase)")
+    val dataChannelStatus: StateFlow<String> = _dataChannelStatus.asStateFlow()
+
+    private val _burnRate = MutableStateFlow("0.0 tk/s")
+    val burnRate: StateFlow<String> = _burnRate.asStateFlow()
 
     private var activeSession: A2ASession? = null
     private val _connectionState = MutableStateFlow<PeerConnection.PeerConnectionState>(PeerConnection.PeerConnectionState.NEW)
@@ -166,10 +181,16 @@ class A2AViewModel(
             val current = _activeTunnels.value.toMutableList()
             current.add("Connection Secure: ${remoteKey.take(8)}...")
             _activeTunnels.value = current
+            
+            // Mark topology as active
+            _swarmTopology.value = "P2P Direct"
+            _dataChannelStatus.value = "Open [Events: Active]"
         } catch (e: Exception) {
             val current = _activeTunnels.value.toMutableList()
             current.add("Handshake failed: ${remoteKey.take(8)}...")
             _activeTunnels.value = current
+            _swarmTopology.value = "Detached"
+            _dataChannelStatus.value = "Closed / Failed"
         }
     }
 
@@ -194,10 +215,28 @@ class A2AViewModel(
             worldRoomRepository.setDefaultPropsForRoom(room)
             
             _pendingRoleAssignment.value = null
+            
+            // Record Swarm Creation
+            val swarm = SwarmEntity(
+                name = "A2A P2P Cluster",
+                leaderAgentId = "local_orchestrator",
+                workerAgentIds = "[\"${agent.id}\"]",
+                topologyType = "P2P",
+                intentContext = "Live A2A WebRTC Setup"
+            )
+            swarmDao.insertSwarm(swarm)
         }
     }
     
     fun dismissRoleAssignment() {
         _pendingRoleAssignment.value = null
+    }
+
+    fun forceHaltSwarm() {
+        viewModelScope.launch {
+            activeSession?.disconnect()
+            _swarmTopology.value = "Halted"
+            _dataChannelStatus.value = "Force Closed"
+        }
     }
 }

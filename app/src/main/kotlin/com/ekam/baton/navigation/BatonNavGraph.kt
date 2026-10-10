@@ -207,9 +207,6 @@ fun BatonNavGraph(
                 }
                 AddEditAgentScreen(
                     agentId = null,
-                    discoveredUrl = discoveredUrl,
-                    discoveredName = discoveredName,
-                    discoveredOwnerName = discoveredOwner,
                     onNavigateBack = { navController.popBackStack() }
                 )
             }
@@ -232,7 +229,22 @@ fun BatonNavGraph(
         }
 
         composable(Screen.A2A.route) {
-            com.ekam.baton.feature.agents.a2a.A2AScreen()
+            com.ekam.baton.feature.agents.a2a.A2AScreen(
+                onNavigateToQr = { navController.navigate("a2a/qr") },
+                onNavigateToScanner = { navController.navigate("a2a/scanner") }
+            )
+        }
+        
+        composable("a2a/qr") {
+            com.ekam.baton.feature.agents.a2a.AirGapQrScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        
+        composable("a2a/scanner") {
+            com.ekam.baton.feature.agents.a2a.AirGapScannerScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
         }
 
         composable("memory") { MemoryScreen() }

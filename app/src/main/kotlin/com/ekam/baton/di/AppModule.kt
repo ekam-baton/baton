@@ -8,6 +8,7 @@ import com.ekam.baton.feature.chat.ChatViewModel
 import com.ekam.baton.feature.memory.MemoryViewModel
 import com.ekam.baton.feature.settings.SettingsViewModel
 import com.ekam.baton.feature.settings.KeyBackupViewModel
+import com.ekam.baton.feature.settings.ExecutionLedgerViewModel
 import com.ekam.baton.ui.auth.AuthViewModel
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
@@ -22,5 +23,6 @@ val appModule = module {
     viewModelOf(::MemoryViewModel)
     viewModelOf(::SettingsViewModel)
     viewModelOf(::KeyBackupViewModel)
+    viewModelOf(::ExecutionLedgerViewModel)
     single { com.ekam.baton.push.FcmTokenManager(get(), get()) }
 }
