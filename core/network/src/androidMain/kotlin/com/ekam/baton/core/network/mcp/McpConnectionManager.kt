@@ -116,12 +116,12 @@ class McpConnectionManager constructor(
 
         // --- Network I/O outside the mutex ---
         val transport = getTransport(endpointUrl)
-        val initResult = transport.initialize(endpointUrl, authHeader)
+        val initResult = transport.initialize(endpointUrl, authHeader, agentId)
         if (initResult.isFailure) {
             return Result.failure(initResult.exceptionOrNull() ?: Exception("MCP init failed for $agentId"))
         }
 
-        val toolsResult = transport.listTools(endpointUrl, authHeader)
+        val toolsResult = transport.listTools(endpointUrl, authHeader, agentId)
         val tools = toolsResult.getOrNull() ?: emptyList()
 
         // --- Second check + write: still under mutex to avoid double insertion ---

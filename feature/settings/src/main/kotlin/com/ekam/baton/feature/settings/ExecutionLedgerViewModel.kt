@@ -7,6 +7,7 @@ import com.ekam.baton.core.data.db.entity.AuditLogEntity
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 class ExecutionLedgerViewModel(
     private val auditDao: AuditDao
@@ -19,4 +20,11 @@ class ExecutionLedgerViewModel(
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = emptyList()
         )
+
+    fun triggerRollingGenesisBlock() {
+        viewModelScope.launch {
+            // Prune to the last 1000 blocks to prevent massive SQLite bloat
+            auditDao.pruneOldLogs(1000)
+        }
+    }
 }

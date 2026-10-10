@@ -57,9 +57,9 @@ class AuthViewModel(
             try {
                 val backendUrlStr = appPreferences.backendUrl.first()
                 val registerUrl = if (backendUrlStr.endsWith("/")) {
-                    "auth/register"
+                    "${backendUrlStr}auth/register"
                 } else {
-                    "/auth/register"
+                    "${backendUrlStr}/auth/register"
                 }
 
                 val jsonInput = JSONObject().apply {
@@ -125,9 +125,9 @@ class AuthViewModel(
             try {
                 val backendUrlStr = appPreferences.backendUrl.first()
                 val loginUrl = if (backendUrlStr.endsWith("/")) {
-                    "auth/login"
+                    "${backendUrlStr}auth/login"
                 } else {
-                    "/auth/login"
+                    "${backendUrlStr}/auth/login"
                 }
 
                 val jsonInput = JSONObject().apply {

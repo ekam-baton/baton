@@ -76,6 +76,12 @@
             </intent-filter>
         </service>
 
+        <!-- Sovereign Swarm Background Execution Service -->
+        <service
+            android:name="com.ekam.baton.core.network.service.SwarmForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
     </application>
 
 </manifest>

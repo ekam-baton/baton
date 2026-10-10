@@ -109,7 +109,7 @@ class McpMessageSender constructor(
                     uploadedAttachments.add(att)
                     continue
                 }
-                val uploadResult = transport.uploadFile(endpointUrl, authHeader, att.uri, context)
+                val uploadResult = transport.uploadFile(endpointUrl, authHeader, att.uri, context, agentId)
                 if (uploadResult.isSuccess) {
                     uploadedAttachments.add(att.copy(fileId = uploadResult.getOrNull()))
                 } else {
@@ -245,7 +245,7 @@ class McpMessageSender constructor(
         
         if (relayUrl == null) {
             val transport = connectionManager.getTransportForUrl(localUrl)
-            transport.callTool(localUrl, localAuth, toolName, arguments).collect { emit(it) }
+            transport.callTool(localUrl, localAuth, toolName, arguments, agentId).collect { emit(it) }
             return@flow
         }
 
@@ -255,7 +255,7 @@ class McpMessageSender constructor(
             val localJob = launch {
                 try {
                     val transport = connectionManager.getTransportForUrl(localUrl)
-                    val f = transport.callTool(localUrl, localAuth, toolName, arguments)
+                    val f = transport.callTool(localUrl, localAuth, toolName, arguments, agentId)
                     
                     val channel = kotlinx.coroutines.channels.Channel<String>(kotlinx.coroutines.channels.Channel.UNLIMITED)
                     f.collect { channel.send(it) }
@@ -268,7 +268,7 @@ class McpMessageSender constructor(
                     if (!deferredResult.isCompleted) {
                         try {
                             val transport = connectionManager.getTransportForUrl(relayUrl)
-                            val f = transport.callTool(relayUrl, relayAuthHeader, toolName, arguments)
+                            val f = transport.callTool(relayUrl, relayAuthHeader, toolName, arguments, agentId)
                             deferredResult.complete(f)
                         } catch (re: Exception) {
                             deferredResult.completeExceptionally(e)
@@ -282,7 +282,7 @@ class McpMessageSender constructor(
                 if (!deferredResult.isCompleted) {
                     try {
                         val transport = connectionManager.getTransportForUrl(relayUrl)
-                        val f = transport.callTool(relayUrl, relayAuthHeader, toolName, arguments)
+                        val f = transport.callTool(relayUrl, relayAuthHeader, toolName, arguments, agentId)
                         
                         val channel = kotlinx.coroutines.channels.Channel<String>(kotlinx.coroutines.channels.Channel.UNLIMITED)
                         f.collect { channel.send(it) }
@@ -314,3 +314,4 @@ class McpMessageSender constructor(
         return sessionResult.getOrNull()?.availableTools ?: emptyList()
     }
 }
+

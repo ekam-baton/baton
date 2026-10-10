@@ -39,7 +39,7 @@ class MainActivity : AppCompatActivity() {
     private val mainViewModel: MainViewModel by viewModel()
 
     // Holds a deep-link URL to navigate to once the nav graph is ready
-    private var pendingDeepLinkUrl: String? = null
+    private val pendingDeepLinkUrl = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -51,25 +51,26 @@ class MainActivity : AppCompatActivity() {
             window.isNavigationBarContrastEnforced = false
         }
 
-        // Extract deep link URL from baton://connect?url=... intent
-        pendingDeepLinkUrl = extractBatonDeepLinkUrl(intent)
+        // Extract deep link URL from intent
+        pendingDeepLinkUrl.value = extractBatonDeepLinkUrl(intent)
 
         setContent {
             val accentColor by mainViewModel.accentColor.collectAsStateWithLifecycle()
+            val deepLinkUrl by pendingDeepLinkUrl.collectAsStateWithLifecycle()
 
             BatonTheme(
                 accentColor = Color(accentColor)
             ) {
                 val navController = rememberNavController()
                 // Navigate to Add Agent screen when the app is opened via deep link
-                androidx.compose.runtime.LaunchedEffect(pendingDeepLinkUrl) {
-                    pendingDeepLinkUrl?.let { url ->
+                androidx.compose.runtime.LaunchedEffect(deepLinkUrl) {
+                    deepLinkUrl?.let { url ->
                         val encoded = android.util.Base64.encodeToString(
                             url.toByteArray(),
                             android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP
                         )
                         navController.navigate("agents/add?url=$encoded")
-                        pendingDeepLinkUrl = null
+                        pendingDeepLinkUrl.value = null
                     }
                 }
                 BatonAppShell(
@@ -83,12 +84,15 @@ class MainActivity : AppCompatActivity() {
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
         // Handle deep link if app is already running
-        pendingDeepLinkUrl = extractBatonDeepLinkUrl(intent)
+        pendingDeepLinkUrl.value = extractBatonDeepLinkUrl(intent)
     }
 
     private fun extractBatonDeepLinkUrl(intent: android.content.Intent?): String? {
-        val data = intent?.data
-        return if (data != null && data.scheme == "baton" && data.host == "connect") {
+        val data = intent?.data ?: return null
+        val isCustomScheme = data.scheme == "baton" && data.host == "connect"
+        val isApplink = (data.scheme == "https" || data.scheme == "http") && data.host == "baton.com" && data.path?.startsWith("/connect") == true
+        
+        return if (isCustomScheme || isApplink) {
             data.getQueryParameter("url")?.let { sanitizePairingUrl(it) }
         } else {
             null

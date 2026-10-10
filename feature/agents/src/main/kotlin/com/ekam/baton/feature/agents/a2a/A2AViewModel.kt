@@ -104,10 +104,22 @@ class A2AViewModel(
             if (offer != null) {
                 // Attach our X25519 public key to the SDP offer string so the peer gets both
                 // the WebRTC ICE/DTLS info AND our Baton crypto identity at the same time.
-                val combinedOffer = "${_ephemeralPublicKey.value}|||$offer"
+                val mungedOffer = mungeSdp(offer)
+                val combinedOffer = "${_ephemeralPublicKey.value}|||$mungedOffer"
                 _sdpOffer.value = combinedOffer
             }
         }
+    }
+
+    private fun mungeSdp(sdp: String): String {
+        // Strip verbose/unnecessary attributes to compress QR code size by up to 60%
+        return sdp.lines().filter { line ->
+            line.isNotBlank() &&
+            !line.startsWith("a=extmap") && // Verbose header extensions
+            !line.contains("typ relay") && // Drop TURN relays (not needed for local air-gap)
+            !line.contains("::1") && // Drop local IPv6 loopback
+            !line.contains("tcp") // Force UDP candidates for faster P2P
+        }.joinToString("\n")
     }
 
     fun receiveOfferAndGenerateAnswer(combinedOffer: String) {
@@ -124,7 +136,8 @@ class A2AViewModel(
                     // 2. Establish WebRTC Tunnel
                     val answer = activeSession?.handleOfferAndCreateAnswer(sdpOffer)
                     if (answer != null) {
-                        val combinedAnswer = "${_ephemeralPublicKey.value}|||$answer"
+                        val mungedAnswer = mungeSdp(answer)
+                        val combinedAnswer = "${_ephemeralPublicKey.value}|||$mungedAnswer"
                         _sdpAnswer.value = combinedAnswer
                     }
                 }

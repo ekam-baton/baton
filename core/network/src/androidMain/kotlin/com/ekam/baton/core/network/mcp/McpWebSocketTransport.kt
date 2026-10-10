@@ -33,11 +33,11 @@ class McpWebSocketTransport constructor(
         private val agentMutexes = ConcurrentHashMap<String, Mutex>()
     }
 
-    override suspend fun initialize(endpointUrl: String, authHeader: String?): Result<JsonObject> {
+    override suspend fun initialize(endpointUrl: String, authHeader: String?, agentId: String?): Result<JsonObject> {
         return Result.success(JsonObject(emptyMap())) 
     }
 
-    override suspend fun listTools(endpointUrl: String, authHeader: String?): Result<List<McpTool>> {
+    override suspend fun listTools(endpointUrl: String, authHeader: String?, agentId: String?): Result<List<McpTool>> {
         return Result.success(emptyList())
     }
 
@@ -253,3 +253,4 @@ class McpWebSocketTransport constructor(
         }
     }
 }
+

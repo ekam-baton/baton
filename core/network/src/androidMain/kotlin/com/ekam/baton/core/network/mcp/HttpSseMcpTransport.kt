@@ -32,7 +32,7 @@ class HttpSseMcpTransport constructor(
 
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
 
-    override suspend fun initialize(endpointUrl: String, authHeader: String?): Result<JsonObject> = withContext(Dispatchers.IO) {
+    override suspend fun initialize(endpointUrl: String, authHeader: String?, agentId: String?): Result<JsonObject> = withContext(Dispatchers.IO) {
         try {
             val initParams = McpInitializeParams(
                 capabilities = buildJsonObject { },
@@ -54,6 +54,7 @@ class HttpSseMcpTransport constructor(
             val body = json.encodeToString(requestPayload).toRequestBody(jsonMediaType)
             val requestBuilder = Request.Builder().url("$endpointUrl/initialize").post(body)
             authHeader?.let { requestBuilder.addHeader("Authorization", it) }
+            agentId?.let { requestBuilder.addHeader("X-Baton-Agent-Id", it) }
 
             // FIX: Use response.use{} to ensure the connection is closed in ALL branches
             val mcpResponse = okHttpClient.newCall(requestBuilder.build()).execute().use { response ->
@@ -75,6 +76,7 @@ class HttpSseMcpTransport constructor(
             val notifBody = json.encodeToString(notifPayload).toRequestBody(jsonMediaType)
             val notifBuilder = Request.Builder().url("$endpointUrl/notifications/initialized").post(notifBody)
             authHeader?.let { notifBuilder.addHeader("Authorization", it) }
+            agentId?.let { notifBuilder.addHeader("X-Baton-Agent-Id", it) }
             okHttpClient.newCall(notifBuilder.build()).execute().use { /* close the response */ }
 
             Result.success(mcpResponse.result ?: buildJsonObject { })
@@ -83,7 +85,7 @@ class HttpSseMcpTransport constructor(
         }
     }
 
-    override suspend fun listTools(endpointUrl: String, authHeader: String?): Result<List<McpTool>> = withContext(Dispatchers.IO) {
+    override suspend fun listTools(endpointUrl: String, authHeader: String?, agentId: String?): Result<List<McpTool>> = withContext(Dispatchers.IO) {
         try {
             val requestPayload = McpRequest(
                 id = UUID.randomUUID().toString(),
@@ -93,6 +95,7 @@ class HttpSseMcpTransport constructor(
             val body = json.encodeToString(requestPayload).toRequestBody(jsonMediaType)
             val requestBuilder = Request.Builder().url("$endpointUrl/tools/list").post(body)
             authHeader?.let { requestBuilder.addHeader("Authorization", it) }
+            agentId?.let { requestBuilder.addHeader("X-Baton-Agent-Id", it) }
 
             // FIX: response.use{} closes connection in all branches
             val mcpResponse = okHttpClient.newCall(requestBuilder.build()).execute().use { response ->
@@ -132,6 +135,7 @@ class HttpSseMcpTransport constructor(
         val body = json.encodeToString(requestPayload).toRequestBody(jsonMediaType)
         val requestBuilder = Request.Builder().url("$endpointUrl/tools/call").post(body)
         authHeader?.let { requestBuilder.addHeader("Authorization", it) }
+            agentId?.let { requestBuilder.addHeader("X-Baton-Agent-Id", it) }
         requestBuilder.addHeader("Accept", "text/event-stream")
 
         val request = requestBuilder.build()
@@ -184,7 +188,7 @@ class HttpSseMcpTransport constructor(
         }
     }
 
-    override suspend fun uploadFile(endpointUrl: String, authHeader: String?, uri: String, context: android.content.Context): Result<String> = withContext(Dispatchers.IO) {
+    override suspend fun uploadFile(endpointUrl: String, authHeader: String?, uri: String, context: android.content.Context, agentId: String?): Result<String> = withContext(Dispatchers.IO) {
         try {
             val contentUri = android.net.Uri.parse(uri)
             val mimeType = context.contentResolver.getType(contentUri) ?: "application/octet-stream"
@@ -220,6 +224,7 @@ class HttpSseMcpTransport constructor(
                 .url("$endpointUrl/upload")
                 .post(multipartBody)
             authHeader?.let { requestBuilder.addHeader("Authorization", it) }
+            agentId?.let { requestBuilder.addHeader("X-Baton-Agent-Id", it) }
 
             // FIX: response.use{} to close connection in all branches
             val fileId = okHttpClient.newCall(requestBuilder.build()).execute().use { response ->
@@ -243,3 +248,6 @@ class HttpSseMcpTransport constructor(
         }
     }
 }
+
+
+

@@ -20,4 +20,8 @@ interface AuditDao {
 
     @Query("SELECT * FROM audit_logs ORDER BY timestamp ASC")
     suspend fun getAllAuditLogsSync(): List<AuditLogEntity>
+
+    // Rolling Genesis Block Pruning
+    @Query("DELETE FROM audit_logs WHERE id NOT IN (SELECT id FROM audit_logs ORDER BY timestamp DESC LIMIT :keepLastN)")
+    suspend fun pruneOldLogs(keepLastN: Int = 1000)
 }

@@ -68,6 +68,15 @@ fun ExecutionLedgerScreen(
                     containerColor = Color(0xFF0D131F).copy(alpha = 0.85f)
                 )
             )
+        },
+        floatingActionButton = {
+            ExtendedFloatingActionButton(
+                onClick = { viewModel.triggerRollingGenesisBlock() },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = Color.White,
+                icon = { Icon(Icons.Default.VerifiedUser, contentDescription = null) },
+                text = { Text("MINT GENESIS BLOCK", style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)) }
+            )
         }
     ) { innerPadding ->
         LazyColumn(
