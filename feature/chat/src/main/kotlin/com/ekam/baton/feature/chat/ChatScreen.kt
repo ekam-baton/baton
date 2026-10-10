@@ -76,8 +76,9 @@ import androidx.compose.foundation.combinedClickable
 fun ChatScreen(
     conversationId: String,
     onNavigateBack: () -> Unit,
-    onNavigateToMemory: (String?) -> Unit,
+    onNavigateToMemory: (String) -> Unit,
     onNavigateToCall: (String) -> Unit,
+    onNavigateToAgentDetails: () -> Unit,
     viewModel: ChatViewModel = koinViewModel()
 ) {
     val messages = viewModel.messages.collectAsLazyPagingItems()
@@ -92,7 +93,6 @@ fun ChatScreen(
     val fontSizePref by viewModel.fontSize.collectAsStateWithLifecycle()
     
     var showToolsSheet by remember { mutableStateOf(false) }
-    var showAgentDetails by remember { mutableStateOf(false) }
     var replyingTo by remember { mutableStateOf<Message?>(null) }
     
     var contextMenuMessage by remember { mutableStateOf<Message?>(null) }
@@ -125,53 +125,6 @@ fun ChatScreen(
             tools = availableTools,
             onExecuteTool = { toolName, args -> viewModel.executeTool(toolName, args) },
             onDismiss = { showToolsSheet = false }
-        )
-    }
-
-    if (showAgentDetails && currentAgent != null) {
-        var editUrl by remember(currentAgent) { mutableStateOf(currentAgent?.mcpEndpointUrl ?: "") }
-        
-        AlertDialog(
-            onDismissRequest = { showAgentDetails = false },
-            title = { Text(currentAgent?.name ?: "Agent Details") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    if (!currentAgent?.ownerName.isNullOrBlank()) {
-                        Surface(
-                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-                            shape = RoundedCornerShape(16.dp)
-                        ) {
-                            Text(
-                                text = "👤 Owned by: ${currentAgent?.ownerName}",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                            )
-                        }
-                    }
-                    Text("Agent ID: ${currentAgent?.id}", style = MaterialTheme.typography.bodyMedium)
-                    OutlinedTextField(
-                        value = editUrl,
-                        onValueChange = { editUrl = it },
-                        label = { Text("Endpoint URL") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { 
-                    viewModel.updateAgentEndpoint(editUrl)
-                    showAgentDetails = false 
-                }) {
-                    Text("Save")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showAgentDetails = false }) {
-                    Text("Cancel")
-                }
-            }
         )
     }
 
@@ -255,7 +208,7 @@ fun ChatScreen(
             Column {
                 TopAppBar(
                     title = { 
-                        Column(modifier = Modifier.clickable { showAgentDetails = true }) {
+                        Column(modifier = Modifier.clickable { onNavigateToAgentDetails() }) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(
                                     modifier = Modifier
@@ -285,30 +238,6 @@ fun ChatScreen(
                         IconButton(onClick = { onNavigateToCall("Agent") }) {
                             Icon(Icons.Default.Phone, contentDescription = "Call Agent")
                         }
-                        var showMenu by remember { mutableStateOf(false) }
-                        IconButton(onClick = { showMenu = true }) {
-                            Icon(Icons.Default.MoreVert, contentDescription = "Options")
-                        }
-                        DropdownMenu(
-                            expanded = showMenu,
-                            onDismissRequest = { showMenu = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("Agent Memory") },
-                                onClick = {
-                                    showMenu = false
-                                    onNavigateToMemory(currentAgentId)
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Clear Chat") },
-                                onClick = {
-                                    viewModel.deleteConversation(conversationId)
-                                    showMenu = false
-                                    onNavigateBack()
-                                }
-                            )
-                        }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
@@ -329,7 +258,10 @@ fun ChatScreen(
                 AnimatedVisibility(visible = isStreaming) {
                     AgentActivityBubble(statusText = agentActivityStatus ?: "Thinking...")
                 }
+                val latestMessage = if (messages.itemCount > 0) messages[0] else null
+                val suggestions = if (latestMessage?.role == "assistant" && !isStreaming) latestMessage.suggestions else null
                 ChatInputBar(
+                    suggestions = suggestions,
                     activeMemoryCount = activeMemoryCount,
                     keyboardShortcuts = keyboardShortcuts,
                     hasTools = availableTools.isNotEmpty(),
@@ -338,7 +270,7 @@ fun ChatScreen(
                     isStreaming = isStreaming,
                     agentActivityStatus = agentActivityStatus,
                     onSaveShortcuts = { updated -> viewModel.saveKeyboardShortcuts(updated) },
-                    onMemoryClick = { onNavigateToMemory(currentAgentId) },
+                    onMemoryClick = { currentAgentId?.let { onNavigateToMemory(it) } },
                     onToolsClick = { showToolsSheet = true },
                     onSendMessage = { content, attachments ->
                         val replyPrefix = replyingTo?.content?.let { orig ->
@@ -755,6 +687,7 @@ fun AgentActivityBubble(statusText: String) {
 
 @Composable
 fun ChatInputBar(
+    suggestions: List<String>?,
     activeMemoryCount: Int,
     keyboardShortcuts: List<KeyboardShortcut>,
     hasTools: Boolean,
@@ -845,6 +778,29 @@ fun ChatInputBar(
             .fillMaxWidth()
             .background(Color.Transparent)
     ) {
+        if (!suggestions.isNullOrEmpty()) {
+            androidx.compose.foundation.lazy.LazyRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(
+                    items = suggestions,
+                    key = { it }
+                ) { suggestion ->
+                    OutlinedButton(
+                        onClick = {
+                            onSendMessage(suggestion, emptyList())
+                        },
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
+                    ) {
+                        Text(suggestion, style = MaterialTheme.typography.labelLarge)
+                    }
+                }
+            }
+        }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f), thickness = 0.5.dp)
         Spacer(modifier = Modifier.height(4.dp))
         Column(

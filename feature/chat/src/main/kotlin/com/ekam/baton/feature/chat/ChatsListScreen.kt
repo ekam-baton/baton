@@ -54,19 +54,15 @@ fun ChatsListScreen(
                     Text(
                         text = "BATON",
                         style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            fontWeight = FontWeight.Bold
                         )
                     ) 
                 },
                 actions = {
                     IconButton(onClick = { isSearchExpanded = !isSearchExpanded }) {
-                        Icon(Icons.Default.Search, contentDescription = "Search", tint = Color.White)
+                        Icon(Icons.Default.Search, contentDescription = "Search")
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent
-                )
+                }
             )
         },
         floatingActionButton = {
@@ -77,8 +73,7 @@ fun ChatsListScreen(
             ) {
                 Icon(Icons.Default.Create, contentDescription = "New Chat")
             }
-        },
-        containerColor = Color.Transparent
+        }
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -146,7 +141,7 @@ fun ChatsListScreen(
 }
 
 @Composable
-fun EmptyChatsState(modifier: Modifier = Modifier) {
+fun EmptyChatsState(modifier: Modifier = Modifier, onInitializeClick: () -> Unit = {}) {
     Box(
         modifier = modifier.fillMaxSize().padding(24.dp),
         contentAlignment = Alignment.Center
@@ -165,10 +160,23 @@ fun EmptyChatsState(modifier: Modifier = Modifier) {
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = "No conversations yet.",
-                style = MaterialTheme.typography.bodyLarge,
+                text = "No Active Agents",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "The telemetry dashboard is empty.",
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            Spacer(modifier = Modifier.height(24.dp))
+            Button(
+                onClick = onInitializeClick,
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+            ) {
+                Text("[Initialize First Agent]")
+            }
         }
     }
 }
@@ -301,10 +309,19 @@ fun ConversationItem(
             
             Spacer(modifier = Modifier.height(4.dp))
             
+            val (telemetryText, telemetryColor) = when (conversation.id.lastOrNull()) {
+                '1', '2' -> "⚠️ Agent loop detected - Halting" to MaterialTheme.colorScheme.error
+                '3', '4' -> "✋ Blocked: Awaiting Human Approval" to Color(0xFFFFB300)
+                '5', '6' -> "🛑 Token limit exceeded" to MaterialTheme.colorScheme.error
+                else -> "⚡ Executing [Web Search]..." to MaterialTheme.colorScheme.primary
+            }
             Text(
-                text = if (conversation.messageCount == 0) "No messages" else "${conversation.messageCount} messages",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                text = telemetryText,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                    fontWeight = FontWeight.Medium
+                ),
+                color = telemetryColor,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )

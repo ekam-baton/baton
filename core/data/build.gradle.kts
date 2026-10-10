@@ -11,7 +11,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        minSdk = 33
+        minSdk = 26
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Export Room schemas for version-controlled migrations
         ksp {
@@ -57,7 +57,6 @@ dependencies {
     implementation(libs.datastore.preferences)
     implementation(libs.security.crypto)
 
-    // Hilt
 
 // WorkManager
     implementation(libs.work.runtime.ktx)

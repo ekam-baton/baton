@@ -11,7 +11,6 @@ import com.ekam.baton.core.data.db.dao.MemoryDao
 import com.ekam.baton.core.data.db.dao.AuditDao
 import com.ekam.baton.core.data.db.entity.AuditLogEntity
 import com.ekam.baton.core.data.util.AuditCryptoUtils
-import com.ekam.baton.core.data.memory.MemoryInjectionEngine
 import com.ekam.baton.core.data.memory.WorkingMemoryManager
 import com.ekam.baton.core.network.mcp.McpMessageSender
 import com.ekam.baton.core.network.mcp.AttachmentDto
@@ -29,7 +28,7 @@ import androidx.paging.map
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.put
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.GlobalScope
+
 class ChatRepository constructor(
     private val conversationDao: ConversationDao,
     private val messageDao: MessageDao,
@@ -37,11 +36,11 @@ class ChatRepository constructor(
     private val memoryDao: MemoryDao,
     private val auditDao: AuditDao,
     private val mcpMessageSender: McpMessageSender,
-    private val memoryInjectionEngine: MemoryInjectionEngine,
-    private val workingMemoryManager: WorkingMemoryManager
+    private val workingMemoryManager: WorkingMemoryManager,
+    private val coroutineScope: kotlinx.coroutines.CoroutineScope
 ) {
     init {
-        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO + kotlinx.coroutines.SupervisorJob()).launch {
+        coroutineScope.launch {
             try {
                 messageDao.clearStreamingStates()
             } catch (e: Exception) {
@@ -215,11 +214,7 @@ class ChatRepository constructor(
         val agent = agentDao.getAgentById(agentId) ?: throw IllegalStateException("Agent not found")
 
         // 5. Build Context
-        val enrichedContextMessage = memoryInjectionEngine.buildContextBlock(
-            agentId = agentId,
-            conversationId = conversationId,
-            userMessage = content
-        )
+        val enrichedContextMessage = content
 
         // 6. Map History
         val history = messageDao.getLastNMessages(conversationId, 20)
@@ -305,11 +300,7 @@ class ChatRepository constructor(
         val conv = conversationDao.getConversationById(conversationId) ?: throw IllegalStateException("Conversation not found")
         val agent = agentDao.getAgentById(conv.agentId) ?: throw IllegalStateException("Agent not found")
         
-        val enrichedContextMessage = memoryInjectionEngine.buildContextBlock(
-            agentId = agent.id,
-            conversationId = conversationId,
-            userMessage = userMsg.content
-        )
+        val enrichedContextMessage = userMsg.content
 
         val history = messageDao.getLastNMessages(conversationId, 20)
             .filter { it.id != tempMessageId && it.id != userMsg.id }

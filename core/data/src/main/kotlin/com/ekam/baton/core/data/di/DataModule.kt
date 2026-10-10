@@ -232,13 +232,19 @@ val dataModule = module {
             }
         }
 
+        val MIGRATION_14_15 = object : androidx.room.migration.Migration(14, 15) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE messages ADD COLUMN suggestions TEXT DEFAULT NULL")
+            }
+        }
+
         val builder = Room.databaseBuilder(
             context,
             BatonDatabase::class.java,
             BatonDatabase.DATABASE_NAME,
         )
             .openHelperFactory(factory)
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15)
 
         try {
             val db = builder.build()
@@ -258,7 +264,7 @@ val dataModule = module {
                 BatonDatabase.DATABASE_NAME,
             )
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15)
             freshBuilder.build()
         }
     }
@@ -290,11 +296,15 @@ val dataModule = module {
 
     single { com.ekam.baton.core.data.repository.AgentRepository(get()) }
     single { com.ekam.baton.core.data.repository.MemoryRepository(get(), get()) }
-    single { com.ekam.baton.core.data.repository.ChatRepository(get(), get(), get(), get(), get(), get(), get(), get()) }
+    single { 
+        com.ekam.baton.core.data.repository.ChatRepository(
+            get(), get(), get(), get(), get(), get(), get(),
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO + kotlinx.coroutines.SupervisorJob())
+        ) 
+    }
     single { com.ekam.baton.core.data.repository.AgentActionAuditRepository(get()) }
     single { com.ekam.baton.core.data.repository.WipeDataManager(get()) }
 
-    single { com.ekam.baton.core.data.memory.MemoryInjectionEngine(get()) }
     single { com.ekam.baton.core.data.memory.WorkingMemoryManager(get()) }
 
     single<com.ekam.baton.core.network.security.AgentSecurityConfigProvider> {
@@ -305,13 +315,7 @@ val dataModule = module {
         com.ekam.baton.core.data.repository.LocalNetworkPolicyProviderImpl(get(), get())
     }
 
-    // Forensic Auditing & eIDAS QES Compliance
-    single { com.ekam.baton.core.data.forensic.TrustedTimeProvider() }
-    single { com.ekam.baton.core.data.forensic.EnterpriseCertificateManager(androidContext(), get()) }
-    single { com.ekam.baton.core.data.forensic.ForensicCryptoManager(get()) }
-    single { com.ekam.baton.core.data.forensic.ForensicScreenshotManager(androidContext(), get(), get()) }
-    single { com.ekam.baton.core.data.forensic.EvidenceExportManager(androidContext(), get(), get()) }
-    single { com.ekam.baton.core.data.repository.AuditRepository(get(), get(), get(), androidContext()) }
+
 
     single<com.ekam.baton.core.network.BackendUrlProvider> {
         com.ekam.baton.core.data.preferences.AppPreferencesBackendUrlProvider(get())

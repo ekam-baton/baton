@@ -3,37 +3,35 @@ package com.ekam.baton.feature.agents
 import org.koin.compose.viewmodel.koinViewModel
 
 import androidx.compose.foundation.background
-import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.outlined.SmartToy
+import androidx.compose.material.icons.filled.Memory
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ekam.baton.core.data.model.Agent
 import com.ekam.baton.core.ui.components.glassCard
-
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.flow.collectLatest
 import android.content.Intent
 import android.net.Uri
-import android.widget.Toast
-import kotlinx.coroutines.flow.collectLatest
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,9 +41,6 @@ fun AgentsScreen(
     viewModel: AgentsViewModel = koinViewModel()
 ) {
     val agents by viewModel.agents.collectAsStateWithLifecycle()
-    val discoveredAgents by viewModel.discoveredAgents.collectAsStateWithLifecycle()
-    val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
-    val isDiscovering by viewModel.isDiscovering.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     LaunchedEffect(viewModel.uiEvents) {
@@ -62,123 +57,85 @@ fun AgentsScreen(
         }
     }
 
-    var selectedAgentForCard by remember { mutableStateOf<Agent?>(null) }
-    
-    if (selectedAgentForCard != null) {
-        val agent = selectedAgentForCard!!
-        com.ekam.baton.feature.agents.a2a.card.CardVerificationSheet(
-            agent = agent,
-            onDismiss = { selectedAgentForCard = null }
-        )
-    }
-
     Scaffold(
+        containerColor = Color(0xFF0D131F), // Deep Ocean Blue
         topBar = {
             TopAppBar(
-                title = { Text("My Agents") },
+                title = { 
+                    Text(
+                        "Agent Directory", 
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        color = Color.White
+                    ) 
+                },
                 actions = {
-                    IconButton(onClick = { onAddAgentClick(null, null, null) }) {
-                        Icon(Icons.Default.Add, contentDescription = "Add Agent")
+                    IconButton(onClick = { /* Open Scanner */ }) {
+                        Icon(Icons.Default.QrCodeScanner, contentDescription = "Scan Node", tint = Color.White)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
-                    titleContentColor = MaterialTheme.colorScheme.onBackground,
-                    actionIconContentColor = MaterialTheme.colorScheme.onBackground
+                    containerColor = Color(0xFF0D131F).copy(alpha = 0.85f)
                 )
             )
         },
-        containerColor = Color.Transparent
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = { onAddAgentClick(null, null, null) },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = Color.White,
+                shape = RoundedCornerShape(16.dp) // Squircle FAB
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Provision Agent")
+            }
+        }
     ) { innerPadding ->
-        if (isLoading) {
+        if (agents.isEmpty()) {
+            // Soft Landing Empty State
             Box(
-                modifier = Modifier.fillMaxSize().padding(innerPadding),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .padding(32.dp),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(
-                    color = MaterialTheme.colorScheme.tertiary,
-                    modifier = Modifier.size(32.dp)
-                )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .glassCard(shape = RoundedCornerShape(24.dp))
+                        .padding(32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Memory,
+                        contentDescription = null,
+                        modifier = Modifier.size(64.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Text(
+                        text = "No Nodes Registered",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = Color.White
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Your swarm directory is empty. Provision a local MCP node or cloud inference engine to begin.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                }
             }
-        } else if (agents.isEmpty() && discoveredAgents.isEmpty()) {
-            EmptyAgentsState(
-                modifier = Modifier.padding(innerPadding), 
-                isDiscovering = isDiscovering, 
-                onSearchClick = { viewModel.startTemporaryDiscovery() }
-            )
         } else {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding),
                 contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Your Agents",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        if (isDiscovering) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Looking for agents...", style = MaterialTheme.typography.labelSmall)
-                            }
-                        } else {
-                            OutlinedButton(
-                                onClick = { viewModel.startTemporaryDiscovery() },
-                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                                modifier = Modifier.height(32.dp)
-                            ) {
-                                Text("Find Nearby", fontSize = 12.sp)
-                            }
-                        }
-                    }
-                }
-
-                if (discoveredAgents.isNotEmpty()) {
-                    items(
-                        items = discoveredAgents,
-                        key = { "discovered_${it.name}_${it.url}" }
-                    ) { discoveredAgent ->
-                        DiscoveredAgentCard(
-                            agent = discoveredAgent,
-                            onClick = { onAddAgentClick(discoveredAgent.url, discoveredAgent.name, discoveredAgent.ownerName) }
-                        )
-                    }
-                    if (agents.isNotEmpty()) {
-                        item {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "SAVED AGENTS",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(bottom = 4.dp)
-                            )
-                        }
-                    }
-                }
-
-                items(
-                    items = agents,
-                    key = { it.id }
-                ) { agent ->
-                    SwipeToDeleteAgentCard(
-                        agent = agent,
-                        onDelete = { viewModel.deleteAgent(agent.id) },
-                        onEdit = { onEditAgentClick(agent.id) },
-                        onAuthenticate = { viewModel.launchAuthBrowser(agent.mcpEndpointUrl) },
-                        onViewCard = { selectedAgentForCard = agent }
-                    )
+                items(agents) { agent ->
+                    AgentDirectoryCard(agent = agent, onClick = { onEditAgentClick(agent.id) })
                 }
             }
         }
@@ -186,284 +143,63 @@ fun AgentsScreen(
 }
 
 @Composable
-fun EmptyAgentsState(modifier: Modifier = Modifier, isDiscovering: Boolean = false, onSearchClick: () -> Unit = {}) {
-    Box(
-        modifier = modifier.fillMaxSize().padding(24.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier
-                .glassCard(shape = MaterialTheme.shapes.large)
-                .padding(32.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.SmartToy,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(64.dp)
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = "No agents yet. Add one to get started.",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(24.dp))
-            if (isDiscovering) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Searching local network...", style = MaterialTheme.typography.labelSmall)
-                }
-            } else {
-                OutlinedButton(onClick = onSearchClick) {
-                    Text("Search Local Network")
-                }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun SwipeToDeleteAgentCard(
-    agent: Agent,
-    onDelete: () -> Unit,
-    onEdit: () -> Unit,
-    onAuthenticate: () -> Unit,
-    onViewCard: () -> Unit
-) {
-    var showMenu by remember { mutableStateOf(false) }
-    val clipboardManager = LocalClipboardManager.current
-    val dismissState = rememberSwipeToDismissBoxState(
-        confirmValueChange = {
-            if (it == SwipeToDismissBoxValue.EndToStart) {
-                onDelete()
-                true
-            } else {
-                false
-            }
-        }
-    )
-
-    SwipeToDismissBox(
-        state = dismissState,
-        enableDismissFromStartToEnd = false,
-        backgroundContent = {
-            val color = when (dismissState.dismissDirection) {
-                SwipeToDismissBoxValue.EndToStart -> MaterialTheme.colorScheme.errorContainer
-                else -> Color.Transparent
-            }
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(color, MaterialTheme.shapes.medium)
-                    .padding(horizontal = 20.dp),
-                contentAlignment = Alignment.CenterEnd
-            ) {
-                if (dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart) {
-                    Text("Delete", color = MaterialTheme.colorScheme.onErrorContainer)
-                }
-            }
-        }
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .glassCard(shape = MaterialTheme.shapes.medium)
-                .pointerInput(Unit) {
-                    detectTapGestures(
-                        onTap = { onEdit() },
-                        onLongPress = { showMenu = true }
-                    )
-                }
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Avatar
-                val avatarColor = agent.colorAccent.toColor(MaterialTheme.colorScheme.primary)
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(avatarColor),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = agent.name.firstOrNull()?.uppercase() ?: "?",
-                        color = Color.White,
-                        style = MaterialTheme.typography.titleLarge
-                    )
-                }
-                
-                Spacer(modifier = Modifier.width(16.dp))
-                
-                // Content
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = agent.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
-                    if (agent.description.isNotBlank()) {
-                        Text(
-                            text = agent.description,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                    Text(
-                        text = agent.mcpEndpointUrl,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    if (agent.authType == "oauth") {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(6.dp)
-                                    .clip(CircleShape)
-                                    .background(if (agent.isAuthenticated) Color(0xFF4CAF50) else Color(0xFFFF9800))
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = if (agent.isAuthenticated) "Authenticated" else "Auth Required",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = if (agent.isAuthenticated) Color(0xFF4CAF50) else Color(0xFFFF9800)
-                            )
-                        }
-                    }
-                }
-                
-                Spacer(modifier = Modifier.width(16.dp))
-                
-                // Status dot
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .clip(CircleShape)
-                        .background(if (agent.isActive) Color(0xFF4CAF50) else Color(0xFF9E9E9E))
-                )
-            }
-            
-            DropdownMenu(
-                expanded = showMenu,
-                onDismissRequest = { showMenu = false }
-            ) {
-                DropdownMenuItem(
-                    text = { Text("Edit") },
-                    onClick = {
-                        showMenu = false
-                        onEdit()
-                    }
-                )
-                DropdownMenuItem(
-                    text = { Text("View Identity Card") },
-                    onClick = {
-                        showMenu = false
-                        onViewCard()
-                    }
-                )
-                if (agent.authType == "oauth") {
-                    DropdownMenuItem(
-                        text = { Text(if (agent.isAuthenticated) "Re-authenticate" else "Authenticate") },
-                        onClick = {
-                            showMenu = false
-                            onAuthenticate()
-                        }
-                    )
-                }
-                DropdownMenuItem(
-                    text = { Text("Copy endpoint URL") },
-                    onClick = {
-                        clipboardManager.setText(AnnotatedString(agent.mcpEndpointUrl))
-                        showMenu = false
-                    }
-                )
-                DropdownMenuItem(
-                    text = { Text("Delete") },
-                    onClick = {
-                        showMenu = false
-                        onDelete()
-                    }
-                )
-            }
-        }
-    }
-}
-
-fun String.toColor(fallback: Color): Color {
-    return try {
-        Color(android.graphics.Color.parseColor(this))
-    } catch (e: Exception) {
-        fallback
-    }
-}
-
-@Composable
-fun DiscoveredAgentCard(
-    agent: com.ekam.baton.core.network.mdns.DiscoveredAgent,
-    onClick: () -> Unit
-) {
-    Box(
+fun AgentDirectoryCard(agent: Agent, onClick: () -> Unit) {
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .glassCard(shape = MaterialTheme.shapes.medium, backgroundColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f))
+            .glassCard(shape = RoundedCornerShape(20.dp))
             .clickable { onClick() }
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
+        // Squircle Avatar
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .size(56.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(Color(android.graphics.Color.parseColor(agent.colorAccent.takeIf { it.isNotBlank() } ?: "#306EE8"))),
+            contentAlignment = Alignment.Center
         ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Default.SmartToy, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(24.dp))
-            }
-            
-            Spacer(modifier = Modifier.width(16.dp))
-            
-            Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = agent.name.take(1).uppercase(),
+                color = Color.White,
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+        
+        Spacer(modifier = Modifier.width(16.dp))
+        
+        Column(modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = agent.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-                Text(
-                    text = agent.url,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = Color.White,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+                Spacer(modifier = Modifier.width(8.dp))
+                if (agent.securityMode == "sovereign") {
+                    Box(modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(Color(0xFFDC2626)).padding(horizontal = 4.dp, vertical = 2.dp)) {
+                        Text("AIR-GAPPED", style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.sp, fontWeight = FontWeight.Bold), color = Color.White)
+                    }
+                }
             }
-            
-            Spacer(modifier = Modifier.width(16.dp))
-            
-            Button(
-                onClick = onClick,
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                modifier = Modifier.height(32.dp)
-            ) {
-                Text("Add", fontSize = 12.sp)
-            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = agent.description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "ID: ${agent.id.take(8).uppercase()}",
+                style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
+                color = MaterialTheme.colorScheme.tertiary
+            )
         }
     }
 }
-

@@ -112,6 +112,9 @@ fun BatonNavGraph(
                         },
                         onNavigateToCall = { agentName ->
                             navController.navigate("call/$agentName")
+                        },
+                        onNavigateToAgentDetails = {
+                            navController.navigate("agent_details/$conversationId")
                         }
                     )
                 }
@@ -120,11 +123,31 @@ fun BatonNavGraph(
                 route = "call/{agentName}",
                 arguments = listOf(navArgument("agentName") { type = NavType.StringType })
             ) { backStackEntry ->
-                val agentName = backStackEntry.arguments?.getString("agentName") ?: "Agent"
-                CallScreen(
-                    agentName = agentName,
-                    onEndCall = { navController.popBackStack() }
-                )
+                val agentName = backStackEntry.arguments?.getString("agentName")
+                if (agentName != null) {
+                    CallScreen(
+                        agentName = agentName,
+                        onEndCall = { navController.popBackStack() }
+                    )
+                }
+            }
+            composable(
+                route = "agent_details/{conversationId}",
+                arguments = listOf(navArgument("conversationId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val conversationId = backStackEntry.arguments?.getString("conversationId")
+                if (conversationId != null) {
+                    com.ekam.baton.feature.chat.AgentDetailsScreen(
+                        conversationId = conversationId,
+                        onNavigateBack = { navController.popBackStack() },
+                        onNavigateToMemory = { agentId ->
+                            navController.navigate("memory")
+                        },
+                        onConversationDeleted = {
+                            navController.popBackStack("chats_list", inclusive = false)
+                        }
+                    )
+                }
             }
         }
 

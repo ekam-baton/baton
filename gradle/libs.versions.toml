@@ -7,7 +7,7 @@ composeMultiplatform        = "1.7.0"
 # Android Gradle Plugin
 agp                         = "8.6.1"
 compileSdk                  = "36"
-minSdk                      = "33"
+minSdk                      = "26"
 targetSdk                   = "36"
 
 # Compose BOM (latest stable)
@@ -18,7 +18,7 @@ room                        = "2.6.1"
 navigationCompose           = "2.8.3"
 lifecycle                   = "2.8.6"
 datastorePreferences        = "1.2.1"
-securityCrypto              = "1.1.0-alpha07"
+securityCrypto              = "1.1.0-beta01"
 # Room & Database Security
 sqlcipher                   = "4.6.1"
 sqliteKtx                   = "2.4.0"

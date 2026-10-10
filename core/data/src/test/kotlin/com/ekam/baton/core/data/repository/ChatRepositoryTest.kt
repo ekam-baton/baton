@@ -9,7 +9,6 @@ import com.ekam.baton.core.data.db.entity.AgentEntity
 import com.ekam.baton.core.data.db.entity.ConversationEntity
 import com.ekam.baton.core.data.db.entity.MessageEntity
 import com.ekam.baton.core.data.db.entity.MemoryEntity
-import com.ekam.baton.core.data.memory.MemoryInjectionEngine
 import com.ekam.baton.core.data.memory.WorkingMemoryManager
 import com.ekam.baton.core.network.mcp.McpMessageSender
 import com.ekam.baton.core.network.mcp.McpTransport
@@ -133,7 +132,6 @@ class ChatRepositoryTest {
         val mockContext: android.content.Context? = null
         mcpMessageSender = McpMessageSender(connectionManager, authManager, mockContext)
         
-        val engine = MemoryInjectionEngine(memoryDao)
         val workingMemoryManager = WorkingMemoryManager(memoryDao)
         
         repository = ChatRepository(
@@ -143,7 +141,6 @@ class ChatRepositoryTest {
             memoryDao,
             auditDao,
             mcpMessageSender,
-            engine,
             workingMemoryManager
         )
     }

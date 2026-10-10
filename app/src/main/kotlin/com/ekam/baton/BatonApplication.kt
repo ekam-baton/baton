@@ -94,7 +94,7 @@ class BatonApplication : Application(), Configuration.Provider {
 
     private fun scheduleTunnelMonitor() {
         val workRequest = PeriodicWorkRequestBuilder<com.ekam.baton.feature.agents.tunnel.TunnelConnectivityMonitor>(
-            5,
+            15,
             TimeUnit.MINUTES
         )
             .build()

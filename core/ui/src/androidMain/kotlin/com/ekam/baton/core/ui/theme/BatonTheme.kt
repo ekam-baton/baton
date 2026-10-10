@@ -1,51 +1,56 @@
 package com.ekam.baton.core.ui.theme
 
+import android.os.Build
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 
-// ─── BATON Palette ──────────────────────────────────────────────────────────
+// ─── BATON Palette (Deep Sea Blue Theme) ────────────────────────────────────
 
-// Core brand colors
-val BatonNavy         = Color(0xFF0A0E1A) // deep navy, almost black
-val BatonSlate        = Color(0xFF1C2333) // dark slate
-val BatonElectric     = Color(0xFF3D8EFF) // electric blue accent
-val BatonBackground   = Color(0xFF070B14) // near-black canvas
-val BatonSurface      = Color(0xFF0F1623) // card / bottom sheet surface
-val BatonSurfaceVar   = Color(0xFF1A2235) // elevated surface variant
-val BatonError        = Color(0xFFFF453A) // iOS-style red
+// Core brand colors (Telegram Deep Sea Blue Theme)
+val BatonBackground   = Color(0xFF0E1621) // Telegram dark slate background
+val BatonSurface      = Color(0xFF17212B) // Telegram card/surface background
+val BatonSurfaceVar   = Color(0xFF242F3D) // Telegram elevated surface
+val BatonDeepSeaBlue  = Color(0xFF2A82B8) // Deep Sea Blue accent (Primary)
+val BatonSentBubble   = Color(0xFF2B5278) // Deep Sea Blue for sent messages
+val BatonNavy         = Color(0xFF070D14) // Deepest navy for contrast
+val BatonError        = Color(0xFFE53935) // Red
 
 // Derived / semantic colors
 val BatonOnPrimary    = Color(0xFFFFFFFF)
-val BatonOnSecondary  = Color(0xFFB0BEC5)
-val BatonOnBackground = Color(0xFFE8EAF6)
-val BatonOnSurface    = Color(0xFFCFD8DC)
+val BatonOnSecondary  = Color(0xFF8B9BB4) // Telegram subtle grey/blue text
+val BatonOnBackground = Color(0xFFF5F5F5)
+val BatonOnSurface    = Color(0xFFDFE6EE) // Telegram main text color
 val BatonOnError      = Color(0xFFFFFFFF)
-val BatonOutline      = Color(0xFF2A3448)
+val BatonOutline      = Color(0xFF2B3A4C) // Divider lines
 
-// Light-theme overrides (minimal — BATON defaults to dark)
-val BatonLightPrimary    = Color(0xFF1565C0)
-val BatonLightBackground = Color(0xFFF5F7FF)
-val BatonLightSurface    = Color(0xFFFFFFFF)
+// Light-theme overrides
+val BatonLightPrimary    = BatonDeepSeaBlue
+val BatonLightBackground = Color(0xFFFFFFFF)
+val BatonLightSurface    = Color(0xFFF1F1F1)
 
 // ─── Color Schemes ───────────────────────────────────────────────────────────
 
 private val BatonDarkColorScheme = darkColorScheme(
-    primary            = BatonElectric, 
-    onPrimary          = BatonNavy, // Improved contrast (6.5:1) against BatonElectric
-    primaryContainer   = BatonSlate,
+    primary            = BatonDeepSeaBlue, 
+    onPrimary          = BatonOnPrimary,
+    primaryContainer   = BatonSurfaceVar,
     onPrimaryContainer = BatonOnBackground,
-    secondary          = BatonSlate,
+    secondary          = BatonSurfaceVar,
     onSecondary        = BatonOnSecondary,
-    secondaryContainer = BatonSurfaceVar,
+    secondaryContainer = BatonSurface,
     onSecondaryContainer = BatonOnSurface,
-    tertiary           = BatonElectric,
-    onTertiary         = BatonNavy, // Improved contrast (6.5:1) against BatonElectric
-    tertiaryContainer  = Color(0xFF1A3560),
-    onTertiaryContainer = BatonElectric,
+    tertiary           = BatonSentBubble,
+    onTertiary         = BatonOnPrimary,
+    tertiaryContainer  = BatonSurfaceVar,
+    onTertiaryContainer = BatonDeepSeaBlue,
     background         = BatonBackground,
     onBackground       = BatonOnBackground,
     surface            = BatonSurface,
@@ -61,7 +66,7 @@ private val BatonDarkColorScheme = darkColorScheme(
     scrim              = Color(0xFF000000),
     inverseSurface     = BatonOnBackground,
     inverseOnSurface   = BatonBackground,
-    inversePrimary     = BatonElectric,
+    inversePrimary     = BatonDeepSeaBlue,
 )
 
 private val BatonLightColorScheme = lightColorScheme(
@@ -73,7 +78,7 @@ private val BatonLightColorScheme = lightColorScheme(
     onSecondary        = Color(0xFFFFFFFF),
     secondaryContainer = Color(0xFFDAE2FF),
     onSecondaryContainer = Color(0xFF001944),
-    tertiary           = Color(0xFF1565C0),
+    tertiary           = BatonDeepSeaBlue,
     onTertiary         = Color(0xFFFFFFFF),
     background         = BatonLightBackground,
     onBackground       = Color(0xFF1A1C24),
@@ -81,7 +86,7 @@ private val BatonLightColorScheme = lightColorScheme(
     onSurface          = Color(0xFF1A1C24),
     surfaceVariant     = Color(0xFFE1E5F4),
     onSurfaceVariant   = Color(0xFF43475A),
-    error              = Color(0xFFBA1A1A),
+    error              = BatonError,
     onError            = Color(0xFFFFFFFF),
     outline            = Color(0xFF73778A),
 )
@@ -101,18 +106,27 @@ fun Color.isLight(): Boolean {
 /**
  * BATON design-system theme wrapper.
  *
- * Locked exclusively to Dark Mode to honour the sovereign, terminal-aesthetic
- * brand identity.
+ * Fully supports Material 3 Dynamic Color (Android 12+) so the app automatically 
+ * shifts to match the user's wallpaper, while falling back to the brand aesthetics.
  */
 @Composable
 fun BatonTheme(
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    dynamicColor: Boolean = true,
     accentColor: Color? = null,
     content: @Composable () -> Unit
 ) {
-    val baseColorScheme = BatonDarkColorScheme
+    val context = LocalContext.current
+    val baseColorScheme = when {
+        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+        }
+        darkTheme -> BatonDarkColorScheme
+        else -> BatonLightColorScheme
+    }
     val colorScheme = if (accentColor != null) {
         val highContrastText = if (accentColor.isLight()) {
-            Color(0xFF070B14) // Dark charcoal text for light themes (e.g. default Cool White)
+            Color(0xFF070B14) // Dark charcoal text for light themes
         } else {
             Color.White // Pure white text for dark/vibrant themes
         }

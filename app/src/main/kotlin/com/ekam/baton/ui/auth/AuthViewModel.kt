@@ -66,6 +66,16 @@ class AuthViewModel(
                     put("email", email)
                     if (phone.isNotBlank()) put("phone_number", phone)
                     put("password", password)
+                    
+                    val clientKeys = securityManager.generateClientKeys()
+                    val privateKeyBytes = securityManager.decryptPrivateKey(
+                        clientKeys.encryptedPrivateKeyBase64, 
+                        clientKeys.privateKeyIvBase64
+                    )
+                    val backupPayload = CryptoHelper.encryptBackupKey(password, privateKeyBytes)
+                    
+                    put("backup_payload", backupPayload)
+                    put("public_key", clientKeys.publicKeyHex)
                 }.toString()
 
                 val body = jsonInput.toRequestBody("application/json".toMediaTypeOrNull())

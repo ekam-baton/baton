@@ -35,12 +35,13 @@ fn to_string(env: &mut JNIEnv, jstr: jstring) -> Result<String, jni::errors::Err
 }
 
 // Helper to derive the symmetric key using HKDF-Extract-and-Expand
-fn derive_hkdf_key(shared_key: &[u8], timestamp: jlong, nonce: &str) -> [u8; 32] {
-    let info = format!("{timestamp}:{nonce}");
-    let salt = b"baton-mobile-crypto-v1-hkdf-salt-2024";
-    let hk = Hkdf::<Sha256>::new(Some(salt), shared_key);
+fn derive_hkdf_key(shared_key: &[u8], timestamp: jlong, nonce: &str, domain: &str) -> [u8; 32] {
+    let info = format!("{timestamp}:{nonce}:{domain}");
+    let salt = format!("baton-mobile-crypto-v1-hkdf-salt-2024-{}", domain);
+
+    let hk = Hkdf::<Sha256>::new(Some(salt.as_bytes()), shared_key);
     let mut okm = [0u8; 32];
-    hk.expand(info.as_bytes(), &mut okm).expect("HKDF expand must succeed for 32 bytes");
+    hk.expand(info.as_bytes(), &mut okm).expect("HKDF expand failed");
     okm
 }
 
@@ -148,7 +149,7 @@ pub extern "system" fn Java_com_ekam_baton_core_network_security_ConnectionSecur
     };
 
     // 1. Derive per-request key
-    let derived_key = derive_hkdf_key(&shared_bytes, timestamp, &nonce_str);
+    let derived_key = derive_hkdf_key(&shared_bytes, timestamp, &nonce_str, "encryption");
 
     // 2. Generate random 12-byte IV
     let mut iv = [0u8; 12];
@@ -215,7 +216,7 @@ pub extern "system" fn Java_com_ekam_baton_core_network_security_ConnectionSecur
     };
 
     // 1. Derive per-request key
-    let derived_key = derive_hkdf_key(&shared_bytes, timestamp, &nonce_str);
+    let derived_key = derive_hkdf_key(&shared_bytes, timestamp, &nonce_str, "encryption");
 
     // 2. Decrypt via AES-256-GCM
     let cipher = match Aes256Gcm::new_from_slice(&derived_key) {
@@ -308,9 +309,9 @@ mod tests {
     #[test]
     fn test_hkdf_derivation() {
         let shared = [1u8; 32];
-        let key1 = derive_hkdf_key(&shared, 12345, "nonce123");
-        let key2 = derive_hkdf_key(&shared, 12345, "nonce123");
-        let key3 = derive_hkdf_key(&shared, 12346, "nonce123");
+        let key1 = derive_hkdf_key(&shared, 12345, "nonce123", "encryption");
+        let key2 = derive_hkdf_key(&shared, 12345, "nonce123", "encryption");
+        let key3 = derive_hkdf_key(&shared, 12346, "nonce123", "encryption");
 
         assert_eq!(key1, key2);
         assert_ne!(key1, key3);

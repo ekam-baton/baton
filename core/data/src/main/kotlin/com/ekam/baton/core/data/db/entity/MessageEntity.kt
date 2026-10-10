@@ -41,6 +41,9 @@ data class MessageEntity(
     @ColumnInfo(name = "token_count")
     val tokenCount: Int? = null,
 
+    @ColumnInfo(name = "suggestions")
+    val suggestions: String? = null, // JSON array of suggestions/quick replies
+
     @ColumnInfo(name = "previous_hash", defaultValue = "")
     val previousHash: String = "",
 

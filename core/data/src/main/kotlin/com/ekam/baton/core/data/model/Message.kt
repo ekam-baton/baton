@@ -2,6 +2,9 @@ package com.ekam.baton.core.data.model
 
 import com.ekam.baton.core.data.db.entity.MessageEntity
 
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+
 data class Message(
     val id: String,
     val conversationId: String,
@@ -11,7 +14,8 @@ data class Message(
     val timestamp: Long,
     val isStreaming: Boolean,
     val isFailed: Boolean,
-    val tokenCount: Int?
+    val tokenCount: Int?,
+    val suggestions: List<String>? = null
 )
 
 fun MessageEntity.toDomainModel() = Message(
@@ -23,7 +27,10 @@ fun MessageEntity.toDomainModel() = Message(
     timestamp = timestamp,
     isStreaming = isStreaming,
     isFailed = isFailed,
-    tokenCount = tokenCount
+    tokenCount = tokenCount,
+    suggestions = suggestions?.let { 
+        try { Json.decodeFromString<List<String>>(it) } catch (e: Exception) { null }
+    }
 )
 
 fun Message.toEntity() = MessageEntity(
@@ -35,5 +42,6 @@ fun Message.toEntity() = MessageEntity(
     timestamp = timestamp,
     isStreaming = isStreaming,
     isFailed = isFailed,
-    tokenCount = tokenCount
+    tokenCount = tokenCount,
+    suggestions = suggestions?.let { Json.encodeToString(it) }
 )

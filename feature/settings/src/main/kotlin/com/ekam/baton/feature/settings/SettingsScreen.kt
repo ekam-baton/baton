@@ -130,11 +130,11 @@ fun SettingsScreen(
                     )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent
+                    
                 )
             )
         },
-        containerColor = Color.Transparent
+        
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier
@@ -149,13 +149,13 @@ fun SettingsScreen(
                     headlineContent = { Text("Email Address") },
                     supportingContent = { Text(userEmail.ifBlank { "Not set" }) },
                     leadingContent = { Icon(Icons.Default.Email, contentDescription = null) },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    
                 )
                 ListItem(
                     headlineContent = { Text("Phone Number") },
                     supportingContent = { Text(userPhone.ifBlank { "Not set" }) },
                     leadingContent = { Icon(Icons.Default.Phone, contentDescription = null) },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    
                 )
             }
 
@@ -170,7 +170,7 @@ fun SettingsScreen(
                         headlineContent = { Text("Active Plan") },
                         supportingContent = { Text("✓ Full Access Unlocked") },
                         leadingContent = { Icon(Icons.Default.Star, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary) },
-                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                        
                     )
                 } else {
                     val daysLeft = viewModel.getTrialDaysRemaining(trialStart)
@@ -199,7 +199,7 @@ fun SettingsScreen(
                                 Text("Unlock", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             }
                         },
-                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                        
                     )
                 }
             }
@@ -238,14 +238,14 @@ fun SettingsScreen(
                         }
                     },
                     leadingContent = { Icon(Icons.Default.Palette, contentDescription = null) },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    
                 )
                 ListItem(
                     headlineContent = { Text("Message font size") },
                     supportingContent = { Text(fontSize.replaceFirstChar { it.uppercase() }) },
                     leadingContent = { Icon(Icons.Default.FormatSize, contentDescription = null) },
                     modifier = Modifier.clickable { showFontSizeDialog = true },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    
                 )
                 ListItem(
                     headlineContent = { Text("Haptic Feedback") },
@@ -260,7 +260,7 @@ fun SettingsScreen(
                             }
                         )
                     },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    
                 )
             }
 
@@ -277,7 +277,7 @@ fun SettingsScreen(
                             onCheckedChange = { viewModel.setAppLockEnabled(it) }
                         )
                     },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    
                 )
                 ListItem(
                     headlineContent = { Text("Sign Out") },
@@ -287,7 +287,7 @@ fun SettingsScreen(
                         if (enableHapticFeedback) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         viewModel.logout()
                     },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    
                 )
                 ListItem(
                     headlineContent = { Text("Key Backup") },
@@ -297,7 +297,7 @@ fun SettingsScreen(
                         if (enableHapticFeedback) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         onNavigateToKeyBackup()
                     },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    
                 )
                 ListItem(
                     headlineContent = { Text("Data Encryption") },
@@ -308,14 +308,14 @@ fun SettingsScreen(
                             Text("Active", modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp), style = MaterialTheme.typography.labelSmall)
                         }
                     },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    
                 )
                 ListItem(
                     headlineContent = { Text("Erase All Data", color = MaterialTheme.colorScheme.error) },
                     supportingContent = { Text("Permanently delete all agents, chats, and memories", color = MaterialTheme.colorScheme.error.copy(alpha = 0.7f)) },
                     leadingContent = { Icon(Icons.Default.DeleteForever, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
                     modifier = Modifier.clickable { showWipeDialog = true },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    
                 )
             }
 
@@ -333,14 +333,14 @@ fun SettingsScreen(
                             onCheckedChange = { viewModel.setAllowLocalNetworkAgents(it) }
                         )
                     },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    
                 )
                 ListItem(
                     headlineContent = { Text("Connection Mode") },
                     supportingContent = { Text(if (pipelineMode == "MANAGED") "EKAM Cloud (Recommended)" else "My Own Server") },
                     leadingContent = { Icon(Icons.Default.Cloud, contentDescription = null) },
                     modifier = Modifier.clickable { showPipelineModeDialog = true },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    
                 )
                 
                 if (pipelineMode == "BYOS") {
@@ -352,7 +352,7 @@ fun SettingsScreen(
                             backendUrlInput = backendUrl
                             showBackendUrlDialog = true 
                         },
-                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                        
                     )
                     ListItem(
                         headlineContent = { Text("Server Password") },
@@ -362,7 +362,7 @@ fun SettingsScreen(
                             jwtSecretInput = jwtSecret
                             showJwtSecretDialog = true 
                         },
-                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                        
                     )
                 }
             }
@@ -375,7 +375,7 @@ fun SettingsScreen(
                     supportingContent = { Text("Step-by-step guide to connect AI running on your computer") },
                     leadingContent = { Icon(Icons.Default.CloudSync, contentDescription = null) },
                     modifier = Modifier.clickable { onNavigateToTunnelSetup() },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    
                 )
                 val tunnelAgents = agents.filter {
                     val host = try { java.net.URL(it.mcpEndpointUrl).host } catch (e: Exception) { "" }
@@ -386,7 +386,7 @@ fun SettingsScreen(
                     headlineContent = { Text("Connected Local Agents") },
                     supportingContent = { Text(if (tunnelAgents.isEmpty()) "No local agents connected yet" else "${tunnelAgents.size} agent${if (tunnelAgents.size == 1) "" else "s"} connected") },
                     leadingContent = { Icon(Icons.Default.Sensors, contentDescription = null) },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    
                 )
             }
 
@@ -398,7 +398,7 @@ fun SettingsScreen(
                     supportingContent = { Text("See what your AI has learned and remembered about you") },
                     leadingContent = { Icon(Icons.Default.Psychology, contentDescription = null) },
                     modifier = Modifier.clickable { onNavigateToMemory() },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    
                 )
                 ListItem(
                     headlineContent = { Text("Remember facts from chats") },
@@ -411,7 +411,7 @@ fun SettingsScreen(
                             colors = SwitchDefaults.colors(checkedThumbColor = MaterialTheme.colorScheme.primary)
                         )
                     },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    
                 )
                 ListItem(
                     headlineContent = { Text("Summarize past conversations") },
@@ -423,21 +423,21 @@ fun SettingsScreen(
                             onCheckedChange = { viewModel.setAutoGenerateEpisodes(it) }
                         )
                     },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    
                 )
                 ListItem(
                     headlineContent = { Text("Keep memories for") },
                     supportingContent = { Text(if (memoryRetentionDays == -1) "Forever" else "$memoryRetentionDays days") },
                     leadingContent = { Icon(Icons.Default.History, contentDescription = null) },
                     modifier = Modifier.clickable { showMemoryRetentionDialog = true },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    
                 )
                 ListItem(
                     headlineContent = { Text("Clear memories", color = MaterialTheme.colorScheme.error) },
                     supportingContent = { Text("Wipe everything your AI has learned", color = MaterialTheme.colorScheme.error.copy(alpha = 0.7f)) },
                     leadingContent = { Icon(Icons.Default.DeleteSweep, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
                     modifier = Modifier.clickable { showClearMemoriesDialog = true },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    
                 )
             }
 
@@ -452,7 +452,7 @@ fun SettingsScreen(
                         if (enableHapticFeedback) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         viewModel.exportAuditLogs(context)
                     },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    
                 )
             }
 
@@ -467,7 +467,7 @@ fun SettingsScreen(
                         if (enableHapticFeedback) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         showFeedbackDialog = true 
                     },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    
                 )
             }
 
@@ -478,7 +478,7 @@ fun SettingsScreen(
                     headlineContent = { Text("App Version") },
                     supportingContent = { Text("1.0.0-alpha") }, // Would come from BuildConfig in real app
                     leadingContent = { Icon(Icons.Default.Info, contentDescription = null) },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    
                 )
                 ListItem(
                     headlineContent = { Text("Privacy Policy") },
@@ -488,7 +488,7 @@ fun SettingsScreen(
                         if (enableHapticFeedback) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         showLegal("Privacy Policy", "privacy_policy.txt")
                     },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    
                 )
                 ListItem(
                     headlineContent = { Text("Terms of Service") },
@@ -498,7 +498,7 @@ fun SettingsScreen(
                         if (enableHapticFeedback) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         showLegal("Terms of Service", "terms_of_service.txt")
                     },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    
                 )
                 ListItem(
                     headlineContent = { Text("Biometric Disclosure") },
@@ -508,7 +508,7 @@ fun SettingsScreen(
                         if (enableHapticFeedback) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         showLegal("Biometric Disclosure & Consent", "biometric_disclosure.txt")
                     },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    
                 )
                 ListItem(
                     headlineContent = { Text("GitHub") },
@@ -518,7 +518,7 @@ fun SettingsScreen(
                         val i = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/ekam-ai-labs/baton"))
                         context.startActivity(i)
                     },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    
                 )
             }
         }

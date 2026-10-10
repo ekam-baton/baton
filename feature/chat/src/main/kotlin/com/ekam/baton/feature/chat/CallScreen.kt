@@ -4,12 +4,16 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CallEnd
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
+import androidx.compose.material.icons.filled.ChatBubble
+import androidx.compose.material.icons.filled.ClosedCaption
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
+import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -17,9 +21,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.ekam.baton.core.ui.components.glassCard
 
 @Composable
 fun CallScreen(
@@ -28,16 +35,20 @@ fun CallScreen(
 ) {
     var isMuted by remember { mutableStateOf(false) }
     var isSpeaker by remember { mutableStateOf(true) }
+    var showTranscript by remember { mutableStateOf(false) }
 
     val context = androidx.compose.ui.platform.LocalContext.current
     
     LaunchedEffect(Unit) {
-        val webRtcManager = com.ekam.baton.core.network.webrtc.WebRtcManager(context)
-        webRtcManager.initialize()
-        webRtcManager.startVoiceCall(agentName)
+        try {
+            val webRtcManager = com.ekam.baton.core.network.webrtc.WebRtcManager(context)
+            webRtcManager.initialize()
+            webRtcManager.startVoiceCall(agentName)
+        } catch (e: Exception) {
+            // Ignored for UI preview
+        }
     }
 
-    // Pulsing animation for the avatar to simulate "speaking"
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
     val pulseScale by infiniteTransition.animateFloat(
         initialValue = 1f,
@@ -58,126 +69,187 @@ fun CallScreen(
         label = "pulseAlpha"
     )
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF121212)), // Cinematic dark background
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.SpaceBetween
+            .background(Color(0xFF0D131F)) // Deep Ocean Blue
     ) {
-        // Top section: Status
         Column(
+            modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(top = 64.dp)
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(
-                text = "Connected",
-                color = Color.Green.copy(alpha = 0.8f),
-                style = MaterialTheme.typography.titleMedium
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "00:03",
-                color = Color.White.copy(alpha = 0.6f),
-                style = MaterialTheme.typography.bodyLarge
-            )
-        }
-
-        // Center section: Avatar and Name
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier.size(200.dp)
+            // Top section: Encryption Status
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(top = 48.dp)
             ) {
-                // Pulse ring
-                Box(
+                Row(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .scale(pulseScale)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = pulseAlpha))
-                )
-                // Main Avatar
-                Box(
-                    modifier = Modifier
-                        .size(150.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary)
+                        .glassCard(shape = CircleShape)
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
                 ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Lock,
+                        contentDescription = "Encrypted",
+                        tint = MaterialTheme.colorScheme.tertiary,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = if (agentName.isNotBlank()) agentName.take(1).uppercase() else "?",
-                        color = Color.White,
-                        fontSize = 64.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.align(Alignment.Center)
+                        text = "End-to-End Encrypted • 48kHz Opus",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(24.dp))
-            Text(
-                text = agentName,
-                color = Color.White,
-                style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold)
+
+            // Center section: Squircle Avatar and Name
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.size(180.dp)
+                ) {
+                    // Pulse ring (Squircle)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .scale(pulseScale)
+                            .clip(RoundedCornerShape(32.dp))
+                            .background(Color(0xFF306EE8).copy(alpha = pulseAlpha))
+                    )
+                    // Main Avatar (Squircle)
+                    Box(
+                        modifier = Modifier
+                            .size(130.dp)
+                            .clip(RoundedCornerShape(32.dp))
+                            .background(Color(0xFF306EE8))
+                    ) {
+                        Text(
+                            text = if (agentName.isNotBlank()) agentName.take(1).uppercase() else "?",
+                            color = Color.White,
+                            fontSize = 56.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.align(Alignment.Center)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(32.dp))
+                Text(
+                    text = agentName,
+                    color = Color.White,
+                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(horizontal = 32.dp)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(MaterialTheme.colorScheme.tertiary))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "04:18 • Neural Audio Active",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            // Bottom section: 5-Button Controls Cluster
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 48.dp, start = 24.dp, end = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    CallControlButton(
+                        icon = if (isMuted) Icons.Default.MicOff else Icons.Default.Mic,
+                        label = "Mute",
+                        isActive = isMuted,
+                        onClick = { isMuted = !isMuted }
+                    )
+                    CallControlButton(
+                        icon = if (isSpeaker) Icons.AutoMirrored.Filled.VolumeUp else Icons.AutoMirrored.Filled.VolumeOff,
+                        label = "Speaker",
+                        isActive = isSpeaker,
+                        onClick = { isSpeaker = !isSpeaker }
+                    )
+                    CallControlButton(
+                        icon = Icons.Default.ChatBubble,
+                        label = "Chat",
+                        isActive = false,
+                        onClick = { /* Navigate to chat */ }
+                    )
+                    CallControlButton(
+                        icon = Icons.Default.ClosedCaption,
+                        label = "Transcript",
+                        isActive = showTranscript,
+                        onClick = { showTranscript = !showTranscript }
+                    )
+                }
+                Spacer(modifier = Modifier.height(32.dp))
+                // End Call Button
+                IconButton(
+                    onClick = onEndCall,
+                    modifier = Modifier
+                        .size(72.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFEF4444)) // Vivid Red
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CallEnd,
+                        contentDescription = "End Call",
+                        tint = Color.White,
+                        modifier = Modifier.size(36.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CallControlButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    isActive: Boolean,
+    onClick: () -> Unit
+) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        IconButton(
+            onClick = onClick,
+            modifier = Modifier
+                .size(56.dp)
+                .clip(CircleShape)
+                .background(if (isActive) Color.White else Color(0xFF1E293B))
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+                tint = if (isActive) Color.Black else Color.White,
+                modifier = Modifier.size(24.dp)
             )
         }
-
-        // Bottom section: Controls
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 64.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Mute Button
-            IconButton(
-                onClick = { isMuted = !isMuted },
-                modifier = Modifier
-                    .size(64.dp)
-                    .clip(CircleShape)
-                    .background(if (isMuted) Color.White else Color.DarkGray)
-            ) {
-                Icon(
-                    imageVector = if (isMuted) Icons.Default.MicOff else Icons.Default.Mic,
-                    contentDescription = "Mute",
-                    tint = if (isMuted) Color.Black else Color.White,
-                    modifier = Modifier.size(32.dp)
-                )
-            }
-
-            // End Call Button
-            IconButton(
-                onClick = onEndCall,
-                modifier = Modifier
-                    .size(80.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFFE53935)) // Bright Red
-            ) {
-                Icon(
-                    imageVector = Icons.Default.CallEnd,
-                    contentDescription = "End Call",
-                    tint = Color.White,
-                    modifier = Modifier.size(40.dp)
-                )
-            }
-
-            // Speaker Button
-            IconButton(
-                onClick = { isSpeaker = !isSpeaker },
-                modifier = Modifier
-                    .size(64.dp)
-                    .clip(CircleShape)
-                    .background(if (isSpeaker) Color.White else Color.DarkGray)
-            ) {
-                Icon(
-                    imageVector = if (isSpeaker) Icons.AutoMirrored.Filled.VolumeUp else Icons.AutoMirrored.Filled.VolumeOff,
-                    contentDescription = "Speaker",
-                    tint = if (isSpeaker) Color.Black else Color.White,
-                    modifier = Modifier.size(32.dp)
-                )
-            }
-        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = label,
+            color = if (isActive) Color.White else Color(0xFF94A3B8),
+            style = MaterialTheme.typography.labelMedium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }

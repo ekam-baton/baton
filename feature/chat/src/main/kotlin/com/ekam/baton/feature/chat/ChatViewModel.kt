@@ -262,18 +262,8 @@ class ChatViewModel(
                 // message entity, but surface general failures here as well.
                 _uiError.value = "Failed to send message: ${e.message}"
             } finally {
-                // FIX: Run episodic memory check BEFORE clearing the status, so the
-                // "Extracting key facts..." label is only shown during actual work and
-                // is never displayed on the error path (error already set above).
-                try {
-                    _agentActivityStatus.value = "Extracting key facts..."
-                    checkEpisodicMemoryGeneration(cid)
-                } catch (_: Exception) {
-                    // Non-fatal; best-effort episodic memory
-                } finally {
-                    _isStreaming.value = false
-                    _agentActivityStatus.value = null
-                }
+                _isStreaming.value = false
+                _agentActivityStatus.value = null
             }
         }
     }
@@ -332,20 +322,7 @@ class ChatViewModel(
         }
     }
 
-    private suspend fun checkEpisodicMemoryGeneration(cid: String) {
-        if (!appPreferences.autoGenerateEpisodes.first()) return
-        val conv = chatRepository.getConversationById(cid) ?: return
-        if (conv.messageCount > 0 && conv.messageCount % EPISODIC_MEMORY_INTERVAL == 0) {
-            val workData = androidx.work.workDataOf(
-                "conversationId" to cid,
-                "agentId" to conv.agentId
-            )
-            val request = androidx.work.OneTimeWorkRequestBuilder<com.ekam.baton.core.data.memory.EpisodicMemoryWorker>()
-                .setInputData(workData)
-                .build()
-            androidx.work.WorkManager.getInstance(context).enqueue(request)
-        }
-    }
+
 
     fun createConversation(agentId: String, onCreated: (String) -> Unit) {
         viewModelScope.launch {

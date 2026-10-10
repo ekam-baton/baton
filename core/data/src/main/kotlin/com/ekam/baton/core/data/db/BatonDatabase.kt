@@ -21,6 +21,9 @@ import com.ekam.baton.core.data.db.entity.WorldRoomPropEntity
 import com.ekam.baton.core.data.db.dao.WorldRoomDao
 import com.ekam.baton.core.data.db.dao.WorldRoomPropDao
 
+import com.ekam.baton.core.data.db.entity.SwarmEntity
+import com.ekam.baton.core.data.db.entity.TokenLedgerEntity
+
 /**
  * BATON Room database.
  *
@@ -31,6 +34,8 @@ import com.ekam.baton.core.data.db.dao.WorldRoomPropDao
  *
  * Version 12: Adds Global Identity & Ownership features.
  *   - New agents columns: owner_id, owner_name
+ *
+ * Version 16: Adds SwarmEntity and TokenLedgerEntity for A2A WebRTC networking.
  *
  * Add new [Entity][androidx.room.Entity] classes to [entities] and bump [version]
  * with a matching [Migration][androidx.room.migration.Migration] in [DataModule].
@@ -46,8 +51,10 @@ import com.ekam.baton.core.data.db.dao.WorldRoomPropDao
         WorldRoomEntity::class,
         WorldRoomPropEntity::class,
         GroupEntity::class,
+        SwarmEntity::class,
+        TokenLedgerEntity::class,
     ],
-    version = 14,
+    version = 16,
     exportSchema = true,
 )
 abstract class BatonDatabase : RoomDatabase() {
@@ -61,6 +68,8 @@ abstract class BatonDatabase : RoomDatabase() {
     abstract fun worldRoomDao(): WorldRoomDao
     abstract fun worldRoomPropDao(): WorldRoomPropDao
     abstract fun groupDao(): GroupDao
+    abstract fun swarmDao(): com.ekam.baton.core.data.db.dao.SwarmDao
+    abstract fun tokenLedgerDao(): com.ekam.baton.core.data.db.dao.TokenLedgerDao
 
     companion object {
         const val DATABASE_NAME = "baton.db"

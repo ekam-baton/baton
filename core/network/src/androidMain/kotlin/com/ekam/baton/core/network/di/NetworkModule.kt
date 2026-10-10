@@ -40,10 +40,12 @@ val networkModule = module {
 
     single {
         val certificatePinner = okhttp3.CertificatePinner.Builder()
-            .add("api.baton.com", "sha256/TODO_REPLACE_WITH_REAL_API_PIN_1")
-            .add("api.baton.com", "sha256/TODO_REPLACE_WITH_REAL_API_PIN_2")
-            .add("router.baton.com", "sha256/TODO_REPLACE_WITH_REAL_ROUTER_PIN_1")
-            .add("relay.baton.com", "sha256/TODO_REPLACE_WITH_REAL_RELAY_PIN_1")
+            .add("api.baton.com", "sha256/7HIpactkIAq2Y49orFOOQKurWxmmSFZhBCoQYcRhJ3Y=")
+            .add("api.baton.com", "sha256/fwza0LRMXouZHRC8Ei+4PyuldPDcf3UKgO/04cDM1oE=")
+            .add("router.baton.com", "sha256/7HIpactkIAq2Y49orFOOQKurWxmmSFZhBCoQYcRhJ3Y=")
+            .add("router.baton.com", "sha256/fwza0LRMXouZHRC8Ei+4PyuldPDcf3UKgO/04cDM1oE=")
+            .add("relay.baton.com", "sha256/7HIpactkIAq2Y49orFOOQKurWxmmSFZhBCoQYcRhJ3Y=")
+            .add("relay.baton.com", "sha256/fwza0LRMXouZHRC8Ei+4PyuldPDcf3UKgO/04cDM1oE=")
             .build()
 
         OkHttpClient.Builder()
