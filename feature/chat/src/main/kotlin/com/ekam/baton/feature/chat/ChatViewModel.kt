@@ -40,6 +40,7 @@ import kotlinx.coroutines.GlobalScope
 
 import com.ekam.baton.core.data.db.dao.SwarmDao
 import com.ekam.baton.core.data.db.entity.SwarmEntity
+import com.ekam.baton.core.network.service.SwarmForegroundService
 import org.json.JSONArray
 
 private const val TAG = "ChatViewModel"
@@ -379,6 +380,7 @@ class ChatViewModel(
                     createdAt = System.currentTimeMillis()
                 )
                 swarmDao.insertSwarm(swarm)
+                SwarmForegroundService.start(context, swarm.id, swarm.name, 1 + workerAgentIds.size)
                 onCreated(swarm.id)
             } catch (e: Exception) {
                 _uiError.value = "Failed to deploy swarm: ${e.message}"

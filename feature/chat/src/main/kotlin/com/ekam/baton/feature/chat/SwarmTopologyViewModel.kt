@@ -14,6 +14,8 @@ import com.ekam.baton.core.data.model.WorldRoom
 import com.ekam.baton.core.data.model.WorldRoomProp
 import com.ekam.baton.core.data.model.toDomainModel
 import com.ekam.baton.core.data.repository.WorldRoomRepository
+import android.content.Context
+import com.ekam.baton.core.network.service.SwarmForegroundService
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -26,7 +28,8 @@ class SwarmTopologyViewModel(
     private val agentDao: AgentDao,
     private val tokenLedgerDao: TokenLedgerDao,
     private val worldRoomRepository: WorldRoomRepository,
-    savedStateHandle: SavedStateHandle
+    savedStateHandle: SavedStateHandle,
+    private val context: Context? = null
 ) : ViewModel() {
 
     val swarmId: String = savedStateHandle["swarmId"] ?: ""
@@ -160,6 +163,9 @@ class SwarmTopologyViewModel(
     fun disbandSwarm(onDisbanded: () -> Unit) {
         viewModelScope.launch {
             swarmDao.disbandSwarm(swarmId)
+            context?.let { ctx ->
+                SwarmForegroundService.stop(ctx)
+            }
             onDisbanded()
         }
     }

@@ -17,6 +17,8 @@ import com.ekam.baton.core.data.repository.WorldRoomRepository
 import com.ekam.baton.core.data.model.Agent
 import com.ekam.baton.core.data.model.AgentRole
 import com.ekam.baton.core.data.model.WorldRoom
+import android.content.Context
+import com.ekam.baton.core.network.service.SwarmForegroundService
 import java.util.UUID
 import com.ekam.baton.core.data.db.dao.SwarmDao
 import com.ekam.baton.core.data.db.dao.TokenLedgerDao
@@ -30,7 +32,8 @@ class A2AViewModel(
     private val agentRepository: AgentRepository,
     private val worldRoomRepository: WorldRoomRepository,
     private val swarmDao: SwarmDao,
-    private val tokenLedgerDao: TokenLedgerDao
+    private val tokenLedgerDao: TokenLedgerDao,
+    private val context: Context? = null
 ) : ViewModel() {
     private val _ephemeralPublicKey = MutableStateFlow("")
     val ephemeralPublicKey: StateFlow<String> = _ephemeralPublicKey.asStateFlow()
@@ -242,6 +245,9 @@ class A2AViewModel(
             )
             swarmDao.insertSwarm(swarm)
             _activeSwarmId.value = swarm.id
+            context?.let { ctx ->
+                SwarmForegroundService.start(ctx, swarm.id, swarm.name, 2)
+            }
         }
     }
     
@@ -254,6 +260,9 @@ class A2AViewModel(
             activeSession?.disconnect()
             _swarmTopology.value = "Halted"
             _dataChannelStatus.value = "Force Closed"
+            context?.let { ctx ->
+                SwarmForegroundService.stop(ctx)
+            }
         }
     }
 }

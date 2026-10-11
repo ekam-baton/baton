@@ -100,6 +100,9 @@ fun BatonNavGraph(
                     },
                     onNavigateToSwarm = { swarmId ->
                         navController.navigate("swarms/$swarmId")
+                    },
+                    onNavigateToSwarmTopology = { swarmId ->
+                        navController.navigate("swarms/$swarmId/topology")
                     }
                 )
             }

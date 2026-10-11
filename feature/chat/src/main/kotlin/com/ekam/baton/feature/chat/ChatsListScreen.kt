@@ -5,6 +5,7 @@ import org.koin.compose.viewmodel.koinViewModel
 import android.text.format.DateUtils
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -45,6 +46,7 @@ fun ChatsListScreen(
     onNavigateToChat: (String) -> Unit,
     onNavigateToCall: (String) -> Unit,
     onNavigateToSwarm: (String) -> Unit = {},
+    onNavigateToSwarmTopology: (String) -> Unit = {},
     viewModel: ChatViewModel = koinViewModel()
 ) {
     val conversations = viewModel.conversations.collectAsLazyPagingItems()
@@ -212,7 +214,8 @@ fun ChatsListScreen(
                             SwarmClusterCard(
                                 swarm = swarm,
                                 leaderAgent = agents.find { it.id == swarm.leaderAgentId },
-                                onClick = { onNavigateToSwarm(swarm.id) }
+                                onClick = { onNavigateToSwarm(swarm.id) },
+                                onTopologyClick = { onNavigateToSwarmTopology(swarm.id) }
                             )
                         }
                     }
@@ -501,7 +504,8 @@ fun EmptySwarmsState(
 fun SwarmClusterCard(
     swarm: SwarmEntity,
     leaderAgent: Agent?,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onTopologyClick: (() -> Unit)? = null
 ) {
     Surface(
         shape = RoundedCornerShape(16.dp),
@@ -626,6 +630,38 @@ fun SwarmClusterCard(
                     color = Color(0xFF94A3B8),
                     modifier = Modifier.weight(1f)
                 )
+
+                if (onTopologyClick != null) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFF306EE8).copy(alpha = 0.2f),
+                        border = BorderStroke(1.dp, Color(0xFF306EE8).copy(alpha = 0.5f)),
+                        modifier = Modifier.clickable { onTopologyClick() }
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Hub,
+                                contentDescription = "Topology & 2.5D Room",
+                                tint = Color(0xFF00D2FF),
+                                modifier = Modifier.size(12.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "TOPOLOGY",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 10.sp
+                                ),
+                                color = Color(0xFF00D2FF)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
 
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowForward,

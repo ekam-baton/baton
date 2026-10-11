@@ -12,6 +12,8 @@ import com.ekam.baton.core.data.db.entity.SwarmEntity
 import com.ekam.baton.core.data.db.entity.TokenLedgerEntity
 import com.ekam.baton.core.data.model.Agent
 import com.ekam.baton.core.data.model.toDomainModel
+import android.content.Context
+import com.ekam.baton.core.network.service.SwarmForegroundService
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -23,7 +25,8 @@ class SwarmChatViewModel(
     private val tokenLedgerDao: TokenLedgerDao,
     private val agentDao: AgentDao,
     private val messageDao: MessageDao,
-    savedStateHandle: SavedStateHandle
+    savedStateHandle: SavedStateHandle,
+    private val context: Context? = null
 ) : ViewModel() {
 
     val swarmId: String = savedStateHandle["swarmId"] ?: ""
@@ -185,6 +188,9 @@ class SwarmChatViewModel(
     fun disbandSwarm(onDisbanded: () -> Unit) {
         viewModelScope.launch {
             swarmDao.disbandSwarm(swarmId)
+            context?.let { ctx ->
+                SwarmForegroundService.stop(ctx)
+            }
             onDisbanded()
         }
     }
