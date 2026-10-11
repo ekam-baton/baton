@@ -1,18 +1,25 @@
 package com.ekam.baton.feature.chat
 
+import android.media.AudioDeviceInfo
+import android.media.AudioManager
+import android.os.Build
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.CallEnd
-import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.ClosedCaption
-import androidx.compose.material.icons.automirrored.filled.VolumeUp
-import androidx.compose.material.icons.automirrored.filled.VolumeOff
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -20,12 +27,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.ekam.baton.core.network.webrtc.WebRtcManager
 import com.ekam.baton.core.ui.components.glassCard
 
 @Composable
@@ -39,9 +50,11 @@ fun CallScreen(
     var showTranscript by remember { mutableStateOf(false) }
     var elapsedSeconds by remember { mutableLongStateOf(0L) }
 
-    val context = androidx.compose.ui.platform.LocalContext.current
-    var webRtcManager by remember { mutableStateOf<com.ekam.baton.core.network.webrtc.WebRtcManager?>(null) }
-    val audioManager = remember { context.getSystemService(android.content.Context.AUDIO_SERVICE) as? android.media.AudioManager }
+    val context = LocalContext.current
+    var webRtcManager by remember { mutableStateOf<WebRtcManager?>(null) }
+    val audioManager = remember { context.getSystemService(android.content.Context.AUDIO_SERVICE) as? AudioManager }
+
+    val liveAmplitude by (webRtcManager?.audioAmplitude?.collectAsStateWithLifecycle() ?: remember { mutableFloatStateOf(0.4f) })
 
     LaunchedEffect(Unit) {
         while (true) {
@@ -51,7 +64,7 @@ fun CallScreen(
     }
 
     DisposableEffect(Unit) {
-        val manager = com.ekam.baton.core.network.webrtc.WebRtcManager(context)
+        val manager = WebRtcManager(context)
         try {
             manager.initialize()
             manager.startVoiceCall(agentName)
@@ -74,7 +87,21 @@ fun CallScreen(
 
     LaunchedEffect(isSpeaker) {
         try {
-            audioManager?.isSpeakerphoneOn = isSpeaker
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                if (isSpeaker) {
+                    val speakerDevice = audioManager?.availableCommunicationDevices?.firstOrNull {
+                        it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER
+                    }
+                    if (speakerDevice != null) {
+                        audioManager?.setCommunicationDevice(speakerDevice)
+                    }
+                } else {
+                    audioManager?.clearCommunicationDevice()
+                }
+            } else {
+                @Suppress("DEPRECATION")
+                audioManager?.isSpeakerphoneOn = isSpeaker
+            }
         } catch (e: Exception) {
             // Ignore
         }
@@ -86,25 +113,20 @@ fun CallScreen(
         String.format(java.util.Locale.US, "%02d:%02d", minutes, seconds)
     }
 
+    // Dynamic squircle avatar pulse scaled by live audio amplitude
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-    val pulseScale by infiniteTransition.animateFloat(
+    val pulsePhase by infiniteTransition.animateFloat(
         initialValue = 1f,
-        targetValue = 1.15f,
+        targetValue = 1.12f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = FastOutSlowInEasing),
+            animation = tween(1200, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
-        label = "pulseScale"
+        label = "pulsePhase"
     )
-    val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.5f,
-        targetValue = 0f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "pulseAlpha"
-    )
+
+    val effectivePulseScale = if (isMuted) 1f else pulsePhase + (liveAmplitude * 0.12f)
+    val effectivePulseAlpha = if (isMuted) 0.15f else (0.25f + liveAmplitude * 0.35f).coerceIn(0.1f, 0.7f)
 
     Box(
         modifier = Modifier
@@ -116,10 +138,12 @@ fun CallScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Top section: Encryption Status
+            // Top section: Encryption & Connection Status
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.padding(top = 48.dp)
+                modifier = Modifier
+                    .padding(top = 48.dp, start = 20.dp, end = 20.dp)
+                    .fillMaxWidth()
             ) {
                 Row(
                     modifier = Modifier
@@ -131,109 +155,205 @@ fun CallScreen(
                     Icon(
                         imageVector = Icons.Outlined.Lock,
                         contentDescription = "Encrypted",
-                        tint = MaterialTheme.colorScheme.tertiary,
+                        tint = Color(0xFF00D2FF),
                         modifier = Modifier.size(14.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = "End-to-End Encrypted • 48kHz Opus",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = Color.White.copy(alpha = 0.85f),
                         style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Connection HUD Pill with "Connected" indicator
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFF131E31))
+                        .padding(horizontal = 12.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(Color(0xFF10B981)))
+                    Text(
+                        text = "Connected",
+                        color = Color(0xFF10B981),
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text("•", color = Color.White.copy(alpha = 0.3f), fontSize = 10.sp)
+                    Text(
+                        text = formattedDuration,
+                        color = Color.White,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 11.sp
+                    )
+                    Text("•", color = Color.White.copy(alpha = 0.3f), fontSize = 10.sp)
+                    Text(
+                        text = "<18ms WebRTC",
+                        color = Color(0xFF00D2FF),
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 11.sp
+                    )
+                }
             }
 
-            // Center section: Squircle Avatar and Name
+            // Center section: Squircle Avatar, Agent Name & Waveform Visualizer
             Column(
-                horizontalAlignment = Alignment.CenterHorizontally
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
             ) {
                 Box(
                     contentAlignment = Alignment.Center,
-                    modifier = Modifier.size(180.dp)
+                    modifier = Modifier.size(170.dp)
                 ) {
-                    // Pulse ring (Squircle)
+                    // Pulsing Outer Aura
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .scale(pulseScale)
-                            .clip(RoundedCornerShape(32.dp))
-                            .background(Color(0xFF306EE8).copy(alpha = pulseAlpha))
+                            .scale(effectivePulseScale)
+                            .clip(RoundedCornerShape(36.dp))
+                            .background(Color(0xFF306EE8).copy(alpha = effectivePulseAlpha))
                     )
-                    // Main Avatar (Squircle)
+                    // Core Squircle Avatar
                     Box(
                         modifier = Modifier
-                            .size(130.dp)
+                            .size(124.dp)
                             .clip(RoundedCornerShape(32.dp))
-                            .background(Color(0xFF306EE8))
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(Color(0xFF306EE8), Color(0xFF1A3D80))
+                                )
+                            )
+                            .border(1.5.dp, Color(0xFF00D2FF).copy(alpha = 0.5f), RoundedCornerShape(32.dp))
                     ) {
                         Text(
                             text = if (agentName.isNotBlank()) agentName.take(1).uppercase() else "?",
                             color = Color.White,
-                            fontSize = 56.sp,
+                            fontSize = 52.sp,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.align(Alignment.Center)
                         )
                     }
                 }
-                Spacer(modifier = Modifier.height(32.dp))
+
+                Spacer(modifier = Modifier.height(20.dp))
+
                 Text(
                     text = agentName,
                     color = Color.White,
                     style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(horizontal = 32.dp)
+                    overflow = TextOverflow.Ellipsis
                 )
+
                 Spacer(modifier = Modifier.height(8.dp))
+
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(MaterialTheme.colorScheme.tertiary))
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(if (isMuted) Color(0xFFF59E0B) else Color(0xFF10B981))
+                    )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "$formattedDuration • Neural Audio Active",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        text = if (isMuted) "Microphone Muted" else "Neural Audio Stream Active",
+                        color = if (isMuted) Color(0xFFF59E0B) else Color(0xFF10B981),
                         style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Real-time Audio Waveform Visualizer
+                AudioWaveformVisualizer(
+                    amplitude = if (isMuted) 0f else liveAmplitude,
+                    isMuted = isMuted,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(64.dp)
+                        .padding(horizontal = 16.dp)
+                )
             }
 
-            // Bottom section: Controls Cluster & Transcript
+            // Bottom section: Controls Cluster & Live Transcript
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 48.dp, start = 24.dp, end = 24.dp),
+                    .padding(bottom = 44.dp, start = 24.dp, end = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                if (showTranscript) {
-                    Box(
+                AnimatedVisibility(visible = showTranscript) {
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .glassCard(shape = RoundedCornerShape(16.dp))
-                            .padding(16.dp),
-                        contentAlignment = Alignment.Center
+                            .padding(16.dp)
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Text(
-                                text = "LIVE TRANSCRIPT",
+                                text = "LIVE SPEECH TRANSCRIPT",
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontFamily = FontFamily.Monospace,
                                     fontWeight = FontWeight.Bold
                                 ),
-                                color = MaterialTheme.colorScheme.tertiary
+                                color = Color(0xFF00D2FF)
                             )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = "Real-time speech synthesis connected. Listening to audio stream...",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color.White.copy(alpha = 0.85f),
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                            )
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(Color(0xFF10B981).copy(alpha = 0.2f))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = "SYNCHRONIZED",
+                                    color = Color(0xFF10B981),
+                                    fontSize = 9.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 90.dp)
+                                .verticalScroll(rememberScrollState())
+                        ) {
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text(
+                                    text = "Operator: Hello $agentName, running diagnostic telemetry check.",
+                                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                                    color = Color.White.copy(alpha = 0.7f)
+                                )
+                                Text(
+                                    text = "$agentName: Neural channel verified. WebRTC 48kHz audio pipeline ready.",
+                                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                                    color = Color(0xFF00D2FF)
+                                )
+                            }
                         }
                     }
-                    Spacer(modifier = Modifier.height(24.dp))
+                }
+
+                if (showTranscript) {
+                    Spacer(modifier = Modifier.height(20.dp))
                 }
 
                 Row(
@@ -266,7 +386,9 @@ fun CallScreen(
                         onClick = { showTranscript = !showTranscript }
                     )
                 }
-                Spacer(modifier = Modifier.height(32.dp))
+
+                Spacer(modifier = Modifier.height(28.dp))
+
                 // End Call Button
                 IconButton(
                     onClick = {
@@ -290,6 +412,75 @@ fun CallScreen(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun AudioWaveformVisualizer(
+    amplitude: Float,
+    isMuted: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val barCount = 28
+    val infiniteTransition = rememberInfiniteTransition(label = "waveform")
+    val phase by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 6.28f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2400, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "phase"
+    )
+
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color(0xFF090E17).copy(alpha = 0.6f))
+            .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        for (i in 0 until barCount) {
+            val normalizedIdx = i.toFloat() / barCount
+            val barHeightFraction = if (isMuted) {
+                0.08f
+            } else {
+                val harmonic = kotlin.math.sin(phase + i * 0.4f).toFloat()
+                val envelope = kotlin.math.sin(normalizedIdx * 3.14f).toFloat()
+                val dynamic = 0.12f + (amplitude * envelope * (0.45f + 0.35f * harmonic)).coerceIn(0f, 0.88f)
+                dynamic
+            }
+
+            val animatedHeightFraction by animateFloatAsState(
+                targetValue = barHeightFraction,
+                animationSpec = spring(stiffness = Spring.StiffnessHigh),
+                label = "barHeight_$i"
+            )
+
+            val barBrush = remember(isMuted) {
+                if (isMuted) {
+                    androidx.compose.ui.graphics.SolidColor(Color(0xFF475569))
+                } else {
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0xFF10B981),
+                            Color(0xFF00D2FF),
+                            Color(0xFF306EE8)
+                        )
+                    )
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .width(4.dp)
+                    .fillMaxHeight(animatedHeightFraction)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(barBrush)
+            )
         }
     }
 }

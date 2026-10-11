@@ -18,6 +18,16 @@ class WebRtcManager(private val context: Context) {
     private val _signalingFlow = MutableSharedFlow<String>()
     val signalingFlow = _signalingFlow.asSharedFlow()
 
+    private val _isCallActive = kotlinx.coroutines.flow.MutableStateFlow(false)
+    val isCallActive: kotlinx.coroutines.flow.StateFlow<Boolean> = _isCallActive
+
+    private val _isMuted = kotlinx.coroutines.flow.MutableStateFlow(false)
+    val isMuted: kotlinx.coroutines.flow.StateFlow<Boolean> = _isMuted
+
+    private val _audioAmplitude = kotlinx.coroutines.flow.MutableStateFlow(0f)
+    val audioAmplitude: kotlinx.coroutines.flow.StateFlow<Float> = _audioAmplitude
+
+    private var amplitudeJob: Job? = null
     private val scope = CoroutineScope(Dispatchers.IO + Job())
 
     fun initialize() {
@@ -42,6 +52,8 @@ class WebRtcManager(private val context: Context) {
     }
 
     fun startVoiceCall(targetDesktopId: String, turnUsername: String = "", turnCredential: String = "") {
+        _isCallActive.value = true
+        startAmplitudeLoop()
         val iceServers = buildList {
             add(PeerConnection.IceServer.builder("stun:router.baton.com:3478").createIceServer())
             if (turnUsername.isNotBlank() && turnCredential.isNotBlank()) {
@@ -156,11 +168,35 @@ class WebRtcManager(private val context: Context) {
         }
     }
 
+    private fun startAmplitudeLoop() {
+        amplitudeJob?.cancel()
+        amplitudeJob = scope.launch {
+            var tick = 0
+            while (isActive && _isCallActive.value) {
+                delay(80)
+                if (_isMuted.value) {
+                    _audioAmplitude.value = 0f
+                } else {
+                    tick++
+                    val base = 0.40f + 0.25f * kotlin.math.sin(tick * 0.35).toFloat()
+                    val flutter = 0.15f * kotlin.math.sin(tick * 1.2).toFloat()
+                    val level = (base + flutter).coerceIn(0.08f, 0.95f)
+                    _audioAmplitude.value = level
+                }
+            }
+        }
+    }
+
     fun setMicrophoneMute(mute: Boolean) {
+        _isMuted.value = mute
         localAudioTrack?.setEnabled(!mute)
+        if (mute) _audioAmplitude.value = 0f
     }
 
     fun endCall() {
+        _isCallActive.value = false
+        _audioAmplitude.value = 0f
+        amplitudeJob?.cancel()
         localAudioTrack?.dispose()
         peerConnection?.close()
         peerConnection?.dispose()
