@@ -38,6 +38,10 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.GlobalScope
 
+import com.ekam.baton.core.data.db.dao.SwarmDao
+import com.ekam.baton.core.data.db.entity.SwarmEntity
+import org.json.JSONArray
+
 private const val TAG = "ChatViewModel"
 
 class ChatViewModel(
@@ -47,6 +51,7 @@ class ChatViewModel(
     private val toolAuthManager: com.ekam.baton.core.network.mcp.ToolAuthorizationManager,
     private val httpClient: okhttp3.OkHttpClient,
     private val context: Context,
+    private val swarmDao: SwarmDao,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -72,6 +77,13 @@ class ChatViewModel(
     private val conversationId: String? = savedStateHandle["conversationId"]
 
     val agents: StateFlow<List<Agent>> = chatRepository.getAllAgents()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    val swarms: StateFlow<List<SwarmEntity>> = swarmDao.getAllSwarms()
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -342,6 +354,34 @@ class ChatViewModel(
                 onCreated(newId)
             } catch (e: Exception) {
                 _uiError.value = "Failed to create conversation."
+            }
+        }
+    }
+
+    fun createSwarm(
+        name: String,
+        leaderAgentId: String,
+        workerAgentIds: List<String>,
+        topologyType: String = "P2P",
+        intentContext: String = "Multi-agent collaborative task execution",
+        onCreated: (String) -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                val swarm = SwarmEntity(
+                    id = UUID.randomUUID().toString(),
+                    name = name.ifBlank { "Swarm Cluster" },
+                    leaderAgentId = leaderAgentId,
+                    topologyType = topologyType,
+                    workerAgentIds = JSONArray(workerAgentIds).toString(),
+                    intentContext = intentContext.ifBlank { "Autonomous swarm consensus" },
+                    isActive = true,
+                    createdAt = System.currentTimeMillis()
+                )
+                swarmDao.insertSwarm(swarm)
+                onCreated(swarm.id)
+            } catch (e: Exception) {
+                _uiError.value = "Failed to deploy swarm: ${e.message}"
             }
         }
     }

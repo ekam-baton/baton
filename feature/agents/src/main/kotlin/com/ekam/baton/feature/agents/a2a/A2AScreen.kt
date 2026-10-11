@@ -31,9 +31,11 @@ import org.koin.compose.viewmodel.koinViewModel
 fun A2AScreen(
     onNavigateToQr: () -> Unit,
     onNavigateToScanner: () -> Unit,
+    onNavigateToSwarm: (String) -> Unit = {},
     viewModel: A2AViewModel = koinViewModel()
 ) {
     val pendingRoleAgent by viewModel.pendingRoleAssignment.collectAsState()
+    val activeSwarmId by viewModel.activeSwarmId.collectAsState()
     val swarmTopology by viewModel.swarmTopology.collectAsState()
     val dataChannelStatus by viewModel.dataChannelStatus.collectAsState()
     val burnRate by viewModel.burnRate.collectAsState()
@@ -246,6 +248,29 @@ fun A2AScreen(
                         Text("> Exchanging context vectors (42.1kb)", color = Color(0xFF306EE8), style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace))
                         Text("> Negotiating outcome parameters...", color = Color.White, style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace))
                     }
+                }
+            }
+
+            // Swarm Console Navigation if active
+            if (activeSwarmId != null) {
+                Button(
+                    onClick = { activeSwarmId?.let { onNavigateToSwarm(it) } },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF306EE8)),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 6.dp)
+                        .height(52.dp)
+                ) {
+                    Icon(Icons.Default.Hub, contentDescription = null, tint = Color.White)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "ENTER SWARM THREAD",
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        fontFamily = FontFamily.Monospace,
+                        letterSpacing = 1.sp
+                    )
                 }
             }
 

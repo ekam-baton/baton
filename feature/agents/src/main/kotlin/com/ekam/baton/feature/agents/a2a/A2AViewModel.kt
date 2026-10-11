@@ -64,6 +64,9 @@ class A2AViewModel(
     private val _pendingRoleAssignment = MutableStateFlow<Agent?>(null)
     val pendingRoleAssignment: StateFlow<Agent?> = _pendingRoleAssignment.asStateFlow()
 
+    private val _activeSwarmId = MutableStateFlow<String?>(null)
+    val activeSwarmId: StateFlow<String?> = _activeSwarmId.asStateFlow()
+
     init {
         generateNewIdentity()
         viewModelScope.launch {
@@ -238,6 +241,7 @@ class A2AViewModel(
                 intentContext = "Live A2A WebRTC Setup"
             )
             swarmDao.insertSwarm(swarm)
+            _activeSwarmId.value = swarm.id
         }
     }
     

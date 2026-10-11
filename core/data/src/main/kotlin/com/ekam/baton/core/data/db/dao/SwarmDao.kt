@@ -19,6 +19,9 @@ interface SwarmDao {
     @Query("SELECT * FROM swarms WHERE id = :id")
     suspend fun getSwarmById(id: String): SwarmEntity?
 
+    @Query("SELECT * FROM swarms WHERE id = :id")
+    fun observeSwarmById(id: String): Flow<SwarmEntity?>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSwarm(swarm: SwarmEntity)
 

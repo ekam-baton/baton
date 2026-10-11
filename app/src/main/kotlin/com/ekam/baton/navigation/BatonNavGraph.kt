@@ -19,6 +19,7 @@ import com.ekam.baton.feature.agents.AgentsScreen
 import com.ekam.baton.feature.chat.CallScreen
 import com.ekam.baton.feature.chat.ChatScreen
 import com.ekam.baton.feature.chat.ChatsListScreen
+import com.ekam.baton.feature.chat.GroupChatScreen
 import com.ekam.baton.feature.memory.MemoryScreen
 import com.ekam.baton.feature.settings.SettingsScreen
 import com.ekam.baton.feature.settings.KeyBackupScreen
@@ -95,7 +96,20 @@ fun BatonNavGraph(
                     },
                     onNavigateToCall = { agentName ->
                         navController.navigate("call/$agentName")
+                    },
+                    onNavigateToSwarm = { swarmId ->
+                        navController.navigate("swarms/$swarmId")
                     }
+                )
+            }
+            composable(
+                route = "swarms/{swarmId}",
+                arguments = listOf(navArgument("swarmId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val swarmId = backStackEntry.arguments?.getString("swarmId") ?: ""
+                GroupChatScreen(
+                    swarmId = swarmId,
+                    onNavigateBack = { navController.popBackStack() }
                 )
             }
             composable(
@@ -228,7 +242,8 @@ fun BatonNavGraph(
         composable(Screen.A2A.route) {
             com.ekam.baton.feature.agents.a2a.A2AScreen(
                 onNavigateToQr = { navController.navigate("a2a/qr") },
-                onNavigateToScanner = { navController.navigate("a2a/scanner") }
+                onNavigateToScanner = { navController.navigate("a2a/scanner") },
+                onNavigateToSwarm = { swarmId -> navController.navigate("swarms/$swarmId") }
             )
         }
         

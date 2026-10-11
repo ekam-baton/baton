@@ -1,4 +1,4 @@
-﻿package com.ekam.baton.core.data.repository
+package com.ekam.baton.core.data.repository
 
 import androidx.paging.PagingSource
 import androidx.paging.PagingState
@@ -55,6 +55,8 @@ class FakeMessageDao : MessageDao {
     val messages = mutableListOf<MessageEntity>()
     override fun getMessagesForConversation(conversationId: String): PagingSource<Int, MessageEntity> = 
         FakeMessagePagingSource(messages.filter { it.conversationId == conversationId })
+    override fun observeMessagesForConversation(conversationId: String): Flow<List<MessageEntity>> =
+        kotlinx.coroutines.flow.flowOf(messages.filter { it.conversationId == conversationId })
     override suspend fun insertMessage(message: MessageEntity) { messages.add(message) }
     override suspend fun updateMessage(message: MessageEntity) {
         val idx = messages.indexOfFirst { it.id == message.id }
