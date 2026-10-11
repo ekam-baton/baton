@@ -22,4 +22,16 @@ interface TokenLedgerDao {
 
     @Query("SELECT SUM(total_tokens) FROM token_ledger WHERE swarm_id = :swarmId")
     fun getTotalTokensForSwarm(swarmId: String): Flow<Int>
+
+    @Query("SELECT * FROM token_ledger ORDER BY timestamp DESC")
+    fun getAllLedgerEntries(): Flow<List<TokenLedgerEntity>>
+
+    @Query("SELECT SUM(total_tokens) FROM token_ledger")
+    fun getGrandTotalTokens(): Flow<Int?>
+
+    @Query("SELECT SUM(estimated_cost_usd) FROM token_ledger")
+    fun getGrandTotalCost(): Flow<Double?>
+
+    @Query("DELETE FROM token_ledger WHERE id NOT IN (SELECT id FROM token_ledger ORDER BY timestamp DESC LIMIT :keepCount)")
+    suspend fun pruneOldLedgerEntries(keepCount: Int = 1000)
 }

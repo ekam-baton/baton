@@ -84,6 +84,19 @@ class SwarmChatViewModelTest {
             flowOf(entries.filter { it.timestamp >= startTime }.sumOf { it.estimatedCostUsd })
         override fun getTotalTokensForSwarm(swarmId: String): Flow<Int> =
             flowOf(entries.filter { it.swarmId == swarmId }.sumOf { it.totalTokens })
+        override fun getAllLedgerEntries(): Flow<List<TokenLedgerEntity>> =
+            flowOf(entries.sortedByDescending { it.timestamp })
+        override fun getGrandTotalTokens(): Flow<Int?> =
+            flowOf(if (entries.isEmpty()) null else entries.sumOf { it.totalTokens })
+        override fun getGrandTotalCost(): Flow<Double?> =
+            flowOf(if (entries.isEmpty()) null else entries.sumOf { it.estimatedCostUsd })
+        override suspend fun pruneOldLedgerEntries(keepCount: Int) {
+            if (entries.size > keepCount) {
+                val sorted = entries.sortedByDescending { it.timestamp }.take(keepCount)
+                entries.clear()
+                entries.addAll(sorted)
+            }
+        }
     }
 
     private class FakeTestAgentDao(val agents: List<AgentEntity>) : AgentDao {
