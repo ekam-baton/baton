@@ -1,4 +1,4 @@
-﻿package com.ekam.baton.core.network.mcp
+package com.ekam.baton.core.network.mcp
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -62,7 +62,7 @@ data class PairResult(
     val ed25519PublicKey: String?
 )
 
-class McpMessageSender constructor(
+open class McpMessageSender constructor(
     private val connectionManager: McpConnectionManager,
     private val authorizationManager: ToolAuthorizationManager,
     private val context: android.content.Context?,
@@ -75,7 +75,7 @@ class McpMessageSender constructor(
      * @param conversationHistory Previous messages in the conversation mapped to McpMessageDto.
      * @param newUserMessage The new user prompt to append.
      */
-    suspend fun sendUserMessage(
+    open suspend fun sendUserMessage(
         agentId: String,
         endpointUrl: String,
         authHeader: String?,
@@ -162,7 +162,7 @@ class McpMessageSender constructor(
             }
     }
 
-    suspend fun pairWithAgent(endpointUrl: String, identityKeyHex: String, x25519KeyHex: String): Result<PairResult> {
+    open suspend fun pairWithAgent(endpointUrl: String, identityKeyHex: String, x25519KeyHex: String): Result<PairResult> {
         return try {
             val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
             val jsonBody = json.encodeToString(PairRequest.serializer(), PairRequest(identityKeyHex, x25519KeyHex))
@@ -197,7 +197,7 @@ class McpMessageSender constructor(
         }
     }
 
-    suspend fun executeTool(
+    open suspend fun executeTool(
         agentId: String,
         endpointUrl: String,
         authHeader: String?,
@@ -310,7 +310,7 @@ class McpMessageSender constructor(
         }
     }
 
-    suspend fun getAvailableTools(agentId: String, endpointUrl: String, authHeader: String?): List<McpTool> {
+    open suspend fun getAvailableTools(agentId: String, endpointUrl: String, authHeader: String?): List<McpTool> {
         val sessionResult = connectionManager.getOrCreateSession(agentId, endpointUrl, authHeader)
         return sessionResult.getOrNull()?.availableTools ?: emptyList()
     }
