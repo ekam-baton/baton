@@ -78,6 +78,43 @@ fun AgentDetailsScreen(
             )
         },
         bottomBar = {
+            var showDecommissionDialog by remember { mutableStateOf(false) }
+
+            if (showDecommissionDialog) {
+                AlertDialog(
+                    onDismissRequest = { showDecommissionDialog = false },
+                    title = {
+                        Text(
+                            text = "Decommission Agent Node",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                    },
+                    text = {
+                        Text(
+                            text = "Are you sure you want to decommission \"${agent.name}\"? This will sever cryptographic sessions and remove it from your swarm directory.",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                showDecommissionDialog = false
+                                viewModel.deleteAgent(agentId)
+                                onNavigateBack()
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626))
+                        ) {
+                            Text("Decommission", fontWeight = FontWeight.Bold)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDecommissionDialog = false }) {
+                            Text("Cancel")
+                        }
+                    }
+                )
+            }
+
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -86,7 +123,7 @@ fun AgentDetailsScreen(
                     .navigationBarsPadding()
             ) {
                 Button(
-                    onClick = { /* Implement delete/halt */ },
+                    onClick = { showDecommissionDialog = true },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)), // Warning Red
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth().height(56.dp)
@@ -203,6 +240,35 @@ fun AgentDetailsScreen(
                         color = Color.White,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            // Endpoint & Ownership Details
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .glassCard(shape = RoundedCornerShape(16.dp))
+                    .padding(16.dp)
+            ) {
+                Text("CONNECTION ENDPOINT", style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace), color = MaterialTheme.colorScheme.tertiary)
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = agent.mcpEndpointUrl.takeIf { it.isNotBlank() } ?: "Local In-Process / Air-Gap Only",
+                    style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+                    color = Color.White
+                )
+
+                if (!agent.ownerName.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text("NODE OPERATOR", style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace), color = MaterialTheme.colorScheme.tertiary)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = agent.ownerName ?: "",
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = Color.White
                     )
                 }
             }

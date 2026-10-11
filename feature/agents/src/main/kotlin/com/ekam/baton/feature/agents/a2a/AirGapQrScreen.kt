@@ -33,6 +33,7 @@ import android.util.Base64
 @Composable
 fun AirGapQrScreen(
     onNavigateBack: () -> Unit,
+    onNavigateToScanner: () -> Unit = {},
     viewModel: A2AViewModel = koinViewModel()
 ) {
     val sdpOffer by viewModel.sdpOffer.collectAsStateWithLifecycle()
@@ -164,7 +165,7 @@ fun AirGapQrScreen(
 
             // Action Button
             Button(
-                onClick = { /* TODO: Launch CameraX Scanner */ },
+                onClick = onNavigateToScanner,
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                 shape = RoundedCornerShape(16.dp),
                 modifier = Modifier.fillMaxWidth().height(56.dp)

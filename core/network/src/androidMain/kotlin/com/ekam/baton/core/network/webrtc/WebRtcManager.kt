@@ -156,6 +156,10 @@ class WebRtcManager(private val context: Context) {
         }
     }
 
+    fun setMicrophoneMute(mute: Boolean) {
+        localAudioTrack?.setEnabled(!mute)
+    }
+
     fun endCall() {
         localAudioTrack?.dispose()
         peerConnection?.close()

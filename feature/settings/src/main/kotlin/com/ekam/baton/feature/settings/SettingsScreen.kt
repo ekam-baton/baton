@@ -43,6 +43,7 @@ fun SettingsScreen(
     onNavigateToTunnelSetup: () -> Unit = {},
     onNavigateToMemory: () -> Unit = {},
     onNavigateToKeyBackup: () -> Unit = {},
+    onNavigateToExecutionLedger: () -> Unit = {},
     viewModel: SettingsViewModel = koinViewModel()
 ) {
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
@@ -298,6 +299,15 @@ fun SettingsScreen(
                         onNavigateToKeyBackup()
                     },
                     
+                )
+                ListItem(
+                    headlineContent = { Text("Audit & Execution Ledger") },
+                    supportingContent = { Text("Inspect cryptographic hash chains and prune genesis blocks") },
+                    leadingContent = { Icon(Icons.Default.Security, contentDescription = null) },
+                    modifier = Modifier.clickable {
+                        if (enableHapticFeedback) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onNavigateToExecutionLedger()
+                    },
                 )
                 ListItem(
                     headlineContent = { Text("Data Encryption") },

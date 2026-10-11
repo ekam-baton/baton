@@ -58,6 +58,8 @@ fun AirGapScannerScreen(
     var hasCameraPermission by remember { mutableStateOf(false) }
     var scannedPayload by remember { mutableStateOf<String?>(null) }
     var isProcessing by remember { mutableStateOf(false) }
+    var camera by remember { mutableStateOf<androidx.camera.core.Camera?>(null) }
+    var isTorchOn by remember { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
@@ -138,7 +140,7 @@ fun AirGapScannerScreen(
 
                         try {
                             cameraProvider.unbindAll()
-                            cameraProvider.bindToLifecycle(
+                            camera = cameraProvider.bindToLifecycle(
                                 lifecycleOwner,
                                 CameraSelector.DEFAULT_BACK_CAMERA,
                                 preview,
@@ -242,12 +244,20 @@ fun AirGapScannerScreen(
                 }
                 
                 IconButton(
-                    onClick = { /* TODO Toggle Flash */ },
+                    onClick = {
+                        val nextTorch = !isTorchOn
+                        camera?.cameraControl?.enableTorch(nextTorch)
+                        isTorchOn = nextTorch
+                    },
                     modifier = Modifier
                         .size(64.dp)
                         .glassCard(shape = RoundedCornerShape(20.dp))
                 ) {
-                    Icon(Icons.Default.FlashlightOn, contentDescription = "Flashlight", tint = Color.White)
+                    Icon(
+                        imageVector = Icons.Default.FlashlightOn,
+                        contentDescription = "Flashlight",
+                        tint = if (isTorchOn) MaterialTheme.colorScheme.primary else Color.White
+                    )
                 }
             }
         }

@@ -78,7 +78,7 @@ fun ChatScreen(
     onNavigateBack: () -> Unit,
     onNavigateToMemory: (String) -> Unit,
     onNavigateToCall: (String) -> Unit,
-    onNavigateToAgentDetails: () -> Unit,
+    onNavigateToAgentDetails: (String) -> Unit,
     viewModel: ChatViewModel = koinViewModel()
 ) {
     val messages = viewModel.messages.collectAsLazyPagingItems()
@@ -208,7 +208,14 @@ fun ChatScreen(
             Column {
                 TopAppBar(
                     title = { 
-                        Column(modifier = Modifier.clickable { onNavigateToAgentDetails() }) {
+                        Column(
+                            modifier = Modifier.clickable { 
+                                val targetId = currentAgentId ?: currentAgent?.id
+                                if (targetId != null) {
+                                    onNavigateToAgentDetails(targetId)
+                                }
+                            }
+                        ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(
                                     modifier = Modifier
@@ -235,7 +242,7 @@ fun ChatScreen(
                         }
                     },
                     actions = {
-                        IconButton(onClick = { onNavigateToCall("Agent") }) {
+                        IconButton(onClick = { onNavigateToCall(currentAgent?.name ?: "Agent") }) {
                             Icon(Icons.Default.Phone, contentDescription = "Call Agent")
                         }
                     },

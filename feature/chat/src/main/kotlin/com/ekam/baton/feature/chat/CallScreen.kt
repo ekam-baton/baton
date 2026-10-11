@@ -31,22 +31,59 @@ import com.ekam.baton.core.ui.components.glassCard
 @Composable
 fun CallScreen(
     agentName: String,
-    onEndCall: () -> Unit
+    onEndCall: () -> Unit,
+    onNavigateToChat: () -> Unit = onEndCall
 ) {
     var isMuted by remember { mutableStateOf(false) }
     var isSpeaker by remember { mutableStateOf(true) }
     var showTranscript by remember { mutableStateOf(false) }
+    var elapsedSeconds by remember { mutableLongStateOf(0L) }
 
     val context = androidx.compose.ui.platform.LocalContext.current
-    
+    var webRtcManager by remember { mutableStateOf<com.ekam.baton.core.network.webrtc.WebRtcManager?>(null) }
+    val audioManager = remember { context.getSystemService(android.content.Context.AUDIO_SERVICE) as? android.media.AudioManager }
+
     LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(1000)
+            elapsedSeconds++
+        }
+    }
+
+    DisposableEffect(Unit) {
+        val manager = com.ekam.baton.core.network.webrtc.WebRtcManager(context)
         try {
-            val webRtcManager = com.ekam.baton.core.network.webrtc.WebRtcManager(context)
-            webRtcManager.initialize()
-            webRtcManager.startVoiceCall(agentName)
+            manager.initialize()
+            manager.startVoiceCall(agentName)
+            webRtcManager = manager
         } catch (e: Exception) {
             // Ignored for UI preview
         }
+        onDispose {
+            try {
+                manager.endCall()
+            } catch (e: Exception) {
+                // Ignore
+            }
+        }
+    }
+
+    LaunchedEffect(isMuted) {
+        webRtcManager?.setMicrophoneMute(isMuted)
+    }
+
+    LaunchedEffect(isSpeaker) {
+        try {
+            audioManager?.isSpeakerphoneOn = isSpeaker
+        } catch (e: Exception) {
+            // Ignore
+        }
+    }
+
+    val minutes = elapsedSeconds / 60
+    val seconds = elapsedSeconds % 60
+    val formattedDuration = remember(elapsedSeconds) {
+        String.format(java.util.Locale.US, "%02d:%02d", minutes, seconds)
     }
 
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
@@ -154,7 +191,7 @@ fun CallScreen(
                     Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(MaterialTheme.colorScheme.tertiary))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "04:18 • Neural Audio Active",
+                        text = "$formattedDuration • Neural Audio Active",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
                         maxLines = 1,
@@ -163,13 +200,42 @@ fun CallScreen(
                 }
             }
 
-            // Bottom section: 5-Button Controls Cluster
+            // Bottom section: Controls Cluster & Transcript
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 48.dp, start = 24.dp, end = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                if (showTranscript) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .glassCard(shape = RoundedCornerShape(16.dp))
+                            .padding(16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = "LIVE TRANSCRIPT",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold
+                                ),
+                                color = MaterialTheme.colorScheme.tertiary
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "Real-time speech synthesis connected. Listening to audio stream...",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.White.copy(alpha = 0.85f),
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(24.dp))
+                }
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly,
@@ -191,7 +257,7 @@ fun CallScreen(
                         icon = Icons.Default.ChatBubble,
                         label = "Chat",
                         isActive = false,
-                        onClick = { /* Navigate to chat */ }
+                        onClick = onNavigateToChat
                     )
                     CallControlButton(
                         icon = Icons.Default.ClosedCaption,
@@ -203,7 +269,14 @@ fun CallScreen(
                 Spacer(modifier = Modifier.height(32.dp))
                 // End Call Button
                 IconButton(
-                    onClick = onEndCall,
+                    onClick = {
+                        try {
+                            webRtcManager?.endCall()
+                        } catch (e: Exception) {
+                            // Ignore
+                        }
+                        onEndCall()
+                    },
                     modifier = Modifier
                         .size(72.dp)
                         .clip(CircleShape)

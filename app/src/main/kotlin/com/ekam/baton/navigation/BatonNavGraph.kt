@@ -113,8 +113,8 @@ fun BatonNavGraph(
                         onNavigateToCall = { agentName ->
                             navController.navigate("call/$agentName")
                         },
-                        onNavigateToAgentDetails = {
-                            navController.navigate("agent_details/$conversationId")
+                        onNavigateToAgentDetails = { agentId ->
+                            navController.navigate("agents/details/$agentId")
                         }
                     )
                 }
@@ -127,25 +127,22 @@ fun BatonNavGraph(
                 if (agentName != null) {
                     CallScreen(
                         agentName = agentName,
-                        onEndCall = { navController.popBackStack() }
+                        onEndCall = { navController.popBackStack() },
+                        onNavigateToChat = { navController.popBackStack() }
                     )
                 }
             }
             composable(
-                route = "agent_details/{conversationId}",
-                arguments = listOf(navArgument("conversationId") { type = NavType.StringType })
+                route = "agents/details/{agentId}",
+                arguments = listOf(navArgument("agentId") { type = NavType.StringType })
             ) { backStackEntry ->
-                val conversationId = backStackEntry.arguments?.getString("conversationId")
-                if (conversationId != null) {
-                    com.ekam.baton.feature.chat.AgentDetailsScreen(
-                        conversationId = conversationId,
+                val agentId = backStackEntry.arguments?.getString("agentId")
+                if (agentId != null) {
+                    com.ekam.baton.feature.agents.AgentDetailsScreen(
+                        agentId = agentId,
                         onNavigateBack = { navController.popBackStack() },
-                        onNavigateToMemory = { agentId ->
-                            navController.navigate("memory")
-                        },
-                        onConversationDeleted = {
-                            navController.popBackStack("chats_list", inclusive = false)
-                        }
+                        onEditClick = { id -> navController.navigate("agents/edit/$id") },
+                        onMemoryVaultClick = { id -> navController.navigate("memory") }
                     )
                 }
             }
@@ -173,7 +170,7 @@ fun BatonNavGraph(
                             navController.navigate("agents/add")
                         }
                     },
-                    onEditAgentClick = { agentId -> navController.navigate("agents/edit/$agentId") }
+                    onEditAgentClick = { agentId -> navController.navigate("agents/details/$agentId") }
                 )
             }
             composable(
@@ -237,7 +234,8 @@ fun BatonNavGraph(
         
         composable("a2a/qr") {
             com.ekam.baton.feature.agents.a2a.AirGapQrScreen(
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToScanner = { navController.navigate("a2a/scanner") }
             )
         }
         
@@ -247,7 +245,11 @@ fun BatonNavGraph(
             )
         }
 
-        composable("memory") { MemoryScreen() }
+        composable("memory") {
+            MemoryScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
 
         composable(Screen.Settings.route) {
             SettingsScreen(
@@ -259,12 +261,21 @@ fun BatonNavGraph(
                 },
                 onNavigateToKeyBackup = {
                     navController.navigate("settings/key_backup")
+                },
+                onNavigateToExecutionLedger = {
+                    navController.navigate("settings/execution_ledger")
                 }
             )
         }
         
         composable("settings/key_backup") {
             KeyBackupScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable("settings/execution_ledger") {
+            com.ekam.baton.feature.settings.ExecutionLedgerScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }
