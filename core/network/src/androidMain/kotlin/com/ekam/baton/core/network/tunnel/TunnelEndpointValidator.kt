@@ -16,7 +16,7 @@ import java.net.URL
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
-class TunnelEndpointValidator constructor(
+open class TunnelEndpointValidator constructor(
     private val json: Json,
     // SECURITY: this used to build its own local OkHttpClient with the
     // default system DNS resolver — a completely separate resolution path
@@ -86,7 +86,7 @@ class TunnelEndpointValidator constructor(
         return true
     }
 
-    suspend fun validateEndpoint(urlString: String): TunnelValidationResult = withContext(Dispatchers.IO) {
+    open suspend fun validateEndpoint(urlString: String): TunnelValidationResult = withContext(Dispatchers.IO) {
         // a. Scheme check — only http/https
         if (!urlString.startsWith("https://") && !urlString.startsWith("http://")) {
             return@withContext TunnelValidationResult(Status.INVALID_URL, null, null, "URL must start with http:// or https://")
