@@ -12,34 +12,39 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.util.UUID
 
-class WorldRoomRepository(
-    private val roomDao: WorldRoomDao,
-    private val propDao: WorldRoomPropDao
+open class WorldRoomRepository constructor(
+    private val roomDao: WorldRoomDao? = null,
+    private val propDao: WorldRoomPropDao? = null
 ) {
-    fun observeAllRooms(): Flow<List<WorldRoom>> =
-        roomDao.observeAll().map { list -> list.map { it.toDomainModel() } }
+    open fun observeAllRooms(): Flow<List<WorldRoom>> =
+        roomDao?.observeAll()?.map { list -> list.map { it.toDomainModel() } } ?: kotlinx.coroutines.flow.emptyFlow()
 
-    suspend fun getRoomForAgent(agentId: String): WorldRoom? =
-        roomDao.getByAgentId(agentId)?.toDomainModel()
+    open suspend fun getRoomForAgent(agentId: String): WorldRoom? =
+        roomDao?.getByAgentId(agentId)?.toDomainModel()
 
-    suspend fun upsertRoom(room: WorldRoom) = roomDao.upsert(room.toEntity())
+    open suspend fun upsertRoom(room: WorldRoom) {
+        roomDao?.upsert(room.toEntity())
+    }
 
-    suspend fun deleteRoomForAgent(agentId: String) {
-        roomDao.getByAgentId(agentId)?.let { entity ->
-            propDao.deleteByRoomId(entity.id)
-            roomDao.delete(entity)
+    open suspend fun deleteRoomForAgent(agentId: String) {
+        val rDao = roomDao ?: return
+        val pDao = propDao ?: return
+        rDao.getByAgentId(agentId)?.let { entity ->
+            pDao.deleteByRoomId(entity.id)
+            rDao.delete(entity)
         }
     }
 
-    fun observePropsForRoom(roomId: String): Flow<List<WorldRoomProp>> =
-        propDao.observeByRoom(roomId).map { list -> list.map { it.toDomainModel() } }
+    open fun observePropsForRoom(roomId: String): Flow<List<WorldRoomProp>> =
+        propDao?.observeByRoom(roomId)?.map { list -> list.map { it.toDomainModel() } } ?: kotlinx.coroutines.flow.emptyFlow()
 
-    suspend fun getPropsForRoom(roomId: String): List<WorldRoomProp> =
-        propDao.getByRoomId(roomId).map { it.toDomainModel() }
+    open suspend fun getPropsForRoom(roomId: String): List<WorldRoomProp> =
+        propDao?.getByRoomId(roomId)?.map { it.toDomainModel() } ?: emptyList()
 
     /** Place the default props for this room's role. Called once on room creation. */
-    suspend fun setDefaultPropsForRoom(room: WorldRoom) {
-        propDao.deleteByRoomId(room.id) // clear any prior props
+    open suspend fun setDefaultPropsForRoom(room: WorldRoom) {
+        val dao = propDao ?: return
+        dao.deleteByRoomId(room.id) // clear any prior props
         val props = DefaultPropLayouts.forRole(room.role).mapIndexed { i, layout ->
             WorldRoomPropEntity(
                 id = UUID.randomUUID().toString(),
@@ -52,10 +57,12 @@ class WorldRoomRepository(
                 animSeed = i * 137
             )
         }
-        propDao.insertAll(props)
+        dao.insertAll(props)
     }
 
-    suspend fun upsertProp(prop: WorldRoomProp) = propDao.upsert(prop.toEntity())
+    open suspend fun upsertProp(prop: WorldRoomProp) {
+        propDao?.upsert(prop.toEntity())
+    }
 }
 
 // ── Default prop layout tables ─────────────────────────────────────────────────

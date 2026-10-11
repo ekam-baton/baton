@@ -10,17 +10,17 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.ceil
 import kotlin.math.min
 
-class A2ASession(
-    override val id: String,
-    private val peerConnectionFactory: PeerConnectionFactory,
-    private val scope: CoroutineScope
+open class A2ASession(
+    override val id: String = "",
+    private val peerConnectionFactory: PeerConnectionFactory? = null,
+    private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default)
 ) : PoolableConnection {
 
     private var peerConnection: PeerConnection? = null
     private var dataChannel: DataChannel? = null
     
-    private val _connectionState = MutableStateFlow<PeerConnection.PeerConnectionState>(PeerConnection.PeerConnectionState.NEW)
-    val connectionState: StateFlow<PeerConnection.PeerConnectionState> = _connectionState.asStateFlow()
+    protected val _connectionState = MutableStateFlow<PeerConnection.PeerConnectionState>(PeerConnection.PeerConnectionState.NEW)
+    open val connectionState: StateFlow<PeerConnection.PeerConnectionState> get() = _connectionState.asStateFlow()
 
     private val _incomingMessages = MutableSharedFlow<A2AWebRtcTransport.A2AMessage>()
     val incomingMessages = _incomingMessages.asSharedFlow()
@@ -43,7 +43,9 @@ class A2ASession(
     private val _iceGatheringComplete = MutableStateFlow(false)
 
     init {
-        createPeerConnection()
+        if (peerConnectionFactory != null) {
+            createPeerConnection()
+        }
     }
     
     fun markAccessed() {
@@ -61,7 +63,7 @@ class A2ASession(
             iceTransportsType = PeerConnection.IceTransportsType.RELAY
         }
         
-        peerConnection = peerConnectionFactory.createPeerConnection(rtcConfig, object : PeerConnection.Observer {
+        peerConnection = peerConnectionFactory?.createPeerConnection(rtcConfig, object : PeerConnection.Observer {
             override fun onSignalingChange(state: PeerConnection.SignalingState?) {}
             override fun onIceConnectionChange(state: PeerConnection.IceConnectionState?) {}
             override fun onIceConnectionReceivingChange(receiving: Boolean) {}
@@ -196,7 +198,7 @@ class A2ASession(
         }
     }
 
-    suspend fun createOffer(): String? = suspendCancellableCoroutine { cont ->
+    open suspend fun createOffer(): String? = suspendCancellableCoroutine { cont ->
         if (peerConnection == null) {
             cont.resume("ERROR: PeerConnection is null. Did initialization fail?")
             return@suspendCancellableCoroutine
@@ -228,7 +230,7 @@ class A2ASession(
         }, mediaConstraints)
     }
 
-    suspend fun handleOfferAndCreateAnswer(offerSdp: String): String? = suspendCancellableCoroutine { cont ->
+    open suspend fun handleOfferAndCreateAnswer(offerSdp: String): String? = suspendCancellableCoroutine { cont ->
         if (peerConnection == null) {
             cont.resume("ERROR: PeerConnection is null.")
             return@suspendCancellableCoroutine
@@ -267,7 +269,7 @@ class A2ASession(
         }, sessionDescription)
     }
 
-    suspend fun handleAnswer(answerSdp: String) = suspendCancellableCoroutine<Boolean> { cont ->
+    open suspend fun handleAnswer(answerSdp: String) = suspendCancellableCoroutine<Boolean> { cont ->
         if (peerConnection == null) {
             cont.resume(false)
             return@suspendCancellableCoroutine

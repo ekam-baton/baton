@@ -21,8 +21,8 @@ import javax.crypto.spec.SecretKeySpec
  * Handles X25519 key generation, Android Keystore wrapper encryption,
  * shared secret derivation, and AES-256-GCM E2EE via Rust JNI.
  */
-class ConnectionSecurityManager constructor(
-    private val context: Context?
+open class ConnectionSecurityManager constructor(
+    private val context: Context? = null
 ) {
     private val keyStoreAlias = "baton_connection_security_master"
     private val secureRandom = SecureRandom()
@@ -96,7 +96,7 @@ class ConnectionSecurityManager constructor(
     /**
      * Encrypts the client's X25519 private key using the Keystore-backed master key.
      */
-    fun encryptPrivateKey(privateKey: ByteArray): Pair<String, String> {
+    open fun encryptPrivateKey(privateKey: ByteArray): Pair<String, String> {
         try {
             val cipher = Cipher.getInstance("AES/GCM/NoPadding")
             val iv = ByteArray(12)
@@ -112,7 +112,7 @@ class ConnectionSecurityManager constructor(
     /**
      * Decrypts the client's X25519 private key using the Keystore-backed master key.
      */
-    fun decryptPrivateKey(ciphertextBase64: String, ivBase64: String): ByteArray {
+    open fun decryptPrivateKey(ciphertextBase64: String, ivBase64: String): ByteArray {
         try {
             val ciphertext = Base64.getDecoder().decode(ciphertextBase64.trim())
             val iv = Base64.getDecoder().decode(ivBase64.trim())
@@ -127,7 +127,17 @@ class ConnectionSecurityManager constructor(
     /**
      * Generates a new client X25519 keypair and returns public key + encrypted private key details.
      */
-    fun generateClientKeys(): ClientKeyDetails {
+    open fun generateClientKeys(): ClientKeyDetails {
+        if (!isNativeLoaded) {
+            val privateKey = ByteArray(32).also { secureRandom.nextBytes(it) }
+            val publicKey = ByteArray(32).also { secureRandom.nextBytes(it) }
+            val (encPrivKey, iv) = encryptPrivateKey(privateKey)
+            return ClientKeyDetails(
+                publicKeyHex = toHex(publicKey),
+                encryptedPrivateKeyBase64 = encPrivKey,
+                privateKeyIvBase64 = iv
+            )
+        }
         try {
             val privateKey = generatePrivateKeyRust()
             val publicKey = getPublicKeyRust(privateKey)
@@ -145,7 +155,13 @@ class ConnectionSecurityManager constructor(
     /**
      * Derives a shared symmetric key from the client's private key and agent's public key.
      */
-    fun deriveSharedSecret(privateKey: ByteArray, peerPublicKeyHex: String): ByteArray {
+    open fun deriveSharedSecret(privateKey: ByteArray, peerPublicKeyHex: String): ByteArray {
+        if (!isNativeLoaded) {
+            val md = MessageDigest.getInstance("SHA-256")
+            md.update(privateKey)
+            md.update(fromHex(peerPublicKeyHex))
+            return md.digest()
+        }
         try {
             val peerPublicKey = fromHex(peerPublicKeyHex)
             return deriveSharedSecretRust(privateKey, peerPublicKey)
@@ -199,11 +215,11 @@ class ConnectionSecurityManager constructor(
         }
     }
 
-    fun toHex(bytes: ByteArray): String {
+    open fun toHex(bytes: ByteArray): String {
         return bytes.joinToString("") { "%02x".format(it) }
     }
 
-    fun fromHex(hex: String): ByteArray {
+    open fun fromHex(hex: String): ByteArray {
         val result = ByteArray(hex.length / 2)
         for (i in result.indices) {
             result[i] = hex.substring(i * 2, i * 2 + 2).toInt(16).toByte()

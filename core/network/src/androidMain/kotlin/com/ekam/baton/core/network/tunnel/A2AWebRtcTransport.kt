@@ -4,20 +4,23 @@ import android.content.Context
 import kotlinx.coroutines.*
 import org.webrtc.*
 
-class A2AWebRtcTransport constructor(
-    private val context: Context,
-    private val poolManager: ConnectionPoolManager
+open class A2AWebRtcTransport constructor(
+    private val context: Context? = null,
+    private val poolManager: ConnectionPoolManager? = null
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     
     private var peerConnectionFactory: PeerConnectionFactory? = null
 
     init {
-        initializeWebRtc()
+        if (context != null) {
+            initializeWebRtc()
+        }
     }
 
     private fun initializeWebRtc() {
-        val initializationOptions = PeerConnectionFactory.InitializationOptions.builder(context)
+        val ctx = context ?: return
+        val initializationOptions = PeerConnectionFactory.InitializationOptions.builder(ctx)
             .setEnableInternalTracer(false) // SECURITY FIX (LOW-3): Disable internal tracer
             .createInitializationOptions()
         PeerConnectionFactory.initialize(initializationOptions)
@@ -28,16 +31,21 @@ class A2AWebRtcTransport constructor(
             .createPeerConnectionFactory()
     }
     
-    suspend fun createSession(sessionId: String): A2ASession {
-        if (peerConnectionFactory == null) {
+    open suspend fun createSession(sessionId: String): A2ASession {
+        if (peerConnectionFactory == null && context != null) {
             initializeWebRtc()
         }
-        val session = A2ASession(sessionId, peerConnectionFactory!!, scope)
-        poolManager.registerConnection(session)
+        val factory = peerConnectionFactory
+        val session = if (factory != null) {
+            A2ASession(sessionId, factory, scope)
+        } else {
+            A2ASession(sessionId, scope = scope)
+        }
+        poolManager?.registerConnection(session)
         return session
     }
 
-    fun disposeFactory() {
+    open fun disposeFactory() {
         peerConnectionFactory?.dispose()
         peerConnectionFactory = null
     }
