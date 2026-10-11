@@ -7,6 +7,7 @@ import com.ekam.baton.feature.agents.a2a.A2AViewModel
 import com.ekam.baton.feature.agents.tunnel.TunnelSetupViewModel
 import com.ekam.baton.feature.chat.ChatViewModel
 import com.ekam.baton.feature.chat.SwarmChatViewModel
+import com.ekam.baton.feature.chat.SwarmTopologyViewModel
 import com.ekam.baton.feature.memory.MemoryViewModel
 import com.ekam.baton.feature.settings.SettingsViewModel
 import com.ekam.baton.feature.settings.KeyBackupViewModel
@@ -24,6 +25,7 @@ val appModule = module {
     viewModelOf(::TunnelSetupViewModel)
     viewModelOf(::ChatViewModel)
     viewModelOf(::SwarmChatViewModel)
+    viewModelOf(::SwarmTopologyViewModel)
     viewModelOf(::MemoryViewModel)
     viewModelOf(::SettingsViewModel)
     viewModelOf(::KeyBackupViewModel)

@@ -20,6 +20,7 @@ import com.ekam.baton.feature.chat.CallScreen
 import com.ekam.baton.feature.chat.ChatScreen
 import com.ekam.baton.feature.chat.ChatsListScreen
 import com.ekam.baton.feature.chat.GroupChatScreen
+import com.ekam.baton.feature.chat.SwarmTopologyScreen
 import com.ekam.baton.feature.memory.MemoryScreen
 import com.ekam.baton.feature.settings.SettingsScreen
 import com.ekam.baton.feature.settings.KeyBackupScreen
@@ -109,7 +110,23 @@ fun BatonNavGraph(
                 val swarmId = backStackEntry.arguments?.getString("swarmId") ?: ""
                 GroupChatScreen(
                     swarmId = swarmId,
-                    onNavigateBack = { navController.popBackStack() }
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToTopology = {
+                        navController.navigate("swarms/$swarmId/topology")
+                    }
+                )
+            }
+            composable(
+                route = "swarms/{swarmId}/topology",
+                arguments = listOf(navArgument("swarmId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val swarmId = backStackEntry.arguments?.getString("swarmId") ?: ""
+                SwarmTopologyScreen(
+                    swarmId = swarmId,
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToAgentDetails = { agentId ->
+                        navController.navigate("agents/details/$agentId")
+                    }
                 )
             }
             composable(

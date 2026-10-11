@@ -35,6 +35,7 @@ import org.koin.compose.viewmodel.koinViewModel
 fun GroupChatScreen(
     swarmId: String,
     onNavigateBack: () -> Unit,
+    onNavigateToTopology: () -> Unit = {},
     viewModel: SwarmChatViewModel = koinViewModel()
 ) {
     val swarm by viewModel.swarm.collectAsStateWithLifecycle()
@@ -109,6 +110,13 @@ fun GroupChatScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = onNavigateToTopology) {
+                        Icon(
+                            imageVector = Icons.Default.Hub,
+                            contentDescription = "Swarm Topology & Rooms",
+                            tint = Color(0xFF00D2FF)
+                        )
+                    }
                     Box {
                         IconButton(onClick = { showMenu = true }) {
                             Icon(Icons.Default.MoreVert, contentDescription = "Options", tint = Color.White)
@@ -117,6 +125,13 @@ fun GroupChatScreen(
                             expanded = showMenu,
                             onDismissRequest = { showMenu = false }
                         ) {
+                            DropdownMenuItem(
+                                text = { Text("View Topology & Rooms") },
+                                onClick = {
+                                    showMenu = false
+                                    onNavigateToTopology()
+                                }
+                            )
                             DropdownMenuItem(
                                 text = { Text("Disband Swarm", color = Color(0xFFDC2626)) },
                                 onClick = {
