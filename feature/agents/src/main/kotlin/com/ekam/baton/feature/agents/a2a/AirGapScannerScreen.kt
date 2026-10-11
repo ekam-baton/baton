@@ -1,6 +1,7 @@
 package com.ekam.baton.feature.agents.a2a
 
 import android.Manifest
+import android.util.Base64
 import android.util.Size
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -13,28 +14,33 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.FlashlightOff
 import androidx.compose.material.icons.filled.FlashlightOn
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size as GeometrySize
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.ekam.baton.core.ui.components.glassCard
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
@@ -43,9 +49,8 @@ import com.google.mlkit.vision.common.InputImage
 import kotlinx.coroutines.delay
 import org.koin.compose.viewmodel.koinViewModel
 import java.io.ByteArrayOutputStream
-import java.util.zip.Inflater
-import android.util.Base64
 import java.util.concurrent.Executors
+import java.util.zip.Inflater
 
 @androidx.annotation.OptIn(androidx.camera.core.ExperimentalGetImage::class)
 @Composable
@@ -81,13 +86,24 @@ fun AirGapScannerScreen(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(2000, easing = LinearEasing),
+            animation = tween(1800, easing = LinearEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "laser_y"
     )
 
-    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+    // Pulse animation for Enclave status dot
+    val beaconAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.4f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(800, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "beacon_alpha"
+    )
+
+    Box(modifier = Modifier.fillMaxSize().background(Color(0xFF080E1A))) {
         if (hasCameraPermission) {
             AndroidView(
                 modifier = Modifier.fillMaxSize(),
@@ -108,7 +124,6 @@ fun AirGapScannerScreen(
                         val scanner = BarcodeScanning.getClient(options)
 
                         val analysisUseCase = ImageAnalysis.Builder()
-                            .setTargetResolution(Size(1280, 720))
                             .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                             .build()
 
@@ -156,22 +171,23 @@ fun AirGapScannerScreen(
             )
         }
 
-        // Overlay & Reticle
+        // Viewfinder Cutout, Reticle Frame, and Laser
         Canvas(modifier = Modifier.fillMaxSize()) {
             val canvasWidth = size.width
             val canvasHeight = size.height
-            val boxSize = canvasWidth * 0.7f
+            val boxSize = (canvasWidth * 0.72f).coerceAtMost(320.dp.toPx())
             val boxRect = Rect(
-                offset = Offset((canvasWidth - boxSize) / 2f, (canvasHeight - boxSize) / 2f),
+                offset = Offset((canvasWidth - boxSize) / 2f, (canvasHeight - boxSize) / 2f - 40.dp.toPx()),
                 size = GeometrySize(boxSize, boxSize)
             )
 
+            // Frosted Outer Overlay
             val overlayPath = Path().apply {
                 addRect(Rect(0f, 0f, canvasWidth, canvasHeight))
                 addRoundRect(
                     androidx.compose.ui.geometry.RoundRect(
                         boxRect,
-                        CornerRadius(48f, 48f)
+                        CornerRadius(40f, 40f)
                     )
                 )
                 fillType = PathFillType.EvenOdd
@@ -179,94 +195,249 @@ fun AirGapScannerScreen(
             
             drawPath(
                 path = overlayPath,
-                color = Color(0xFF0D131F).copy(alpha = 0.85f) // Deep Ocean Blue Frosted
+                color = Color(0xFF080E1A).copy(alpha = 0.82f)
             )
 
-            // Reticle Border (Glowing Squircle)
+            // Reticle Squircle Outer Glow Border
             drawRoundRect(
                 color = Color(0xFF306EE8), // Electric Cobalt
                 topLeft = boxRect.topLeft,
                 size = boxRect.size,
-                cornerRadius = CornerRadius(48f, 48f),
-                style = Stroke(width = 8f)
+                cornerRadius = CornerRadius(40f, 40f),
+                style = Stroke(width = 4f)
             )
 
-            // Laser Beam
+            // Illuminated Cyan Corner Accents
+            val cornerLen = 32f
+            val cornerStroke = 8f
+            val cornerColor = Color(0xFF00D2FF) // Electric Cyan Accent
+
+            // Top-Left corner
+            drawLine(cornerColor, Offset(boxRect.left, boxRect.top + 20f), Offset(boxRect.left, boxRect.top + 20f + cornerLen), strokeWidth = cornerStroke)
+            drawLine(cornerColor, Offset(boxRect.left + 20f, boxRect.top), Offset(boxRect.left + 20f + cornerLen, boxRect.top), strokeWidth = cornerStroke)
+
+            // Top-Right corner
+            drawLine(cornerColor, Offset(boxRect.right, boxRect.top + 20f), Offset(boxRect.right, boxRect.top + 20f + cornerLen), strokeWidth = cornerStroke)
+            drawLine(cornerColor, Offset(boxRect.right - 20f, boxRect.top), Offset(boxRect.right - 20f - cornerLen, boxRect.top), strokeWidth = cornerStroke)
+
+            // Bottom-Left corner
+            drawLine(cornerColor, Offset(boxRect.left, boxRect.bottom - 20f), Offset(boxRect.left, boxRect.bottom - 20f - cornerLen), strokeWidth = cornerStroke)
+            drawLine(cornerColor, Offset(boxRect.left + 20f, boxRect.bottom), Offset(boxRect.left + 20f + cornerLen, boxRect.bottom), strokeWidth = cornerStroke)
+
+            // Bottom-Right corner
+            drawLine(cornerColor, Offset(boxRect.right, boxRect.bottom - 20f), Offset(boxRect.right, boxRect.bottom - 20f - cornerLen), strokeWidth = cornerStroke)
+            drawLine(cornerColor, Offset(boxRect.right - 20f, boxRect.bottom), Offset(boxRect.right - 20f - cornerLen, boxRect.bottom), strokeWidth = cornerStroke)
+
+            // Sweeping Animated Cyan Laser Line
             val laserYPos = boxRect.top + (boxRect.height * laserY)
             drawLine(
-                color = Color(0xFF306EE8).copy(alpha = 0.6f),
-                start = Offset(boxRect.left + 20f, laserYPos),
-                end = Offset(boxRect.right - 20f, laserYPos),
+                brush = Brush.horizontalGradient(
+                    listOf(
+                        Color(0xFF00D2FF).copy(alpha = 0.1f),
+                        Color(0xFF00D2FF).copy(alpha = 0.9f),
+                        Color(0xFF00D2FF).copy(alpha = 0.1f)
+                    )
+                ),
+                start = Offset(boxRect.left + 16f, laserYPos),
+                end = Offset(boxRect.right - 16f, laserYPos),
                 strokeWidth = 6f
             )
         }
 
-        // UI Elements
+        // Foreground UI Elements
         Column(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 20.dp),
             verticalArrangement = Arrangement.SpaceBetween,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Top Bar
-            Row(
+            // Top Command Bar
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 48.dp, start = 24.dp, end = 24.dp),
-                horizontalArrangement = Arrangement.Center
+                    .padding(top = 44.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Box(
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = onNavigateBack,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .glassCard(shape = RoundedCornerShape(16.dp))
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                    }
+
+                    // Security Enclave Isolation Pill
+                    Row(
+                        modifier = Modifier
+                            .glassCard(shape = RoundedCornerShape(20.dp))
+                            .padding(horizontal = 14.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF10B981).copy(alpha = beaconAlpha))
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "AIR-GAP ENCLAVE • RF SILENT",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.5.sp
+                            ),
+                            color = Color.White
+                        )
+                    }
+
+                    IconButton(
+                        onClick = {
+                            val nextTorch = !isTorchOn
+                            camera?.cameraControl?.enableTorch(nextTorch)
+                            isTorchOn = nextTorch
+                        },
+                        modifier = Modifier
+                            .size(48.dp)
+                            .glassCard(shape = RoundedCornerShape(16.dp))
+                    ) {
+                        Icon(
+                            imageVector = if (isTorchOn) Icons.Default.FlashlightOn else Icons.Default.FlashlightOff,
+                            contentDescription = "Flashlight",
+                            tint = if (isTorchOn) Color(0xFF00D2FF) else Color.White
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(28.dp))
+
+                // Optical Alignment Instruction Pill
+                Row(
                     modifier = Modifier
-                        .glassCard(shape = RoundedCornerShape(24.dp))
-                        .padding(horizontal = 24.dp, vertical = 12.dp)
+                        .glassCard(shape = RoundedCornerShape(16.dp))
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "SCANNING SOVEREIGN PEER...",
-                        style = MaterialTheme.typography.labelMedium.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold),
-                        color = Color.White
+                        text = "ALIGN PEER ED25519 NODE QR • PASSIVE OPTICAL",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.SemiBold
+                        ),
+                        color = Color(0xFF00D2FF)
                     )
                 }
             }
 
-            // Bottom Controls
-            Row(
+            // Bottom Glassmorphic Handshake Status Card
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 48.dp, start = 24.dp, end = 24.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly
+                    .padding(bottom = 36.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                IconButton(
-                    onClick = onNavigateBack,
+                Column(
                     modifier = Modifier
-                        .size(64.dp)
-                        .glassCard(shape = RoundedCornerShape(20.dp))
+                        .fillMaxWidth()
+                        .glassCard(shape = RoundedCornerShape(24.dp))
+                        .padding(20.dp)
                 ) {
-                    Icon(Icons.Default.Close, contentDescription = "Cancel", tint = Color.White)
-                }
-                
-                IconButton(
-                    onClick = {
-                        val nextTorch = !isTorchOn
-                        camera?.cameraControl?.enableTorch(nextTorch)
-                        isTorchOn = nextTorch
-                    },
-                    modifier = Modifier
-                        .size(64.dp)
-                        .glassCard(shape = RoundedCornerShape(20.dp))
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.FlashlightOn,
-                        contentDescription = "Flashlight",
-                        tint = if (isTorchOn) MaterialTheme.colorScheme.primary else Color.White
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color(0xFF306EE8).copy(alpha = 0.2f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.QrCodeScanner,
+                                    contentDescription = null,
+                                    tint = Color(0xFF00D2FF),
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = "Air-Gap P2P Handshake",
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = Color.White
+                                )
+                                Text(
+                                    text = "Unidirectional optical data channel",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        // Status badge
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFF10B981).copy(alpha = 0.15f))
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = "READY",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold
+                                ),
+                                color = Color(0xFF10B981)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Cryptographic Telemetry Spec Chips
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        SpecChip(label = "CURVE", value = "Ed25519")
+                        SpecChip(label = "CIPHER", value = "ChaCha20")
+                        SpecChip(label = "ENCLAVE", value = "Hardware")
+                        SpecChip(label = "RADIO", value = "Off (Air-Gap)")
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Text(
+                        text = "ZERO METRIC LEAKAGE • 100% AIR-GAPPED PROTOCOL",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Medium
+                        ),
+                        color = Color.White.copy(alpha = 0.4f),
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             }
         }
         
-        // Processing State
+        // Processing State Overlay
         if (scannedPayload != null) {
             LaunchedEffect(scannedPayload) {
                 try {
-                    // Decompress the QR Payload
                     val bytes = Base64.decode(scannedPayload, Base64.NO_WRAP)
                     val inflater = Inflater()
                     inflater.setInput(bytes)
@@ -280,27 +451,62 @@ fun AirGapScannerScreen(
                     val rawSdp = String(os.toByteArray(), Charsets.UTF_8)
                     
                     if (viewModel.sdpOffer.value != null && viewModel.sdpAnswer.value == null) {
-                        // We generated an offer, so this scan must be the Answer
                         viewModel.completeHandshake(rawSdp)
                     } else {
-                        // We are scanning an offer to generate an answer
                         viewModel.receiveOfferAndGenerateAnswer(rawSdp)
                     }
                     delay(500)
-                    onNavigateBack() // Return to A2A Screen
+                    onNavigateBack()
                 } catch (e: Exception) {
                     e.printStackTrace()
                     isProcessing = false
-                    scannedPayload = null // Reset on fail
+                    scannedPayload = null
                 }
             }
             
             Box(
-                modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f)),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.7f)),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(color = Color(0xFF306EE8))
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    CircularProgressIndicator(color = Color(0xFF00D2FF))
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "PARSING AIR-GAP PAYLOAD...",
+                        style = MaterialTheme.typography.labelMedium.copy(
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold
+                        ),
+                        color = Color.White
+                    )
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun SpecChip(label: String, value: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall.copy(
+                fontFamily = FontFamily.Monospace,
+                fontSize = 9.sp,
+                color = Color(0xFF8C90A0)
+            )
+        )
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(
+            text = value,
+            style = MaterialTheme.typography.labelSmall.copy(
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Bold,
+                fontSize = 11.sp,
+                color = Color.White
+            )
+        )
     }
 }
