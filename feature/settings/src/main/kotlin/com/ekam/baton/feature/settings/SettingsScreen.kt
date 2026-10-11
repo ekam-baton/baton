@@ -43,6 +43,7 @@ fun SettingsScreen(
     onNavigateToTunnelSetup: () -> Unit = {},
     onNavigateToMemory: () -> Unit = {},
     onNavigateToKeyBackup: () -> Unit = {},
+    onNavigateToCloudBackup: () -> Unit = {},
     onNavigateToExecutionLedger: () -> Unit = {},
     viewModel: SettingsViewModel = koinViewModel()
 ) {
@@ -298,7 +299,15 @@ fun SettingsScreen(
                         if (enableHapticFeedback) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         onNavigateToKeyBackup()
                     },
-                    
+                )
+                ListItem(
+                    headlineContent = { Text("Cloud Backup & Sync") },
+                    supportingContent = { Text("Automated zero-knowledge cloud synchronization") },
+                    leadingContent = { Icon(Icons.Default.CloudSync, contentDescription = null) },
+                    modifier = Modifier.clickable {
+                        if (enableHapticFeedback) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onNavigateToCloudBackup()
+                    },
                 )
                 ListItem(
                     headlineContent = { Text("Audit & Execution Ledger") },

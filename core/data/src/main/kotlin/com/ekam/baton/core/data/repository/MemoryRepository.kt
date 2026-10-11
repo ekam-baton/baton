@@ -10,19 +10,19 @@ import com.ekam.baton.core.data.db.dao.AuditDao
 import com.ekam.baton.core.data.db.entity.AuditLogEntity
 import com.ekam.baton.core.data.util.AuditCryptoUtils
 
-class MemoryRepository constructor(
+open class MemoryRepository constructor(
     private val memoryDao: MemoryDao,
     private val auditDao: AuditDao
 ) {
-    fun getAllMemories(): Flow<List<Memory>> = memoryDao.getAllMemories().map { list -> list.map { it.toDomainModel() } }
+    open fun getAllMemories(): Flow<List<Memory>> = memoryDao.getAllMemories().map { list -> list.map { it.toDomainModel() } }
 
-    fun getMemoriesByLayer(layer: String): Flow<List<Memory>> = memoryDao.getMemoriesByLayer(layer).map { list -> list.map { it.toDomainModel() } }
+    open fun getMemoriesByLayer(layer: String): Flow<List<Memory>> = memoryDao.getMemoriesByLayer(layer).map { list -> list.map { it.toDomainModel() } }
 
-    fun getMemoriesForAgent(agentId: String): Flow<List<Memory>> = memoryDao.getMemoriesForAgent(agentId).map { list -> list.map { it.toDomainModel() } }
+    open fun getMemoriesForAgent(agentId: String): Flow<List<Memory>> = memoryDao.getMemoriesForAgent(agentId).map { list -> list.map { it.toDomainModel() } }
 
-    fun searchMemories(query: String): Flow<List<Memory>> = memoryDao.searchMemories(query).map { list -> list.map { it.toDomainModel() } }
+    open fun searchMemories(query: String): Flow<List<Memory>> = memoryDao.searchMemories(query).map { list -> list.map { it.toDomainModel() } }
 
-    suspend fun upsertMemory(memory: Memory) {
+    open suspend fun upsertMemory(memory: Memory) {
         val entity = memory.toEntity()
         val lastAudit = auditDao.getLastAuditLog()
         val prevHash = lastAudit?.hash ?: ""
@@ -43,7 +43,7 @@ class MemoryRepository constructor(
         ))
     }
 
-    suspend fun deleteMemory(id: String) {
+    open suspend fun deleteMemory(id: String) {
         val lastAudit = auditDao.getLastAuditLog()
         val prevHash = lastAudit?.hash ?: ""
         val payload = """{"id":"$id","deleted":true}"""
@@ -62,7 +62,7 @@ class MemoryRepository constructor(
         ))
     }
 
-    suspend fun toggleMemoryActive(id: String, isActive: Boolean) {
+    open suspend fun toggleMemoryActive(id: String, isActive: Boolean) {
         val lastAudit = auditDao.getLastAuditLog()
         val prevHash = lastAudit?.hash ?: ""
         val payload = """{"id":"$id","isActive":$isActive}"""

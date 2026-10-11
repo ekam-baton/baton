@@ -277,6 +277,9 @@ fun BatonNavGraph(
                 onNavigateToKeyBackup = {
                     navController.navigate("settings/key_backup")
                 },
+                onNavigateToCloudBackup = {
+                    navController.navigate("settings/cloud_backup")
+                },
                 onNavigateToExecutionLedger = {
                     navController.navigate("settings/execution_ledger")
                 }
@@ -285,6 +288,12 @@ fun BatonNavGraph(
         
         composable("settings/key_backup") {
             KeyBackupScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable("settings/cloud_backup") {
+            com.ekam.baton.feature.settings.CloudBackupScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }

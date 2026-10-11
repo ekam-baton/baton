@@ -8,14 +8,16 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 
-class VaultRepository constructor(
-    private val okHttpClient: OkHttpClient,
-    private val tunnelEndpointValidator: com.ekam.baton.core.network.tunnel.TunnelEndpointValidator
+open class VaultRepository constructor(
+    private val okHttpClient: OkHttpClient? = null,
+    private val tunnelEndpointValidator: com.ekam.baton.core.network.tunnel.TunnelEndpointValidator? = null
 ) {
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
 
-    suspend fun uploadVault(endpointUrl: String, authHeader: String?, clientId: String, vaultData: String): Result<Unit> = withContext(Dispatchers.IO) {
-        if (!tunnelEndpointValidator.isUrlSafe(endpointUrl)) {
+    open suspend fun uploadVault(endpointUrl: String, authHeader: String?, clientId: String, vaultData: String): Result<Unit> = withContext(Dispatchers.IO) {
+        val validator = tunnelEndpointValidator ?: return@withContext Result.failure(IllegalStateException("Validator not initialized"))
+        val client = okHttpClient ?: return@withContext Result.failure(IllegalStateException("Client not initialized"))
+        if (!validator.isUrlSafe(endpointUrl)) {
             return@withContext Result.failure(Exception("SSRF Protection: Endpoint resolves to a private or reserved address."))
         }
         try {
@@ -30,7 +32,7 @@ class VaultRepository constructor(
             val requestBuilder = Request.Builder().url(url).post(requestBody)
             authHeader?.let { requestBuilder.addHeader("Authorization", it) }
 
-            val response = okHttpClient.newCall(requestBuilder.build()).execute()
+            val response = client.newCall(requestBuilder.build()).execute()
             if (response.isSuccessful) {
                 Result.success(Unit)
             } else {
@@ -41,8 +43,10 @@ class VaultRepository constructor(
         }
     }
 
-    suspend fun downloadVault(endpointUrl: String, authHeader: String?, clientId: String): Result<String> = withContext(Dispatchers.IO) {
-        if (!tunnelEndpointValidator.isUrlSafe(endpointUrl)) {
+    open suspend fun downloadVault(endpointUrl: String, authHeader: String?, clientId: String): Result<String> = withContext(Dispatchers.IO) {
+        val validator = tunnelEndpointValidator ?: return@withContext Result.failure(IllegalStateException("Validator not initialized"))
+        val client = okHttpClient ?: return@withContext Result.failure(IllegalStateException("Client not initialized"))
+        if (!validator.isUrlSafe(endpointUrl)) {
             return@withContext Result.failure(Exception("SSRF Protection: Endpoint resolves to a private or reserved address."))
         }
         try {
@@ -50,7 +54,7 @@ class VaultRepository constructor(
             val requestBuilder = Request.Builder().url(url).get()
             authHeader?.let { requestBuilder.addHeader("Authorization", it) }
 
-            val response = okHttpClient.newCall(requestBuilder.build()).execute()
+            val response = client.newCall(requestBuilder.build()).execute()
             if (response.isSuccessful) {
                 val bodyStr = response.body?.string()
                 if (bodyStr != null) {

@@ -49,6 +49,7 @@ dependencies {
 
     testImplementation(libs.junit4)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation("org.json:json:20240303")
     androidTestImplementation(libs.bundles.testing.android)
     debugImplementation(libs.compose.ui.tooling)
 }

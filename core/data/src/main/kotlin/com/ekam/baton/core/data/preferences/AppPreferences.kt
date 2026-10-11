@@ -16,9 +16,11 @@ import androidx.security.crypto.MasterKey
 
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "baton_preferences")
 
-class AppPreferences constructor(
-    private val context: Context
+open class AppPreferences constructor(
+    private val _context: Context? = null
 ) {
+    private val context: Context get() = _context ?: throw IllegalStateException("Context not available")
+
     companion object {
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val ACCENT_COLOR = longPreferencesKey("accent_color")
@@ -46,102 +48,112 @@ class AppPreferences constructor(
         val HAS_SEEN_WALKTHROUGH = booleanPreferencesKey("has_seen_walkthrough")
         val REGION = stringPreferencesKey("region")
         val REFRESH_TOKEN = stringPreferencesKey("refresh_token")
+        val CLOUD_SYNC_ACTIVE = booleanPreferencesKey("cloud_sync_active")
+        val CLOUD_SYNC_MEMORIES = booleanPreferencesKey("cloud_sync_memories")
+        val CLOUD_SYNC_KEYS = booleanPreferencesKey("cloud_sync_keys")
+        val LAST_SYNC_TIMESTAMP = longPreferencesKey("last_sync_timestamp")
     }
 
     private val securePrefs = try {
-        val masterKey = MasterKey.Builder(context)
-            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .build()
-        EncryptedSharedPreferences.create(
-            context,
-            "secure_baton_prefs",
-            masterKey,
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-        )
-    } catch (e: Exception) {
-        e.printStackTrace()
-        try {
-            context.deleteSharedPreferences("secure_baton_prefs")
-        } catch (ignored: Exception) {}
-        try {
-            val file = java.io.File(context.filesDir.parent, "shared_prefs/secure_baton_prefs.xml")
-            if (file.exists()) file.delete()
-            val bakFile = java.io.File(context.filesDir.parent, "shared_prefs/secure_baton_prefs.xml.bak")
-            if (bakFile.exists()) bakFile.delete()
-            val bakFile2 = java.io.File(context.filesDir.parent, "shared_prefs/secure_baton_prefs.bak")
-            if (bakFile2.exists()) bakFile2.delete()
-        } catch (ignored: Exception) {}
-
-        try {
-            val keyStore = java.security.KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
-            keyStore.deleteEntry(MasterKey.DEFAULT_MASTER_KEY_ALIAS)
-        } catch (ignored: Exception) {}
-
-        try {
-            val freshMasterKey = MasterKey.Builder(context)
+        if (_context == null) null else {
+            val masterKey = MasterKey.Builder(_context)
                 .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
                 .build()
             EncryptedSharedPreferences.create(
-                context,
+                _context,
                 "secure_baton_prefs",
-                freshMasterKey,
+                masterKey,
                 EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
                 EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
             )
-        } catch (fallbackEx: Exception) {
-            fallbackEx.printStackTrace()
-            throw SecurityException("CRITICAL: Failed to initialize EncryptedSharedPreferences for AppPreferences.", fallbackEx)
+        }
+    } catch (e: Exception) {
+        if (_context == null) null else {
+            e.printStackTrace()
+            try {
+                _context.deleteSharedPreferences("secure_baton_prefs")
+            } catch (ignored: Exception) {}
+            try {
+                val file = java.io.File(_context.filesDir.parent, "shared_prefs/secure_baton_prefs.xml")
+                if (file.exists()) file.delete()
+                val bakFile = java.io.File(_context.filesDir.parent, "shared_prefs/secure_baton_prefs.xml.bak")
+                if (bakFile.exists()) bakFile.delete()
+                val bakFile2 = java.io.File(_context.filesDir.parent, "shared_prefs/secure_baton_prefs.bak")
+                if (bakFile2.exists()) bakFile2.delete()
+            } catch (ignored: Exception) {}
+
+            try {
+                val keyStore = java.security.KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+                keyStore.deleteEntry(MasterKey.DEFAULT_MASTER_KEY_ALIAS)
+            } catch (ignored: Exception) {}
+
+            try {
+                val freshMasterKey = MasterKey.Builder(_context)
+                    .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                    .build()
+                EncryptedSharedPreferences.create(
+                    _context,
+                    "secure_baton_prefs",
+                    freshMasterKey,
+                    EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+                )
+            } catch (fallbackEx: Exception) {
+                fallbackEx.printStackTrace()
+                null
+            }
         }
     }
 
-    private val _jwtSecretFlow = MutableStateFlow(securePrefs.getString("jwt_secret", "") ?: "")
-    private val _refreshTokenFlow = MutableStateFlow(securePrefs.getString("refresh_token", "") ?: "")
-    private val _isPremiumUnlockedFlow = MutableStateFlow(securePrefs.getBoolean("is_premium_unlocked", false))
+    private val _jwtSecretFlow = MutableStateFlow(securePrefs?.getString("jwt_secret", "") ?: "")
+    private val _refreshTokenFlow = MutableStateFlow(securePrefs?.getString("refresh_token", "") ?: "")
+    private val _isPremiumUnlockedFlow = MutableStateFlow(securePrefs?.getBoolean("is_premium_unlocked", false) ?: false)
 
     init {
-        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
-            val legacyJwt = context.dataStore.data.map { it[JWT_SECRET] }.firstOrNull()
-            if (!legacyJwt.isNullOrBlank() && securePrefs.getString("jwt_secret", "") == "") {
-                setJwtSecret(legacyJwt)
-            }
-            val legacyPremium = context.dataStore.data.map { it[IS_PREMIUM_UNLOCKED] }.firstOrNull()
-            if (legacyPremium != null && !securePrefs.getBoolean("is_premium_unlocked", false)) {
-                setPremiumUnlocked(legacyPremium)
+        if (_context != null) {
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                val legacyJwt = context.dataStore.data.map { it[JWT_SECRET] }.firstOrNull()
+                if (!legacyJwt.isNullOrBlank() && securePrefs?.getString("jwt_secret", "") == "") {
+                    setJwtSecret(legacyJwt)
+                }
+                val legacyPremium = context.dataStore.data.map { it[IS_PREMIUM_UNLOCKED] }.firstOrNull()
+                if (legacyPremium != null && !(securePrefs?.getBoolean("is_premium_unlocked", false) ?: false)) {
+                    setPremiumUnlocked(legacyPremium)
+                }
             }
         }
     }
 
-    private val _userEmailFlow = MutableStateFlow(securePrefs.getString("user_email", "") ?: "")
-    private val _userPhoneFlow = MutableStateFlow(securePrefs.getString("user_phone", "") ?: "")
+    private val _userEmailFlow = MutableStateFlow(securePrefs?.getString("user_email", "") ?: "")
+    private val _userPhoneFlow = MutableStateFlow(securePrefs?.getString("user_phone", "") ?: "")
 
     val userEmail: Flow<String> = _userEmailFlow
 
     val userPhone: Flow<String> = _userPhoneFlow
 
-    val isRegistered: Flow<Boolean> = context.dataStore.data.map { preferences ->
+    val isRegistered: Flow<Boolean> get() = context.dataStore.data.map { preferences ->
         preferences[IS_REGISTERED] ?: false
     }
 
-    val trialStartTime: Flow<Long> = context.dataStore.data.map { preferences ->
+    val trialStartTime: Flow<Long> get() = context.dataStore.data.map { preferences ->
         preferences[TRIAL_START_TIME] ?: 0L
     }
 
     val isPremiumUnlocked: Flow<Boolean> = _isPremiumUnlockedFlow
 
-    val themeMode: Flow<String> = context.dataStore.data.map { preferences ->
+    val themeMode: Flow<String> get() = context.dataStore.data.map { preferences ->
         preferences[THEME_MODE] ?: "dark"
     }
 
-    val defaultTokenLimit: Flow<Int> = context.dataStore.data.map { preferences ->
+    val defaultTokenLimit: Flow<Int> get() = context.dataStore.data.map { preferences ->
         preferences[DEFAULT_TOKEN_LIMIT] ?: 4096
     }
 
-    val enableHapticFeedback: Flow<Boolean> = context.dataStore.data.map { preferences ->
+    val enableHapticFeedback: Flow<Boolean> get() = context.dataStore.data.map { preferences ->
         preferences[ENABLE_HAPTIC_FEEDBACK] ?: true
     }
 
-    val tunnelStatusMap: Flow<Map<String, String>> = context.dataStore.data.map { preferences ->
+    val tunnelStatusMap: Flow<Map<String, String>> get() = context.dataStore.data.map { preferences ->
         val jsonString = preferences[TUNNEL_STATUS_MAP] ?: "{}"
         try {
             kotlinx.serialization.json.Json.decodeFromString<Map<String, String>>(jsonString)
@@ -150,31 +162,31 @@ class AppPreferences constructor(
         }
     }
 
-    val accentColor: Flow<Long> = context.dataStore.data.map { preferences ->
+    val accentColor: Flow<Long> get() = context.dataStore.data.map { preferences ->
         preferences[ACCENT_COLOR] ?: 0xFFECEFF4 // Default tertiary color (Cool White)
     }
 
-    val fontSize: Flow<String> = context.dataStore.data.map { preferences ->
+    val fontSize: Flow<String> get() = context.dataStore.data.map { preferences ->
         preferences[FONT_SIZE] ?: "medium"
     }
 
-    val appLockEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
+    val appLockEnabled: Flow<Boolean> get() = context.dataStore.data.map { preferences ->
         preferences[APP_LOCK_ENABLED] ?: false
     }
 
-    val autoExtractFacts: Flow<Boolean> = context.dataStore.data.map { preferences ->
+    val autoExtractFacts: Flow<Boolean> get() = context.dataStore.data.map { preferences ->
         preferences[AUTO_EXTRACT_FACTS] ?: true
     }
 
-    val autoGenerateEpisodes: Flow<Boolean> = context.dataStore.data.map { preferences ->
+    val autoGenerateEpisodes: Flow<Boolean> get() = context.dataStore.data.map { preferences ->
         preferences[AUTO_GENERATE_EPISODES] ?: true
     }
 
-    val memoryRetentionDays: Flow<Int> = context.dataStore.data.map { preferences ->
+    val memoryRetentionDays: Flow<Int> get() = context.dataStore.data.map { preferences ->
         preferences[MEMORY_RETENTION_DAYS] ?: 30
     }
 
-    val backendUrl: Flow<String> = combine(
+    open val backendUrl: Flow<String> get() = if (_context == null) kotlinx.coroutines.flow.flowOf("https://api.baton.com/") else combine(
         context.dataStore.data.map { it[PIPELINE_MODE] ?: "MANAGED" },
         context.dataStore.data.map { it[REGION] ?: "Global" },
         context.dataStore.data.map { it[BACKEND_URL] ?: "https://api.baton.com/" }
@@ -194,44 +206,44 @@ class AppPreferences constructor(
         }
     }
 
-    val jwtSecret: Flow<String> = _jwtSecretFlow
+    open val jwtSecret: Flow<String> get() = _jwtSecretFlow
     val refreshToken: Flow<String> = _refreshTokenFlow
 
     var qtspPassword: CharArray?
-        get() = securePrefs.getString("qtsp_password", null)?.toCharArray()
+        get() = securePrefs?.getString("qtsp_password", null)?.toCharArray()
         set(value) {
             if (value == null) {
-                securePrefs.edit().remove("qtsp_password").apply()
+                securePrefs?.edit()?.remove("qtsp_password")?.apply()
             } else {
-                securePrefs.edit().putString("qtsp_password", String(value)).apply()
+                securePrefs?.edit()?.putString("qtsp_password", String(value))?.apply()
             }
         }
 
-    val allowLocalNetworkAgents: Flow<Boolean> = context.dataStore.data.map { preferences ->
+    val allowLocalNetworkAgents: Flow<Boolean> get() = context.dataStore.data.map { preferences ->
         preferences[ALLOW_LOCAL_NETWORK_AGENTS] ?: false
     }
 
-    val pipelineMode: Flow<String> = context.dataStore.data.map { preferences ->
+    val pipelineMode: Flow<String> get() = context.dataStore.data.map { preferences ->
         preferences[PIPELINE_MODE] ?: "MANAGED"
     }
 
-    val clientId: Flow<String> = context.dataStore.data.map { preferences ->
+    val clientId: Flow<String> get() = context.dataStore.data.map { preferences ->
         preferences[CLIENT_ID] ?: ""
     }
 
-    val consentTimestamp: Flow<Long> = context.dataStore.data.map { preferences ->
+    val consentTimestamp: Flow<Long> get() = context.dataStore.data.map { preferences ->
         preferences[CONSENT_TIMESTAMP] ?: 0L
     }
 
-    val policyVersion: Flow<String> = context.dataStore.data.map { preferences ->
+    val policyVersion: Flow<String> get() = context.dataStore.data.map { preferences ->
         preferences[POLICY_VERSION] ?: ""
     }
 
-    val hasSeenWalkthrough: Flow<Boolean> = context.dataStore.data.map { preferences ->
+    val hasSeenWalkthrough: Flow<Boolean> get() = context.dataStore.data.map { preferences ->
         preferences[HAS_SEEN_WALKTHROUGH] ?: false
     }
 
-    val region: Flow<String> = context.dataStore.data.map { preferences ->
+    val region: Flow<String> get() = context.dataStore.data.map { preferences ->
         preferences[REGION] ?: "Global"
     }
 
@@ -289,23 +301,23 @@ class AppPreferences constructor(
     }
 
     suspend fun setJwtSecret(secret: String) {
-        securePrefs.edit().putString("jwt_secret", secret).apply()
+        securePrefs?.edit()?.putString("jwt_secret", secret)?.apply()
         _jwtSecretFlow.value = secret
         // Clear from plaintext datastore if it was previously stored there
-        context.dataStore.edit { preferences -> preferences.remove(JWT_SECRET) }
+        context?.dataStore?.edit { preferences -> preferences.remove(JWT_SECRET) }
     }
 
     suspend fun setRefreshToken(token: String) {
-        securePrefs.edit().putString("refresh_token", token).apply()
+        securePrefs?.edit()?.putString("refresh_token", token)?.apply()
         _refreshTokenFlow.value = token
-        context.dataStore.edit { preferences -> preferences.remove(REFRESH_TOKEN) }
+        context?.dataStore?.edit { preferences -> preferences.remove(REFRESH_TOKEN) }
     }
 
     suspend fun setPremiumUnlocked(unlocked: Boolean) {
-        securePrefs.edit().putBoolean("is_premium_unlocked", unlocked).apply()
+        securePrefs?.edit()?.putBoolean("is_premium_unlocked", unlocked)?.apply()
         _isPremiumUnlockedFlow.value = unlocked
         // Clear from plaintext datastore if it was previously stored there
-        context.dataStore.edit { preferences -> preferences.remove(IS_PREMIUM_UNLOCKED) }
+        context?.dataStore?.edit { preferences -> preferences.remove(IS_PREMIUM_UNLOCKED) }
     }
 
     suspend fun setBackendUrl(url: String) {
@@ -320,7 +332,7 @@ class AppPreferences constructor(
         context.dataStore.edit { preferences -> preferences[PIPELINE_MODE] = mode }
     }
 
-    val keyboardShortcuts: Flow<List<KeyboardShortcut>> = context.dataStore.data.map { preferences ->
+    val keyboardShortcuts: Flow<List<KeyboardShortcut>> get() = context.dataStore.data.map { preferences ->
         val jsonString = preferences[KEYBOARD_SHORTCUTS]
         if (jsonString.isNullOrBlank()) {
             defaultShortcuts()
@@ -348,14 +360,14 @@ class AppPreferences constructor(
     }
 
     suspend fun registerUser(email: String, phone: String, consentTimestamp: Long = 0L, policyVersion: String = "", region: String = "Global") {
-        securePrefs.edit()
-            .putString("user_email", email)
-            .putString("user_phone", phone)
-            .apply()
+        securePrefs?.edit()
+            ?.putString("user_email", email)
+            ?.putString("user_phone", phone)
+            ?.apply()
         _userEmailFlow.value = email
         _userPhoneFlow.value = phone
 
-        context.dataStore.edit { preferences ->
+        context?.dataStore?.edit { preferences ->
             // Security Fix: Do not store PII in plaintext DataStore
             preferences.remove(USER_EMAIL)
             preferences.remove(USER_PHONE)
@@ -370,14 +382,14 @@ class AppPreferences constructor(
     }
 
     suspend fun clearRegistration() {
-        securePrefs.edit()
-            .remove("user_email")
-            .remove("user_phone")
-            .apply()
+        securePrefs?.edit()
+            ?.remove("user_email")
+            ?.remove("user_phone")
+            ?.apply()
         _userEmailFlow.value = ""
         _userPhoneFlow.value = ""
 
-        context.dataStore.edit { preferences ->
+        context?.dataStore?.edit { preferences ->
             preferences.remove(USER_EMAIL)
             preferences.remove(USER_PHONE)
             preferences[IS_REGISTERED] = false
@@ -385,5 +397,45 @@ class AppPreferences constructor(
             preferences.remove(IS_PREMIUM_UNLOCKED)
         }
         setPremiumUnlocked(false)
+    }
+
+    open val cloudSyncActive: Flow<Boolean> get() = if (_context == null) kotlinx.coroutines.flow.flowOf(true) else context.dataStore.data.map { preferences ->
+        preferences[CLOUD_SYNC_ACTIVE] ?: true
+    }
+
+    open val cloudSyncMemories: Flow<Boolean> get() = if (_context == null) kotlinx.coroutines.flow.flowOf(true) else context.dataStore.data.map { preferences ->
+        preferences[CLOUD_SYNC_MEMORIES] ?: true
+    }
+
+    open val cloudSyncKeys: Flow<Boolean> get() = if (_context == null) kotlinx.coroutines.flow.flowOf(false) else context.dataStore.data.map { preferences ->
+        preferences[CLOUD_SYNC_KEYS] ?: false
+    }
+
+    open val lastSyncTimestamp: Flow<Long> get() = if (_context == null) kotlinx.coroutines.flow.flowOf(0L) else context.dataStore.data.map { preferences ->
+        preferences[LAST_SYNC_TIMESTAMP] ?: 0L
+    }
+
+    open suspend fun setCloudSyncActive(active: Boolean) {
+        _context?.dataStore?.edit { preferences ->
+            preferences[CLOUD_SYNC_ACTIVE] = active
+        }
+    }
+
+    open suspend fun setCloudSyncMemories(sync: Boolean) {
+        _context?.dataStore?.edit { preferences ->
+            preferences[CLOUD_SYNC_MEMORIES] = sync
+        }
+    }
+
+    open suspend fun setCloudSyncKeys(sync: Boolean) {
+        _context?.dataStore?.edit { preferences ->
+            preferences[CLOUD_SYNC_KEYS] = sync
+        }
+    }
+
+    open suspend fun setLastSyncTimestamp(timestamp: Long) {
+        _context?.dataStore?.edit { preferences ->
+            preferences[LAST_SYNC_TIMESTAMP] = timestamp
+        }
     }
 }

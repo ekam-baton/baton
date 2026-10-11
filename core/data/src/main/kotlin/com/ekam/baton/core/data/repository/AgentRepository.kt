@@ -7,26 +7,26 @@ import com.ekam.baton.core.data.model.toEntity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
-class AgentRepository constructor(
+open class AgentRepository constructor(
     private val agentDao: AgentDao
 ) {
-    fun getAllAgents(): Flow<List<Agent>> {
+    open fun getAllAgents(): Flow<List<Agent>> {
         return agentDao.getAllAgents().map { list -> list.map { it.toDomainModel() } }
     }
 
-    suspend fun getAgentById(id: String): Agent? {
+    open suspend fun getAgentById(id: String): Agent? {
         return agentDao.getAgentById(id)?.toDomainModel()
     }
 
-    suspend fun upsertAgent(agent: Agent) {
+    open suspend fun upsertAgent(agent: Agent) {
         agentDao.upsertAgent(agent.toEntity())
     }
 
-    suspend fun deleteAgent(id: String) {
+    open suspend fun deleteAgent(id: String) {
         agentDao.deleteAgent(id)
     }
 
-    suspend fun updateLastUsed(id: String, timestamp: Long) {
+    open suspend fun updateLastUsed(id: String, timestamp: Long) {
         agentDao.updateLastUsed(id, timestamp)
     }
 }
