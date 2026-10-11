@@ -116,6 +116,7 @@ class FakeAuditDao : com.ekam.baton.core.data.db.dao.AuditDao {
     override fun getAllAuditLogs(): Flow<List<com.ekam.baton.core.data.db.entity.AuditLogEntity>> = kotlinx.coroutines.flow.flowOf(emptyList())
     override suspend fun getLastAuditLog(): com.ekam.baton.core.data.db.entity.AuditLogEntity? = null
     override suspend fun getAllAuditLogsSync(): List<com.ekam.baton.core.data.db.entity.AuditLogEntity> = emptyList()
+    override suspend fun pruneOldLogs(keepLastN: Int) {}
 }
 
 class MemoryRepositoryTest {

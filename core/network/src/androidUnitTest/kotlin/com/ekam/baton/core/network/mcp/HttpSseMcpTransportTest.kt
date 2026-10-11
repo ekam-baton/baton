@@ -62,7 +62,8 @@ class HttpSseMcpTransportTest {
             endpointUrl = endpoint,
             authHeader = null,
             toolName = "chat",
-            arguments = buildJsonObject { put("message", "hi") }
+            arguments = buildJsonObject { put("message", "hi") },
+            agentId = null
         )
 
         val results = flow.toList()

@@ -1,4 +1,4 @@
-package com.ekam.baton.core.network.mcp
+﻿package com.ekam.baton.core.network.mcp
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
@@ -123,7 +123,8 @@ class HttpSseMcpTransport constructor(
         endpointUrl: String,
         authHeader: String?,
         toolName: String,
-        arguments: JsonObject
+        arguments: JsonObject,
+        agentId: String?
     ): Flow<String> = callbackFlow {
         val toolCallParams = McpToolCallParams(name = toolName, arguments = arguments)
         val requestPayload = McpRequest(

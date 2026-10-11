@@ -261,12 +261,11 @@ class ConnectionSecurityManager constructor(
     }
 
     companion object {
-        init {
-            try {
-                System.loadLibrary("baton_crypto")
-            } catch (e: UnsatisfiedLinkError) {
-                // Silently ignore UnsatisfiedLinkError for JVM unit tests
-            }
+        val isNativeLoaded: Boolean = try {
+            System.loadLibrary("baton_crypto")
+            true
+        } catch (e: Throwable) {
+            false
         }
 
         @JvmStatic

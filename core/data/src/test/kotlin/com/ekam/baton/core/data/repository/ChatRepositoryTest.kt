@@ -1,4 +1,4 @@
-package com.ekam.baton.core.data.repository
+﻿package com.ekam.baton.core.data.repository
 
 import androidx.paging.PagingSource
 import androidx.paging.PagingState
@@ -64,6 +64,7 @@ class FakeMessageDao : MessageDao {
     override suspend fun getLastNMessages(conversationId: String, n: Int): List<MessageEntity> =
         messages.filter { it.conversationId == conversationId }.takeLast(n)
     override suspend fun deleteMessage(id: String) { messages.removeAll { it.id == id } }
+    override suspend fun clearStreamingStates() {}
 }
 
 class ChatFakeMemoryDao : MemoryDao {
@@ -88,13 +89,13 @@ class FakeMcpTransport : McpTransport {
         """{"jsonrpc":"2.0","id":1,"result":{"content":[{"text":"Hello"}]}}""",
         """{"jsonrpc":"2.0","id":2,"result":{"content":[{"text":" there!"}]}}"""
     )
-    override suspend fun initialize(endpointUrl: String, authHeader: String?): Result<JsonObject> = Result.success(buildJsonObject {})
-    override suspend fun listTools(endpointUrl: String, authHeader: String?): Result<List<McpTool>> = Result.success(listOf(McpTool("chat", "Chat tool", buildJsonObject {})))
-    override fun callTool(endpointUrl: String, authHeader: String?, toolName: String, arguments: JsonObject): Flow<String> = flow {
+    override suspend fun initialize(endpointUrl: String, authHeader: String?, agentId: String?): Result<JsonObject> = Result.success(buildJsonObject {})
+    override suspend fun listTools(endpointUrl: String, authHeader: String?, agentId: String?): Result<List<McpTool>> = Result.success(listOf(McpTool("chat", "Chat tool", buildJsonObject {})))
+    override fun callTool(endpointUrl: String, authHeader: String?, toolName: String, arguments: JsonObject, agentId: String?): Flow<String> = flow {
         responseChunks.forEach { emit(it) }
     }
     override suspend fun ping(endpointUrl: String): Boolean = true
-    override suspend fun uploadFile(endpointUrl: String, authHeader: String?, uri: String, context: android.content.Context): Result<String> = Result.success("fake_file_id")
+    override suspend fun uploadFile(endpointUrl: String, authHeader: String?, uri: String, context: android.content.Context, agentId: String?): Result<String> = Result.success("fake_file_id")
 }
 
 
@@ -103,6 +104,7 @@ class ChatFakeAuditDao : com.ekam.baton.core.data.db.dao.AuditDao {
     override fun getAllAuditLogs(): Flow<List<com.ekam.baton.core.data.db.entity.AuditLogEntity>> = kotlinx.coroutines.flow.flowOf(emptyList())
     override suspend fun getLastAuditLog(): com.ekam.baton.core.data.db.entity.AuditLogEntity? = null
     override suspend fun getAllAuditLogsSync(): List<com.ekam.baton.core.data.db.entity.AuditLogEntity> = emptyList()
+    override suspend fun pruneOldLogs(keepLastN: Int) {}
 }
 
 // ── Test Class ───────────────────────────────────────────────────────────────
@@ -130,7 +132,7 @@ class ChatRepositoryTest {
         val authManager = ToolAuthorizationManager()
         val connectionManager = McpConnectionManager(transport, transport)
         val mockContext: android.content.Context? = null
-        mcpMessageSender = McpMessageSender(connectionManager, authManager, mockContext)
+        mcpMessageSender = McpMessageSender(connectionManager, authManager, mockContext, okhttp3.OkHttpClient())
         
         val workingMemoryManager = WorkingMemoryManager(memoryDao)
         
@@ -141,7 +143,8 @@ class ChatRepositoryTest {
             memoryDao,
             auditDao,
             mcpMessageSender,
-            workingMemoryManager
+            workingMemoryManager,
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Unconfined)
         )
     }
 

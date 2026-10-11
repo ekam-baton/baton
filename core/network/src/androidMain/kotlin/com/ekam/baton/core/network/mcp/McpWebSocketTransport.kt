@@ -1,4 +1,4 @@
-package com.ekam.baton.core.network.mcp
+﻿package com.ekam.baton.core.network.mcp
 
 import com.ekam.baton.core.network.security.AgentSecurityConfigProvider
 import com.ekam.baton.core.network.security.ConnectionSecurityManager
@@ -67,7 +67,8 @@ class McpWebSocketTransport constructor(
         endpointUrl: String,
         authHeader: String?,
         uri: String,
-        context: android.content.Context
+        context: android.content.Context,
+        agentId: String?
     ): Result<String> {
         return Result.failure(Exception("File upload over WebSocket not yet implemented"))
     }
@@ -76,7 +77,8 @@ class McpWebSocketTransport constructor(
         endpointUrl: String,
         authHeader: String?,
         toolName: String,
-        arguments: JsonObject
+        arguments: JsonObject,
+        agentId: String?
     ): Flow<String> = callbackFlow {
         val toolCallParams = McpToolCallParams(name = toolName, arguments = arguments)
         val requestPayload = McpRequest(
@@ -87,7 +89,7 @@ class McpWebSocketTransport constructor(
         val rawPlaintext = json.encodeToString(requestPayload)
 
         val uri = android.net.Uri.parse(endpointUrl)
-        val agentId = uri.getQueryParameter("agent") ?: "unknown"
+        val agentId = agentId ?: uri.getQueryParameter("agent") ?: "unknown"
         val clientId = uri.lastPathSegment ?: "unknown"
 
         val secureUrl = if (endpointUrl.startsWith("ws://")) {

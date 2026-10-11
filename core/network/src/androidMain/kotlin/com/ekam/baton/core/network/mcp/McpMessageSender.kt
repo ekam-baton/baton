@@ -1,4 +1,4 @@
-package com.ekam.baton.core.network.mcp
+﻿package com.ekam.baton.core.network.mcp
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -144,7 +144,7 @@ class McpMessageSender constructor(
             }
         }
 
-        return raceEndpoints(endpointUrl, authHeader, relayUrl, relayToken, targetToolName, argumentsJson)
+        return raceEndpoints(endpointUrl, authHeader, relayUrl, relayToken, targetToolName, argumentsJson, agentId)
             .map { jsonString ->
                 try {
                     // FIX: Reuse the injected Json instance — no per-event object creation
@@ -216,7 +216,7 @@ class McpMessageSender constructor(
             return flow { emit("Error: Tool execution was denied by the user.") }
         }
 
-        return raceEndpoints(endpointUrl, authHeader, relayUrl, relayToken, toolName, arguments)
+        return raceEndpoints(endpointUrl, authHeader, relayUrl, relayToken, toolName, arguments, agentId)
             .map { jsonString ->
                 try {
                     val mcpResponse = jsonParser.decodeFromString<McpResponse>(jsonString)
@@ -239,7 +239,8 @@ class McpMessageSender constructor(
         relayUrl: String?,
         relayToken: String?,
         toolName: String,
-        arguments: JsonObject
+        arguments: JsonObject,
+        agentId: String? = null
     ): Flow<String> = flow {
         val relayAuthHeader = relayToken?.let { "Bearer $it" }
         

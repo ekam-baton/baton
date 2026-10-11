@@ -15,6 +15,10 @@ class ConnectionSecurityManagerTest {
 
     @Before
     fun setUp() {
+        org.junit.Assume.assumeTrue(
+            "Native baton_crypto library is not loaded on this host platform",
+            ConnectionSecurityManager.isNativeLoaded
+        )
         securityManager = ConnectionSecurityManager(null)
     }
 

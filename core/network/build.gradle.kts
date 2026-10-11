@@ -92,6 +92,16 @@ tasks.register<Exec>("compileRustJni") {
          "-o", "${projectDir}/src/androidMain/jniLibs",
          "build", "--release"
     )
+    onlyIf {
+        val cryptoDir = file("../../baton-crypto-android")
+        val hasCargoNdk = try {
+            val process = ProcessBuilder("cargo", "ndk", "--version").start()
+            process.waitFor() == 0
+        } catch (_: Exception) {
+            false
+        }
+        cryptoDir.exists() && hasCargoNdk
+    }
 }
 
 tasks.matching { 
