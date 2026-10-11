@@ -29,6 +29,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.put
 import kotlinx.coroutines.launch
 
+private val jsonParser = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+
 class ChatRepository constructor(
     private val conversationDao: ConversationDao,
     private val messageDao: MessageDao,
@@ -308,7 +310,7 @@ class ChatRepository constructor(
             .map { com.ekam.baton.core.network.dto.McpMessageDto(role = it.role, content = it.content) }
 
         val attachments = userMsg.attachments?.let {
-            kotlinx.serialization.json.Json { ignoreUnknownKeys = true }.decodeFromString<List<AttachmentDto>>(it)
+            jsonParser.decodeFromString<List<AttachmentDto>>(it)
         } ?: emptyList()
 
         return mcpMessageSender.sendUserMessage(

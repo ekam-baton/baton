@@ -62,3 +62,20 @@
 # Baton Crypto JNI bridge
 -keep class com.ekam.baton.core.network.security.ConnectionSecurityManager { *; }
 -keep class com.ekam.baton.core.network.security.CryptoHelper { *; }
+
+# WebRTC JNI & internal reflection
+-keep class org.webrtc.** { *; }
+-dontwarn org.webrtc.**
+
+# Matrix Olm SDK JNI bindings
+-keep class org.matrix.android.olm.** { *; }
+-dontwarn org.matrix.android.olm.**
+
+# ZXing & MLKit
+-keep class com.google.zxing.** { *; }
+-dontwarn com.google.zxing.**
+-keep class com.journeyapps.barcodescanner.** { *; }
+-dontwarn com.journeyapps.barcodescanner.**
+
+# WorkManager
+-keep class androidx.work.** { *; }

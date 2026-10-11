@@ -71,6 +71,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 
+private val attachmentJsonParser = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
@@ -421,7 +423,7 @@ fun MessageBubble(
                 try {
                     val attachmentsJson = message.attachments
                     if (!attachmentsJson.isNullOrEmpty()) {
-                        kotlinx.serialization.json.Json { ignoreUnknownKeys = true }.decodeFromString<List<com.ekam.baton.core.network.mcp.AttachmentDto>>(attachmentsJson)
+                        attachmentJsonParser.decodeFromString<List<com.ekam.baton.core.network.mcp.AttachmentDto>>(attachmentsJson)
                     } else emptyList()
                 } catch (e: Exception) { emptyList() }
             }

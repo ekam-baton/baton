@@ -24,28 +24,34 @@ android {
         }
     }
 
+    val keystoreFilePath = (project.findProperty("BATON_KEYSTORE_FILE") as String?)
+        ?: System.getenv("BATON_KEYSTORE_FILE")
+    val hasReleaseKeystore = keystoreFilePath != null && file(keystoreFilePath).exists()
+
     signingConfigs {
-        create("release") {
-            storeFile = file(
-                (project.findProperty("BATON_KEYSTORE_FILE") as String?)
-                    ?: System.getenv("BATON_KEYSTORE_FILE")
-                    ?: "release.jks"
-            )
-            storePassword = (project.findProperty("BATON_KEYSTORE_PASSWORD") as String?)
-                ?: System.getenv("BATON_KEYSTORE_PASSWORD")
-                ?: "dummy_password"
-            keyAlias = (project.findProperty("BATON_KEY_ALIAS") as String?)
-                ?: System.getenv("BATON_KEY_ALIAS")
-                ?: "baton"
-            keyPassword = (project.findProperty("BATON_KEY_PASSWORD") as String?)
-                ?: System.getenv("BATON_KEY_PASSWORD")
-                ?: "dummy_password"
+        if (hasReleaseKeystore) {
+            create("release") {
+                storeFile = file(keystoreFilePath!!)
+                storePassword = (project.findProperty("BATON_KEYSTORE_PASSWORD") as String?)
+                    ?: System.getenv("BATON_KEYSTORE_PASSWORD")
+                    ?: ""
+                keyAlias = (project.findProperty("BATON_KEY_ALIAS") as String?)
+                    ?: System.getenv("BATON_KEY_ALIAS")
+                    ?: "baton"
+                keyPassword = (project.findProperty("BATON_KEY_PASSWORD") as String?)
+                    ?: System.getenv("BATON_KEY_PASSWORD")
+                    ?: ""
+            }
         }
     }
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("release")
+            if (hasReleaseKeystore) {
+                signingConfig = signingConfigs.getByName("release")
+            } else {
+                signingConfig = signingConfigs.getByName("debug")
+            }
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(

@@ -164,8 +164,7 @@ open class McpMessageSender constructor(
 
     open suspend fun pairWithAgent(endpointUrl: String, identityKeyHex: String, x25519KeyHex: String): Result<PairResult> {
         return try {
-            val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
-            val jsonBody = json.encodeToString(PairRequest.serializer(), PairRequest(identityKeyHex, x25519KeyHex))
+            val jsonBody = jsonParser.encodeToString(PairRequest.serializer(), PairRequest(identityKeyHex, x25519KeyHex))
             val requestBody = jsonBody.toByteArray().toRequestBody("application/json; charset=utf-8".toMediaType())
             
             val pairUrl = if (endpointUrl.endsWith("/")) "${endpointUrl}pair" else "$endpointUrl/pair"
@@ -180,7 +179,7 @@ open class McpMessageSender constructor(
             
             if (response.isSuccessful) {
                 val body = response.body?.string() ?: ""
-                val pairResponse = json.decodeFromString(PairResponse.serializer(), body)
+                val pairResponse = jsonParser.decodeFromString(PairResponse.serializer(), body)
                 Result.success(PairResult(
                     relayUrl = pairResponse.relay_url,
                     relayToken = pairResponse.relay_token,

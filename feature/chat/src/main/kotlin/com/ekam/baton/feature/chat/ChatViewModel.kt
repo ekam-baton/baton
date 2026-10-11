@@ -44,6 +44,7 @@ import com.ekam.baton.core.network.service.SwarmForegroundService
 import org.json.JSONArray
 
 private const val TAG = "ChatViewModel"
+private val jsonParser = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
 
 class ChatViewModel(
     private val chatRepository: ChatRepository,
@@ -425,7 +426,7 @@ class ChatViewModel(
                 
                 // Decode attachments from string to Dto
                 val attachments = message.attachments?.let {
-                    kotlinx.serialization.json.Json { ignoreUnknownKeys = true }.decodeFromString<List<AttachmentDto>>(it)
+                    jsonParser.decodeFromString<List<AttachmentDto>>(it)
                 } ?: emptyList()
 
                 // Send the message
