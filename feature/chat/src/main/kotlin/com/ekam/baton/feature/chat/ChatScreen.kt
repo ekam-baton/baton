@@ -499,8 +499,8 @@ private fun SovereignEmptyState(
             painter = painterResource(id = R.drawable.ic_baton_logo),
             contentDescription = "Baton Logo",
             modifier = Modifier
-                .size(76.dp)
-                .alpha(0.30f)
+                .height(130.dp)
+                .alpha(0.35f)
         )
 
         Text(
