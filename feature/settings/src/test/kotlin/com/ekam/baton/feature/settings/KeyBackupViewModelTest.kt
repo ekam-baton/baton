@@ -63,6 +63,8 @@ class KeyBackupViewModelTest {
             agents.removeAll { it.id == id }
         }
         override suspend fun updateLastUsed(id: String, timestamp: Long) {}
+        override suspend fun updateBlockedStatus(id: String, isBlocked: Boolean) {}
+        override fun isAgentBlocked(id: String): Flow<Boolean?> = flowOf(false)
     }
 
     private class FakeMemoryDao(val memories: MutableList<MemoryEntity> = mutableListOf()) : MemoryDao {

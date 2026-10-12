@@ -93,5 +93,8 @@ data class AgentEntity(
     val ownerId: String? = null,
 
     @ColumnInfo(name = "owner_name")
-    val ownerName: String? = null
+    val ownerName: String? = null,
+
+    @ColumnInfo(name = "is_blocked", defaultValue = "0")
+    val isBlocked: Boolean = false
 )

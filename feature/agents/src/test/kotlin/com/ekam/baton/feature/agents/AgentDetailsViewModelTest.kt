@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -73,6 +74,15 @@ class AgentDetailsViewModelTest {
         }
 
         override suspend fun updateLastUsed(id: String, timestamp: Long) {}
+        override suspend fun updateBlockedStatus(id: String, isBlocked: Boolean) {
+            val idx = list.indexOfFirst { it.id == id }
+            if (idx != -1) {
+                list[idx] = list[idx].copy(isBlocked = isBlocked)
+                flow.value = list.toList()
+            }
+        }
+        override fun isAgentBlocked(id: String): Flow<Boolean?> =
+            flow.map { agents -> agents.find { it.id == id }?.isBlocked }
     }
 
     private class FakeAuditDao : AuditDao {

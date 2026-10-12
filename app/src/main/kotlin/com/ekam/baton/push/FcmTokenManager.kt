@@ -65,7 +65,10 @@ class FcmTokenManager(
     @Suppress("TooGenericExceptionCaught")
     private fun registerTokenWithRouter(routerBaseUrl: String, clientId: String, fcmToken: String) {
         if (!tunnelEndpointValidator.isUrlSafe(routerBaseUrl)) {
-            Log.w(TAG, "SSRF Protection: Refusing to register FCM token. Router URL resolves to a private or reserved address.")
+            Log.w(
+                TAG,
+                "SSRF Protection: Refusing to register FCM token. Router URL resolves to a private or reserved address."
+            )
             return
         }
         try {

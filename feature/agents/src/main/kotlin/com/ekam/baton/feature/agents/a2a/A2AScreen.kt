@@ -54,17 +54,6 @@ fun A2AScreen(
         )
     }
 
-    // Swarm active animation
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-    val linkPulse by infiniteTransition.animateFloat(
-        initialValue = 0.8f,
-        targetValue = 1.2f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1200, easing = LinearOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "linkPulse"
-    )
 
     Scaffold(
         containerColor = Color(0xFF0D131F) // Deep Ocean Blue
@@ -85,28 +74,37 @@ fun A2AScreen(
             ) {
                 Column {
                     Text(
-                        text = "SWARM TELEMETRY",
+                        text = "PEER-TO-PEER MESH",
                         style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
                         color = MaterialTheme.colorScheme.tertiary
                     )
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Negotiation Active",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = Color.White
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(6.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF10B981))
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Negotiation Active",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = Color.White
+                        )
+                    }
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = "BURN RATE",
+                        text = "TOPOLOGY",
                         style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = burnRate,
-                        style = MaterialTheme.typography.titleMedium.copy(fontFamily = FontFamily.Monospace),
-                        color = Color(0xFFEF4444) // Warning Red for cost
+                        text = swarmTopology,
+                        style = MaterialTheme.typography.titleMedium.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold),
+                        color = Color(0xFF00D2FF)
                     )
                 }
             }
@@ -118,13 +116,12 @@ fun A2AScreen(
                     .weight(0.7f),
                 contentAlignment = Alignment.Center
             ) {
-                // Background ambient ring
+                // Static background indicator ring
                 Box(
                     modifier = Modifier
                         .size(240.dp)
-                        .scale(linkPulse)
                         .clip(CircleShape)
-                        .background(Color(0xFF306EE8).copy(alpha = 0.1f)) // Electric Cobalt transparent
+                        .background(Color(0xFF306EE8).copy(alpha = 0.06f))
                 )
                 
                 // Connecting lines / inner nodes

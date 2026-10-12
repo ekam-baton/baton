@@ -5,11 +5,18 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import java.util.UUID
 
+import androidx.room.Index
+
 /**
  * Append-only cryptographic ledger specifically for auditing AI Agent actions.
  * Links agent executions directly back to user prompts.
  */
-@Entity(tableName = "agent_action_logs")
+@Entity(
+    tableName = "agent_action_logs",
+    indices = [
+        Index(value = ["timestamp"], name = "index_agent_action_logs_timestamp")
+    ]
+)
 data class AgentActionLogEntity(
     @PrimaryKey
     @ColumnInfo(name = "id")

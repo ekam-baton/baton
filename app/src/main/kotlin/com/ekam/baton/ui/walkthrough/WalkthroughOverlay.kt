@@ -21,7 +21,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -30,8 +29,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.launch
 import kotlin.math.max
 
 enum class WalkthroughStep {
@@ -65,7 +62,7 @@ fun WalkthroughOverlay(
             onFinish()
         }
     }
-    
+
     fun skip() {
         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
         onFinish()
@@ -101,18 +98,6 @@ fun WalkthroughOverlay(
         label = "radius"
     )
 
-    // Pulsing effect for the spotlight border
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-    val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.2f,
-        targetValue = 0.6f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "pulseAlpha"
-    )
-
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -139,10 +124,10 @@ fun WalkthroughOverlay(
                     center = Offset(animatedCenterX, animatedCenterY),
                     blendMode = BlendMode.Clear
                 )
-                
-                // Draw soft glowing border around the cutout
+
+                // Draw static crisp border around the cutout
                 drawCircle(
-                    color = Color.White.copy(alpha = pulseAlpha),
+                    color = Color.White.copy(alpha = 0.4f),
                     radius = animatedRadius + 4.dp.toPx(),
                     center = Offset(animatedCenterX, animatedCenterY),
                     style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx())
@@ -207,9 +192,9 @@ fun WalkthroughOverlay(
                             color = Color(0xFFCFD8DC),
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
                         )
-                        
+
                         Spacer(modifier = Modifier.height(24.dp))
-                        
+
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,

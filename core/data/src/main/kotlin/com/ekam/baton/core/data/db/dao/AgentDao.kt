@@ -24,4 +24,10 @@ interface AgentDao {
 
     @Query("UPDATE agents SET last_used_at = :timestamp WHERE id = :id")
     suspend fun updateLastUsed(id: String, timestamp: Long)
+
+    @Query("UPDATE agents SET is_blocked = :isBlocked WHERE id = :id")
+    suspend fun updateBlockedStatus(id: String, isBlocked: Boolean)
+
+    @Query("SELECT is_blocked FROM agents WHERE id = :id LIMIT 1")
+    fun isAgentBlocked(id: String): Flow<Boolean?>
 }

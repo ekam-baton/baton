@@ -39,7 +39,9 @@ class ChatRepository constructor(
     private val auditDao: AuditDao,
     private val mcpMessageSender: McpMessageSender,
     private val workingMemoryManager: WorkingMemoryManager,
-    private val coroutineScope: kotlinx.coroutines.CoroutineScope
+    private val coroutineScope: kotlinx.coroutines.CoroutineScope,
+    private val appStateTracker: com.ekam.baton.core.data.notification.BatonAppStateTracker? = null,
+    private val notificationDispatcher: com.ekam.baton.core.data.notification.AgentNotificationDispatcher? = null
 ) {
     init {
         coroutineScope.launch {
@@ -225,9 +227,9 @@ class ChatRepository constructor(
             .map { com.ekam.baton.core.network.dto.McpMessageDto(role = it.role, content = it.content) }
 
         // 7. Call Network and return Flow
-        // FIX: onEach MUST come before onCompletion in the chain. Kotlin Flow
-        // operators run in declaration order, so placing onCompletion first would
-        // mark isStreaming = false *before* the final chunk is written to the DB.
+        var accumulatedContent = ""
+        var lastDbUpdateTime = 0L
+
         return mcpMessageSender.sendUserMessage(
             agentId = agentId,
             endpointUrl = agent.mcpEndpointUrl,
@@ -242,7 +244,7 @@ class ChatRepository constructor(
             if (finalMsg != null) {
                 updateMessage(
                     finalMsg.copy(
-                        content = finalMsg.content + "\n\nError: ${e.message}",
+                        content = (accumulatedContent.ifEmpty { finalMsg.content }) + "\n\nError: ${e.message}",
                         isStreaming = false,
                         isFailed = true,
                         timestamp = System.currentTimeMillis()
@@ -251,22 +253,27 @@ class ChatRepository constructor(
             }
             throw e
         }.onEach { chunk ->
-            // Accumulate chunks into the placeholder message row
-            val currentMsg = messageDao.getMessageById(tempMessageId)
-            if (currentMsg != null) {
-                updateMessage(
-                    currentMsg.copy(
-                        content = currentMsg.content + chunk,
-                        timestamp = System.currentTimeMillis()
+            // Performance: Accumulate chunks in memory. Throttle intermediate DB writes
+            // to at most once per 1,200ms, eliminating 50+ disk writes/sec per token.
+            accumulatedContent += chunk
+            val now = System.currentTimeMillis()
+            if (now - lastDbUpdateTime > 1200L) {
+                lastDbUpdateTime = now
+                val currentMsg = messageDao.getMessageById(tempMessageId)
+                if (currentMsg != null) {
+                    messageDao.updateMessage(
+                        currentMsg.copy(
+                            content = accumulatedContent,
+                            timestamp = now
+                        )
                     )
-                )
+                }
             }
         }.onCompletion {
-            // Runs after every onEach has completed (or after catch re-throws)
+            // Runs after stream finishes: write complete accumulated message with full audit hash
             val finalMsg = messageDao.getMessageById(tempMessageId)
             if (finalMsg != null && finalMsg.isStreaming) {
-                // Only update if not already marked as error (catch sets isStreaming=false)
-                updateMessage(finalMsg.copy(isStreaming = false))
+                updateMessage(finalMsg.copy(content = accumulatedContent.ifEmpty { finalMsg.content }, isStreaming = false))
             }
 
             // Increment response message count in conversation metadata
@@ -278,6 +285,20 @@ class ChatRepository constructor(
                         messageCount = finalConv.messageCount + 1
                     )
                 )
+            }
+
+            // Telegram & WhatsApp-grade background notification
+            if (finalMsg != null && !finalMsg.isFailed && finalMsg.content.isNotBlank()) {
+                val shouldNotify = appStateTracker?.shouldNotify(conversationId) ?: false
+                if (shouldNotify) {
+                    notificationDispatcher?.postAgentMessageNotification(
+                        agentId = agent.id,
+                        agentName = agent.name,
+                        conversationId = conversationId,
+                        content = finalMsg.content,
+                        timestamp = finalMsg.timestamp
+                    )
+                }
             }
         }
     }
@@ -341,6 +362,18 @@ class ChatRepository constructor(
             val finalConv = conversationDao.getConversationById(conversationId)
             if (finalConv != null) {
                 conversationDao.upsertConversation(finalConv.copy(updatedAt = System.currentTimeMillis(), messageCount = finalConv.messageCount + 1))
+            }
+            if (finalMsg != null && !finalMsg.isFailed && finalMsg.content.isNotBlank()) {
+                val shouldNotify = appStateTracker?.shouldNotify(conversationId) ?: false
+                if (shouldNotify) {
+                    notificationDispatcher?.postAgentMessageNotification(
+                        agentId = agent.id,
+                        agentName = agent.name,
+                        conversationId = conversationId,
+                        content = finalMsg.content,
+                        timestamp = finalMsg.timestamp
+                    )
+                }
             }
         }
     }

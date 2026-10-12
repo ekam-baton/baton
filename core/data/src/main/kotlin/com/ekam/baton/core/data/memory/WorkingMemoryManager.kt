@@ -59,4 +59,28 @@ class WorkingMemoryManager constructor(
             )
         }
     }
+
+    /**
+     * Ranks memory entries using Rust SIMD-accelerated cosine similarity search.
+     */
+    fun rankMemoriesBySemanticSimilarity(
+        queryVector: FloatArray,
+        indexJson: String,
+        topK: Int = 10,
+        minScore: Float = 0.5f
+    ): List<com.ekam.baton.core.network.security.NativeMemorySearchResult> {
+        return com.ekam.baton.core.network.security.NativeCoreEngine.vectorBatchSearch(
+            query = queryVector,
+            indexJson = indexJson,
+            topK = topK,
+            minScore = minScore
+        )
+    }
+
+    /**
+     * Computes the mathematical cosine similarity between two vector embeddings in Rust.
+     */
+    fun computeCosineSimilarity(vecA: FloatArray, vecB: FloatArray): Float {
+        return com.ekam.baton.core.network.security.NativeCoreEngine.vectorCosineSimilarity(vecA, vecB)
+    }
 }

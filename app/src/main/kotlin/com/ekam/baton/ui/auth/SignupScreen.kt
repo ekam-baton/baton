@@ -9,13 +9,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.Phone
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.outlined.PersonOutline
-import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.ArrowDropDown
-import java.util.Calendar
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -34,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
+import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,9 +69,9 @@ fun SignupScreen(
     var phoneError by remember { mutableStateOf<String?>(null) }
     var passwordError by remember { mutableStateOf<String?>(null) }
     var generalError by remember { mutableStateOf<String?>(null) }
-    
+
     var isLoginMode by remember { mutableStateOf(false) }
-    
+
     // DPDP Act, 2023: Consent must be explicit, affirmative, and un-ticked by default.
     var hasExplicitConsent by remember { mutableStateOf(false) }
 
@@ -85,7 +84,7 @@ fun SignupScreen(
     val datePickerState = rememberDatePickerState(
         initialSelectedDateMillis = null
     )
-    
+
     fun isOver18(selectedMillis: Long?): Boolean {
         if (selectedMillis == null) return false
         val dob = Calendar.getInstance().apply { timeInMillis = selectedMillis }
@@ -114,19 +113,19 @@ fun SignupScreen(
                 phoneError = null
             }
         }
-        
+
         if (password.isBlank() || password.length < 8) {
             passwordError = "Password must be at least 8 characters"
             isValid = false
         } else {
             passwordError = null
         }
-        
+
         if (!isLoginMode && !isOver18(datePickerState.selectedDateMillis)) {
             generalError = "You must be 18 or older to use BATON."
             isValid = false
         }
-        
+
         return isValid
     }
 
@@ -162,11 +161,18 @@ fun SignupScreen(
                     super.onAuthenticationSucceeded(result)
                     generalError = null
                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    
+
                     val consentTimestamp = System.currentTimeMillis()
                     val policyVersion = "v1.0"
-                    
-                    onSignupSuccess(email.trim(), phone.trim(), password, consentTimestamp, policyVersion, selectedRegion)
+
+                    onSignupSuccess(
+                        email.trim(),
+                        phone.trim(),
+                        password,
+                        consentTimestamp,
+                        policyVersion,
+                        selectedRegion
+                    )
                 }
 
                 override fun onAuthenticationFailed() {
@@ -260,12 +266,22 @@ fun SignupScreen(
                         Tab(
                             selected = !isLoginMode,
                             onClick = { isLoginMode = false },
-                            text = { Text("Sign Up", color = if (!isLoginMode) MaterialTheme.colorScheme.tertiary else Color(0xFF7A8B9E)) }
+                            text = {
+                                Text(
+                                    "Sign Up",
+                                    color = if (!isLoginMode) MaterialTheme.colorScheme.tertiary else Color(0xFF7A8B9E)
+                                )
+                            }
                         )
                         Tab(
                             selected = isLoginMode,
                             onClick = { isLoginMode = true },
-                            text = { Text("Log In", color = if (isLoginMode) MaterialTheme.colorScheme.tertiary else Color(0xFF7A8B9E)) }
+                            text = {
+                                Text(
+                                    "Log In",
+                                    color = if (isLoginMode) MaterialTheme.colorScheme.tertiary else Color(0xFF7A8B9E)
+                                )
+                            }
                         )
                     }
 
@@ -314,30 +330,30 @@ fun SignupScreen(
                         // Phone Input
                         OutlinedTextField(
                             value = phone,
-                        onValueChange = {
-                            phone = it
-                            phoneError = null
-                        },
-                        label = { Text("Phone Number") },
-                        leadingIcon = {
-                            Icon(
-                                Icons.Default.Phone,
-                                contentDescription = null,
-                                tint = Color(0xFF7A8B9E)
-                            )
-                        },
-                        isError = phoneError != null,
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = MaterialTheme.colorScheme.tertiary,
-                            unfocusedBorderColor = Color(0xFF232D4B),
-                            focusedLabelColor = MaterialTheme.colorScheme.tertiary,
-                            unfocusedLabelColor = Color(0xFF7A8B9E),
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
-                        ),
-                        modifier = Modifier.fillMaxWidth()
+                            onValueChange = {
+                                phone = it
+                                phoneError = null
+                            },
+                            label = { Text("Phone Number") },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Default.Phone,
+                                    contentDescription = null,
+                                    tint = Color(0xFF7A8B9E)
+                                )
+                            },
+                            isError = phoneError != null,
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = MaterialTheme.colorScheme.tertiary,
+                                unfocusedBorderColor = Color(0xFF232D4B),
+                                focusedLabelColor = MaterialTheme.colorScheme.tertiary,
+                                unfocusedLabelColor = Color(0xFF7A8B9E),
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White
+                            ),
+                            modifier = Modifier.fillMaxWidth()
                         )
                         phoneError?.let {
                             Text(
@@ -394,35 +410,7 @@ fun SignupScreen(
                     if (!isLoginMode) {
                         // Date of Birth (Age Gate)
                         OutlinedButton(
-                        onClick = { showDatePicker = true },
-                        shape = RoundedCornerShape(4.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF232D4B)),
-                        modifier = Modifier.fillMaxWidth().height(56.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Start,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(Icons.Default.DateRange, contentDescription = null, tint = Color(0xFF7A8B9E))
-                            Spacer(modifier = Modifier.width(16.dp))
-                            val dateStr = if (datePickerState.selectedDateMillis != null) {
-                                val cal = Calendar.getInstance().apply { timeInMillis = datePickerState.selectedDateMillis!! }
-                                "${cal.get(Calendar.DAY_OF_MONTH)}/${cal.get(Calendar.MONTH) + 1}/${cal.get(Calendar.YEAR)}"
-                            } else {
-                                "Date of Birth (Must be 18+)"
-                            }
-                            Text(text = dateStr, color = if (datePickerState.selectedDateMillis != null) Color.White else Color(0xFF7A8B9E))
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Region Selector
-                    Box {
-                        OutlinedButton(
-                            onClick = { expandedRegion = true },
+                            onClick = { showDatePicker = true },
                             shape = RoundedCornerShape(4.dp),
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
                             border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF232D4B)),
@@ -430,230 +418,271 @@ fun SignupScreen(
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween,
+                                horizontalArrangement = Arrangement.Start,
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Text(text = "Region: $selectedRegion", color = Color.White)
-                                Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = Color(0xFF7A8B9E))
-                            }
-                        }
-                        DropdownMenu(
-                            expanded = expandedRegion,
-                            onDismissRequest = { expandedRegion = false },
-                            modifier = Modifier.background(Color(0xFF131A2C))
-                        ) {
-                            regions.forEach { region ->
-                                DropdownMenuItem(
-                                    text = { Text(region, color = Color.White) },
-                                    onClick = {
-                                        selectedRegion = region
-                                        expandedRegion = false
+                                Icon(Icons.Default.DateRange, contentDescription = null, tint = Color(0xFF7A8B9E))
+                                Spacer(modifier = Modifier.width(16.dp))
+                                val dateStr = if (datePickerState.selectedDateMillis != null) {
+                                    val cal = Calendar.getInstance().apply { timeInMillis = datePickerState.selectedDateMillis!! }
+                                    "${cal.get(
+                                        Calendar.DAY_OF_MONTH
+                                    )}/${cal.get(Calendar.MONTH) + 1}/${cal.get(Calendar.YEAR)}"
+                                } else {
+                                    "Date of Birth (Must be 18+)"
+                                }
+                                Text(
+                                    text = dateStr,
+                                    color = if (datePickerState.selectedDateMillis != null) {
+                                        Color.White
+                                    } else {
+                                        Color(
+                                            0xFF7A8B9E
+                                        )
                                     }
                                 )
                             }
                         }
-                    }
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
 
-                    generalError?.let {
-                        Text(
-                            text = it,
-                            color = MaterialTheme.colorScheme.error,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier.padding(bottom = 12.dp)
-                        )
-                    }
-
-                    Button(
-                        onClick = { handleSubmit() },
-                        enabled = isLoginMode || hasExplicitConsent,
-                        shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.tertiary,
-                            contentColor = MaterialTheme.colorScheme.onTertiary,
-                            disabledContainerColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.35f),
-                            disabledContentColor = MaterialTheme.colorScheme.onTertiary.copy(alpha = 0.4f)
-                        ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(50.dp)
-                    ) {
-                        Text(
-                            text = if (isLoginMode) "Log In" else "Get Started",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    if (!isLoginMode) {
-                        // DPDP Act, 2023 – Explicit, affirmative consent block.
-                    // Consent must be un-ticked by default and the user must actively check it.
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.Top
-                    ) {
-                        Checkbox(
-                            checked = hasExplicitConsent,
-                            onCheckedChange = { hasExplicitConsent = it },
-                            colors = CheckboxDefaults.colors(
-                                checkedColor = MaterialTheme.colorScheme.tertiary,
-                                uncheckedColor = Color(0xFF7A8B9E),
-                                checkmarkColor = MaterialTheme.colorScheme.onTertiary
-                            ),
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        // Wrap the legal text so it wraps cleanly next to the checkbox
-                        Column {
-                            Text(
-                                text = "I have read and explicitly agree to the:",
-                                fontSize = 11.sp,
-                                color = Color(0xFF7A8B9E)
-                            )
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                        // Region Selector
+                        Box {
+                            OutlinedButton(
+                                onClick = { expandedRegion = true },
+                                shape = RoundedCornerShape(4.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF232D4B)),
+                                modifier = Modifier.fillMaxWidth().height(56.dp)
                             ) {
-                                TextButton(
-                                    onClick = { showLegal("Terms of Service", "terms_of_service.txt") },
-                                    contentPadding = PaddingValues(0.dp),
-                                    modifier = Modifier.height(28.dp)
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    Text(
-                                        text = "Terms",
-                                        fontSize = 11.sp,
-                                        color = MaterialTheme.colorScheme.tertiary,
-                                        textDecoration = TextDecoration.Underline
-                                    )
-                                }
-                                Text(text = "•", fontSize = 11.sp, color = Color(0xFF7A8B9E))
-                                TextButton(
-                                    onClick = { showLegal("Privacy Policy", "privacy_policy.txt") },
-                                    contentPadding = PaddingValues(0.dp),
-                                    modifier = Modifier.height(28.dp)
-                                ) {
-                                    Text(
-                                        text = "Privacy Policy",
-                                        fontSize = 11.sp,
-                                        color = MaterialTheme.colorScheme.tertiary,
-                                        textDecoration = TextDecoration.Underline
-                                    )
-                                }
-                                Text(text = "•", fontSize = 11.sp, color = Color(0xFF7A8B9E))
-                                TextButton(
-                                    onClick = { showLegal("Biometric Disclosure", "biometric_disclosure.txt") },
-                                    contentPadding = PaddingValues(0.dp),
-                                    modifier = Modifier.height(28.dp)
-                                ) {
-                                    Text(
-                                        text = "Biometrics",
-                                        fontSize = 11.sp,
-                                        color = MaterialTheme.colorScheme.tertiary,
-                                        textDecoration = TextDecoration.Underline
+                                    Text(text = "Region: $selectedRegion", color = Color.White)
+                                    Icon(
+                                        Icons.Default.ArrowDropDown,
+                                        contentDescription = null,
+                                        tint = Color(0xFF7A8B9E)
                                     )
                                 }
                             }
-                            
-                            if (selectedRegion == "UAE") {
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = "By selecting UAE, you confirm you will adhere to TRA regulations regarding VoIP and encryption.",
-                                    fontSize = 10.sp,
-                                    color = MaterialTheme.colorScheme.error,
-                                    fontWeight = FontWeight.SemiBold
-                                )
+                            DropdownMenu(
+                                expanded = expandedRegion,
+                                onDismissRequest = { expandedRegion = false },
+                                modifier = Modifier.background(Color(0xFF131A2C))
+                            ) {
+                                regions.forEach { region ->
+                                    DropdownMenuItem(
+                                        text = { Text(region, color = Color.White) },
+                                        onClick = {
+                                            selectedRegion = region
+                                            expandedRegion = false
+                                        }
+                                    )
+                                }
+                            }
                         }
-                    }
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        generalError?.let {
+                            Text(
+                                text = it,
+                                color = MaterialTheme.colorScheme.error,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.padding(bottom = 12.dp)
+                            )
+                        }
+
+                        // Apple Guideline 1.2 & DPDP Act, 2023 – Explicit, affirmative consent block.
+                        // Consent must be un-ticked by default and the user must actively check it.
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 16.dp),
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            Checkbox(
+                                checked = hasExplicitConsent,
+                                onCheckedChange = { hasExplicitConsent = it },
+                                colors = CheckboxDefaults.colors(
+                                    checkedColor = MaterialTheme.colorScheme.tertiary,
+                                    uncheckedColor = Color(0xFF7A8B9E),
+                                    checkmarkColor = MaterialTheme.colorScheme.onTertiary
+                                ),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            // Wrap the legal text so it wraps cleanly next to the checkbox
+                            Column {
+                                Text(
+                                    text = "I have read and explicitly agree to the zero-tolerance EULA &:",
+                                    fontSize = 11.sp,
+                                    color = Color(0xFF7A8B9E)
+                                )
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    TextButton(
+                                        onClick = { showLegal("Terms of Service", "terms_of_service.txt") },
+                                        contentPadding = PaddingValues(0.dp),
+                                        modifier = Modifier.height(28.dp)
+                                    ) {
+                                        Text(
+                                            text = "Terms of Service",
+                                            fontSize = 11.sp,
+                                            color = MaterialTheme.colorScheme.tertiary,
+                                            textDecoration = TextDecoration.Underline
+                                        )
+                                    }
+                                    Text(text = "•", fontSize = 11.sp, color = Color(0xFF7A8B9E))
+                                    TextButton(
+                                        onClick = { showLegal("Privacy Policy", "privacy_policy.txt") },
+                                        contentPadding = PaddingValues(0.dp),
+                                        modifier = Modifier.height(28.dp)
+                                    ) {
+                                        Text(
+                                            text = "Privacy Policy",
+                                            fontSize = 11.sp,
+                                            color = MaterialTheme.colorScheme.tertiary,
+                                            textDecoration = TextDecoration.Underline
+                                        )
+                                    }
+                                    Text(text = "•", fontSize = 11.sp, color = Color(0xFF7A8B9E))
+                                    TextButton(
+                                        onClick = { showLegal("Biometric Disclosure", "biometric_disclosure.txt") },
+                                        contentPadding = PaddingValues(0.dp),
+                                        modifier = Modifier.height(28.dp)
+                                    ) {
+                                        Text(
+                                            text = "Biometrics",
+                                            fontSize = 11.sp,
+                                            color = MaterialTheme.colorScheme.tertiary,
+                                            textDecoration = TextDecoration.Underline
+                                        )
+                                    }
+                                }
+
+                                if (selectedRegion == "UAE") {
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "By selecting UAE, you confirm you will adhere to TRA regulations regarding VoIP and encryption.",
+                                        fontSize = 10.sp,
+                                        color = MaterialTheme.colorScheme.error,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            }
+                        }
+
+                        Button(
+                            onClick = { handleSubmit() },
+                            enabled = hasExplicitConsent,
+                            shape = RoundedCornerShape(14.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.tertiary,
+                                contentColor = MaterialTheme.colorScheme.onTertiary,
+                                disabledContainerColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.35f),
+                                disabledContentColor = MaterialTheme.colorScheme.onTertiary.copy(alpha = 0.4f)
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp)
+                        ) {
+                            Text(
+                                text = if (isLoginMode) "Log In" else "Get Started",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
             }
-        }
-        }
-    }
 
-    if (showDatePicker) {
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(onClick = { 
-                    showDatePicker = false
-                    generalError = null // Clear error on change
-                }) {
-                    Text("OK", color = MaterialTheme.colorScheme.tertiary)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) {
-                    Text("Cancel", color = Color(0xFF7A8B9E))
-                }
-            },
-            colors = DatePickerDefaults.colors(
-                containerColor = Color(0xFF0F1623)
-            )
-        ) {
-            DatePicker(
-                state = datePickerState,
+        if (showDatePicker) {
+            DatePickerDialog(
+                onDismissRequest = { showDatePicker = false },
+                confirmButton = {
+                    TextButton(onClick = {
+                        showDatePicker = false
+                        generalError = null // Clear error on change
+                    }) {
+                        Text("OK", color = MaterialTheme.colorScheme.tertiary)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDatePicker = false }) {
+                        Text("Cancel", color = Color(0xFF7A8B9E))
+                    }
+                },
                 colors = DatePickerDefaults.colors(
-                    titleContentColor = Color.White,
-                    headlineContentColor = Color.White,
-                    weekdayContentColor = Color(0xFFCFD8DC),
-                    dayContentColor = Color.White,
-                    selectedDayContainerColor = MaterialTheme.colorScheme.tertiary,
-                    todayDateBorderColor = MaterialTheme.colorScheme.tertiary,
-                    todayContentColor = MaterialTheme.colorScheme.tertiary
+                    containerColor = Color(0xFF0F1623)
                 )
-            )
-        }
-    }
-
-    if (activeLegalTitle != null && activeLegalContent != null) {
-        AlertDialog(
-            onDismissRequest = {
-                activeLegalTitle = null
-                activeLegalContent = null
-            },
-            title = {
-                Text(
-                    text = activeLegalTitle!!,
-                    style = MaterialTheme.typography.titleLarge.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
+            ) {
+                DatePicker(
+                    state = datePickerState,
+                    colors = DatePickerDefaults.colors(
+                        titleContentColor = Color.White,
+                        headlineContentColor = Color.White,
+                        weekdayContentColor = Color(0xFFCFD8DC),
+                        dayContentColor = Color.White,
+                        selectedDayContainerColor = MaterialTheme.colorScheme.tertiary,
+                        todayDateBorderColor = MaterialTheme.colorScheme.tertiary,
+                        todayContentColor = MaterialTheme.colorScheme.tertiary
                     )
                 )
-            },
-            text = {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 400.dp)
-                        .verticalScroll(rememberScrollState())
-                ) {
+            }
+        }
+
+        if (activeLegalTitle != null && activeLegalContent != null) {
+            AlertDialog(
+                onDismissRequest = {
+                    activeLegalTitle = null
+                    activeLegalContent = null
+                },
+                title = {
                     Text(
-                        text = activeLegalContent!!,
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            color = Color(0xFFCFD8DC),
-                            lineHeight = 20.sp
+                        text = activeLegalTitle!!,
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
                         )
                     )
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        activeLegalTitle = null
-                        activeLegalContent = null
+                },
+                text = {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 400.dp)
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        Text(
+                            text = activeLegalContent!!,
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                color = Color(0xFFCFD8DC),
+                                lineHeight = 20.sp
+                            )
+                        )
                     }
-                ) {
-                    Text("Close", color = MaterialTheme.colorScheme.tertiary)
-                }
-            },
-            containerColor = Color(0xFF0F1623), // BatonSurface
-            shape = RoundedCornerShape(24.dp)
-        )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            activeLegalTitle = null
+                            activeLegalContent = null
+                        }
+                    ) {
+                        Text("Close", color = MaterialTheme.colorScheme.tertiary)
+                    }
+                },
+                containerColor = Color(0xFF0F1623), // BatonSurface
+                shape = RoundedCornerShape(24.dp)
+            )
+        }
     }
 }
 }

@@ -15,7 +15,15 @@ object SafetyNumberManager {
             return "INVALID KEY LENGTH"
         }
 
-        // Sort keys lexicographically
+        // Delegate to Rust native constant-time implementation when loaded
+        if (com.ekam.baton.core.network.security.NativeCoreEngine.isLoaded) {
+            val rustFingerprint = com.ekam.baton.core.network.security.NativeCoreEngine.computeSafetyFingerprint(myBytes, theirBytes)
+            if (rustFingerprint.isNotBlank()) {
+                return rustFingerprint
+            }
+        }
+
+        // Fallback: Pure JVM SHA-512 calculation
         val combined = if (compareByteArrays(myBytes, theirBytes) < 0) {
             myBytes + theirBytes
         } else {

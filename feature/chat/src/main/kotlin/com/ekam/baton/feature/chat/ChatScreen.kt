@@ -29,8 +29,11 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Keyboard
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.Block
+import com.ekam.baton.core.data.ugc.ReportReason
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.clickable
@@ -53,6 +56,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
@@ -79,7 +83,6 @@ fun ChatScreen(
     conversationId: String,
     onNavigateBack: () -> Unit,
     onNavigateToMemory: (String) -> Unit,
-    onNavigateToCall: (String) -> Unit,
     onNavigateToAgentDetails: (String) -> Unit,
     viewModel: ChatViewModel = koinViewModel()
 ) {
@@ -100,6 +103,11 @@ fun ChatScreen(
     var contextMenuMessage by remember { mutableStateOf<Message?>(null) }
     var showForwardPicker by remember { mutableStateOf(false) }
     val agents by viewModel.agents.collectAsStateWithLifecycle()
+    val isAgentBlocked by viewModel.isAgentBlocked.collectAsStateWithLifecycle()
+    var showReportDialog by remember { mutableStateOf(false) }
+    var reportTargetType by remember { mutableStateOf("MESSAGE") }
+    var reportTargetId by remember { mutableStateOf("") }
+    var showTopOverflowMenu by remember { mutableStateOf(false) }
     val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
     val androidContext = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -196,8 +204,42 @@ fun ChatScreen(
                         contextMenuMessage = null
                     }
                 )
+                ListItem(
+                    headlineContent = { Text("Report Message", color = MaterialTheme.colorScheme.error) },
+                    leadingContent = { Icon(Icons.Default.Flag, tint = MaterialTheme.colorScheme.error, contentDescription = null) },
+                    modifier = Modifier.clickable {
+                        val msgId = contextMenuMessage!!.id
+                        contextMenuMessage = null
+                        reportTargetType = "MESSAGE"
+                        reportTargetId = msgId
+                        showReportDialog = true
+                    }
+                )
             }
         }
+    }
+
+    if (showReportDialog) {
+        ReportContentDialog(
+            targetType = reportTargetType,
+            onDismiss = { showReportDialog = false },
+            onSubmit = { reason, details ->
+                if (reportTargetType == "MESSAGE") {
+                    viewModel.reportMessage(reportTargetId, reason, details) {
+                        scope.launch {
+                            snackbarHostState.showSnackbar("Report submitted. Thank you for keeping Baton safe.")
+                        }
+                    }
+                } else {
+                    viewModel.reportCurrentAgent(reason, details) {
+                        scope.launch {
+                            snackbarHostState.showSnackbar("Agent reported. Thank you for your feedback.")
+                        }
+                    }
+                }
+                showReportDialog = false
+            }
+        )
     }
 
     // For TopAppBar info (agent name, avatar) we would ideally join tables or 
@@ -223,18 +265,13 @@ fun ChatScreen(
                                     modifier = Modifier
                                         .size(8.dp)
                                         .clip(CircleShape)
-                                        .background(if (currentAgent?.isActive == true) Color(0xFF4CAF50) else Color(0xFF9E9E9E))
+                                        .background(if (currentAgent?.isActive == true) Color(0xFF10B981) else Color(0xFF9E9E9E))
                                 )
-                                Spacer(Modifier.width(6.dp))
+                                Spacer(Modifier.width(8.dp))
                                 Text(
                                     text = currentAgent?.name ?: "Chat",
-                                    style = MaterialTheme.typography.titleMedium
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                                 ) 
-                            }
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
-                                Icon(Icons.Outlined.Lock, contentDescription = null, modifier = Modifier.size(10.dp), tint = MaterialTheme.colorScheme.primary)
-                                Spacer(Modifier.width(4.dp))
-                                Text("End-to-End Encrypted", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontSize = 10.sp)
                             }
                         }
                     },
@@ -244,8 +281,51 @@ fun ChatScreen(
                         }
                     },
                     actions = {
-                        IconButton(onClick = { onNavigateToCall(currentAgent?.name ?: "Agent") }) {
-                            Icon(Icons.Default.Phone, contentDescription = "Call Agent")
+                        IconButton(onClick = { currentAgent?.id?.let(onNavigateToAgentDetails) }) {
+                            Icon(Icons.Default.Info, contentDescription = "Agent Details", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Box {
+                            IconButton(onClick = { showTopOverflowMenu = true }) {
+                                Icon(Icons.Default.MoreVert, contentDescription = "More Options", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            DropdownMenu(
+                                expanded = showTopOverflowMenu,
+                                onDismissRequest = { showTopOverflowMenu = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text(if (isAgentBlocked) "Unblock Agent" else "Block Agent") },
+                                    leadingIcon = {
+                                        Icon(
+                                            Icons.Default.Block,
+                                            contentDescription = null,
+                                            tint = if (isAgentBlocked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                                        )
+                                    },
+                                    onClick = {
+                                        showTopOverflowMenu = false
+                                        viewModel.toggleBlockCurrentAgent()
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Report Agent", color = MaterialTheme.colorScheme.error) },
+                                    leadingIcon = {
+                                        Icon(
+                                            Icons.Default.Flag,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.error
+                                        )
+                                    },
+                                    onClick = {
+                                        showTopOverflowMenu = false
+                                        val agentId = currentAgentId ?: currentAgent?.id
+                                        if (agentId != null) {
+                                            reportTargetType = "AGENT"
+                                            reportTargetId = agentId
+                                            showReportDialog = true
+                                        }
+                                    }
+                                )
+                            }
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -264,9 +344,45 @@ fun ChatScreen(
                     .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f))
                     .imePadding()
             ) {
-                AnimatedVisibility(visible = isStreaming) {
-                    AgentActivityBubble(statusText = agentActivityStatus ?: "Thinking...")
-                }
+                if (isAgentBlocked) {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        color = Color(0xFF1E1520),
+                        shape = RoundedCornerShape(12.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Agent Blocked",
+                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                                Text(
+                                    text = "You cannot send or receive messages while this agent is blocked.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color.White.copy(alpha = 0.7f)
+                                )
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Button(
+                                onClick = { viewModel.toggleBlockCurrentAgent() },
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                            ) {
+                                Text("Unblock")
+                            }
+                        }
+                    }
+                } else {
+                    AnimatedVisibility(visible = isStreaming) {
+                        AgentActivityBubble(statusText = agentActivityStatus ?: "Thinking...")
+                    }
                 val latestMessage = if (messages.itemCount > 0) messages[0] else null
                 val suggestions = if (latestMessage?.role == "assistant" && !isStreaming) latestMessage.suggestions else null
                 ChatInputBar(
@@ -292,6 +408,7 @@ fun ChatScreen(
                         replyingTo = null
                     }
                 )
+                }
             }
         },
         containerColor = Color.Transparent,
@@ -330,6 +447,16 @@ fun ChatScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
+            if (messages.itemCount == 0) {
+                SovereignEmptyState(
+                    agentName = currentAgent?.name ?: "Baton Sovereign Companion",
+                    onPromptClick = { prompt ->
+                        viewModel.sendMessage(prompt, emptyList())
+                    },
+                    modifier = Modifier.align(Alignment.Center)
+                )
+            }
+
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
@@ -353,6 +480,104 @@ fun ChatScreen(
                             isStreamingAndLast = isStreaming && index == 0
                         )
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SovereignEmptyState(
+    agentName: String,
+    onPromptClick: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Surface(
+            shape = CircleShape,
+            color = Color(0xFF131B2E),
+            border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF00D2FF).copy(alpha = 0.4f)),
+            modifier = Modifier.size(64.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = Icons.Outlined.Lock,
+                    contentDescription = null,
+                    tint = Color(0xFF00D2FF),
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+        }
+
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                text = agentName,
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            )
+            Text(
+                text = "Offline-first, end-to-end encrypted neural assistant ready.",
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = Color.White.copy(alpha = 0.6f)
+                ),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+        }
+
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = Color(0xFF131B2E).copy(alpha = 0.8f),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00D2FF).copy(alpha = 0.2f)),
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    text = "Quick Actions",
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        color = Color(0xFF00D2FF),
+                        fontWeight = FontWeight.SemiBold
+                    )
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    SuggestionChip(
+                        onClick = { onPromptClick("Check system diagnostics and tunnel status") },
+                        label = { Text("Diagnostics", style = MaterialTheme.typography.labelSmall) },
+                        border = SuggestionChipDefaults.suggestionChipBorder(
+                            borderColor = Color(0xFF3D8EFF).copy(alpha = 0.4f),
+                            enabled = true
+                        ),
+                        colors = SuggestionChipDefaults.suggestionChipColors(
+                            containerColor = Color(0xFF0A0F1D)
+                        )
+                    )
+                    SuggestionChip(
+                        onClick = { onPromptClick("Summarize active memory vault items") },
+                        label = { Text("Memory Vault", style = MaterialTheme.typography.labelSmall) },
+                        border = SuggestionChipDefaults.suggestionChipBorder(
+                            borderColor = Color(0xFF3D8EFF).copy(alpha = 0.4f),
+                            enabled = true
+                        ),
+                        colors = SuggestionChipDefaults.suggestionChipColors(
+                            containerColor = Color(0xFF0A0F1D)
+                        )
+                    )
                 }
             }
         }
@@ -662,29 +887,12 @@ fun AgentActivityBubble(statusText: String) {
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(3.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                val infiniteTransition = rememberInfiniteTransition(label = "typingDots")
-                for (i in 0 until 3) {
-                    val alpha by infiniteTransition.animateFloat(
-                        initialValue = 0.3f,
-                        targetValue = 1f,
-                        animationSpec = infiniteRepeatable(
-                            animation = tween(durationMillis = 600, delayMillis = i * 200, easing = LinearEasing),
-                            repeatMode = RepeatMode.Reverse
-                        ),
-                        label = "dot${i}Alpha"
-                    )
-                    Box(
-                        modifier = Modifier
-                            .size(5.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = alpha))
-                    )
-                }
-            }
+            Box(
+                modifier = Modifier
+                    .size(6.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary)
+            )
             Text(
                 text = statusText,
                 style = MaterialTheme.typography.labelSmall,

@@ -15,17 +15,20 @@ class AppLockObserver : DefaultLifecycleObserver, Application.ActivityLifecycleC
 
     private val appPreferences: AppPreferences by inject()
     private val sessionManager: SessionManager by inject()
+    private val appStateTracker: com.ekam.baton.core.data.notification.BatonAppStateTracker by inject()
 
     private var backgroundedTime: Long = 0
     private var currentActivity: AppCompatActivity? = null
 
     override fun onStart(owner: LifecycleOwner) {
         super.onStart(owner)
+        appStateTracker.setAppInForeground(true)
         checkLockState()
     }
 
     override fun onStop(owner: LifecycleOwner) {
         super.onStop(owner)
+        appStateTracker.setAppInForeground(false)
         backgroundedTime = System.currentTimeMillis()
     }
 

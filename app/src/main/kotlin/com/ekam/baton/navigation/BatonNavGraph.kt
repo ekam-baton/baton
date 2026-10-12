@@ -16,14 +16,14 @@ import androidx.navigation.compose.navigation
 import androidx.navigation.navArgument
 import com.ekam.baton.feature.agents.AddEditAgentScreen
 import com.ekam.baton.feature.agents.AgentsScreen
-import com.ekam.baton.feature.chat.CallScreen
+import com.ekam.baton.feature.agents.creator.BotCreatorScreen
 import com.ekam.baton.feature.chat.ChatScreen
 import com.ekam.baton.feature.chat.ChatsListScreen
 import com.ekam.baton.feature.chat.GroupChatScreen
 import com.ekam.baton.feature.chat.SwarmTopologyScreen
 import com.ekam.baton.feature.memory.MemoryScreen
-import com.ekam.baton.feature.settings.SettingsScreen
 import com.ekam.baton.feature.settings.KeyBackupScreen
+import com.ekam.baton.feature.settings.SettingsScreen
 
 // ─── Route Definitions ───────────────────────────────────────────────────────
 
@@ -95,14 +95,14 @@ fun BatonNavGraph(
                     onNavigateToChat = { conversationId ->
                         navController.navigate("chats/$conversationId")
                     },
-                    onNavigateToCall = { agentName ->
-                        navController.navigate("call/$agentName")
-                    },
                     onNavigateToSwarm = { swarmId ->
                         navController.navigate("swarms/$swarmId")
                     },
                     onNavigateToSwarmTopology = { swarmId ->
                         navController.navigate("swarms/$swarmId/topology")
+                    },
+                    onNavigateToAgents = {
+                        navController.navigate(Screen.Agents.route)
                     }
                 )
             }
@@ -144,25 +144,9 @@ fun BatonNavGraph(
                         onNavigateToMemory = { agentId ->
                             navController.navigate("memory")
                         },
-                        onNavigateToCall = { agentName ->
-                            navController.navigate("call/$agentName")
-                        },
                         onNavigateToAgentDetails = { agentId ->
                             navController.navigate("agents/details/$agentId")
                         }
-                    )
-                }
-            }
-            composable(
-                route = "call/{agentName}",
-                arguments = listOf(navArgument("agentName") { type = NavType.StringType })
-            ) { backStackEntry ->
-                val agentName = backStackEntry.arguments?.getString("agentName")
-                if (agentName != null) {
-                    CallScreen(
-                        agentName = agentName,
-                        onEndCall = { navController.popBackStack() },
-                        onNavigateToChat = { navController.popBackStack() }
                     )
                 }
             }
@@ -175,8 +159,9 @@ fun BatonNavGraph(
                     com.ekam.baton.feature.agents.AgentDetailsScreen(
                         agentId = agentId,
                         onNavigateBack = { navController.popBackStack() },
-                        onEditClick = { id -> navController.navigate("agents/edit/$id") },
-                        onMemoryVaultClick = { id -> navController.navigate("memory") }
+                        onEditClick = { id -> navController.navigate("agents/manager") },
+                        onMemoryVaultClick = { id -> navController.navigate("memory") },
+                        onNavigateToBotManager = { id -> navController.navigate("agents/manager") }
                     )
                 }
             }
@@ -186,59 +171,20 @@ fun BatonNavGraph(
         navigation(startDestination = "agents", route = Screen.Agents.route) {
             composable("agents") {
                 AgentsScreen(
-                    onAddAgentClick = { url, name, owner ->
-                        if (url != null && name != null) {
-                            val encodedUrl = android.util.Base64.encodeToString(
-                                url.toByteArray(),
-                                android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP
-                            )
-                            val encodedName = android.util.Base64.encodeToString(
-                                name.toByteArray(),
-                                android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP
-                            )
-                            val ownerPart = owner?.let {
-                                "&owner=" + android.util.Base64.encodeToString(it.toByteArray(), android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP)
-                            } ?: ""
-                            navController.navigate("agents/add?url=$encodedUrl&name=$encodedName$ownerPart")
-                        } else {
-                            navController.navigate("agents/add")
-                        }
+                    onAddAgentClick = { _, _, _ ->
+                        navController.navigate("agents/creator")
                     },
-                    onEditAgentClick = { agentId -> navController.navigate("agents/details/$agentId") }
+                    onEditAgentClick = { agentId -> navController.navigate("agents/details/$agentId") },
+                    onNavigateToCreator = { navController.navigate("agents/creator") },
+                    onNavigateToManager = { navController.navigate("agents/manager") },
+                    onNavigateToAdvanced = { navController.navigate("agents/advanced") }
                 )
             }
-            composable(
-                route = "agents/add?url={url}&name={name}&owner={owner}",
-                arguments = listOf(
-                    navArgument("url") {
-                        type = NavType.StringType
-                        nullable = true
-                        defaultValue = null
-                    },
-                    navArgument("name") {
-                        type = NavType.StringType
-                        nullable = true
-                        defaultValue = null
-                    },
-                    navArgument("owner") {
-                        type = NavType.StringType
-                        nullable = true
-                        defaultValue = null
-                    }
-                )
-            ) { backStackEntry ->
-                val discoveredUrl = backStackEntry.arguments?.getString("url")?.let {
-                    String(android.util.Base64.decode(it, android.util.Base64.URL_SAFE))
-                }
-                val discoveredName = backStackEntry.arguments?.getString("name")?.let {
-                    String(android.util.Base64.decode(it, android.util.Base64.URL_SAFE))
-                }
-                val discoveredOwner = backStackEntry.arguments?.getString("owner")?.let {
-                    String(android.util.Base64.decode(it, android.util.Base64.URL_SAFE))
-                }
-                AddEditAgentScreen(
-                    agentId = null,
-                    onNavigateBack = { navController.popBackStack() }
+            composable("agents/add") {
+                BotCreatorScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToChat = { conversationId -> navController.navigate("chats/$conversationId") },
+                    onNavigateToManager = { navController.navigate("agents/manager") }
                 )
             }
             composable(
@@ -259,6 +205,43 @@ fun BatonNavGraph(
             )
         }
 
+        composable("agents/manager") {
+            com.ekam.baton.feature.agents.manager.BatonBotManagerScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToChat = { conversationId -> navController.navigate("chats/$conversationId") },
+                onNavigateToCreator = { navController.navigate("agents/creator") }
+            )
+        }
+
+        // Dedicated Bot Creator Screen
+        composable("agents/creator") {
+            BotCreatorScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToChat = { conversationId -> navController.navigate("chats/$conversationId") },
+                onNavigateToManager = { navController.navigate("agents/manager") }
+            )
+        }
+
+        composable("agents/botfather") {
+            BotCreatorScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToChat = { conversationId -> navController.navigate("chats/$conversationId") },
+                onNavigateToManager = { navController.navigate("agents/manager") }
+            )
+        }
+
+        composable("agents/advanced") {
+            com.ekam.baton.feature.agents.advanced.AdvancedConnectionScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToTunnelSetup = { navController.navigate("agents/tunnel_setup") },
+                onNavigateToAirGapQr = { navController.navigate("a2a/qr") },
+                onNavigateToAirGapScanner = { navController.navigate("a2a/scanner") },
+                onNavigateToA2A = { navController.navigate(Screen.A2A.route) },
+                onNavigateToSwarmTopology = { swarmId -> navController.navigate("swarms/$swarmId/topology") },
+                onNavigateToKeyBackup = { navController.navigate("settings/key_backup") }
+            )
+        }
+
         composable(Screen.A2A.route) {
             com.ekam.baton.feature.agents.a2a.A2AScreen(
                 onNavigateToQr = { navController.navigate("a2a/qr") },
@@ -266,14 +249,14 @@ fun BatonNavGraph(
                 onNavigateToSwarm = { swarmId -> navController.navigate("swarms/$swarmId") }
             )
         }
-        
+
         composable("a2a/qr") {
             com.ekam.baton.feature.agents.a2a.AirGapQrScreen(
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToScanner = { navController.navigate("a2a/scanner") }
             )
         }
-        
+
         composable("a2a/scanner") {
             com.ekam.baton.feature.agents.a2a.AirGapScannerScreen(
                 onNavigateBack = { navController.popBackStack() }
@@ -305,7 +288,7 @@ fun BatonNavGraph(
                 }
             )
         }
-        
+
         composable("settings/key_backup") {
             KeyBackupScreen(
                 onNavigateBack = { navController.popBackStack() }

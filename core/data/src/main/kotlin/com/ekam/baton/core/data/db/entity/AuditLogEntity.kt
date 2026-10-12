@@ -5,10 +5,18 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import java.util.UUID
 
+import androidx.room.Index
+
 /**
  * Append-only cryptographic ledger for E-Discovery and auditing.
  */
-@Entity(tableName = "audit_logs")
+@Entity(
+    tableName = "audit_logs",
+    indices = [
+        Index(value = ["timestamp"], name = "index_audit_logs_timestamp"),
+        Index(value = ["entity_name", "entity_id"], name = "index_audit_logs_entity")
+    ]
+)
 data class AuditLogEntity(
     @PrimaryKey
     @ColumnInfo(name = "id")

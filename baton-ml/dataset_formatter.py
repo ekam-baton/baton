@@ -1,13 +1,27 @@
 import json
 import os
 
-def format_telemetry_for_training(input_file="gateway-engine/telemetry_dataset.jsonl", output_file="baton-ml/baton_pytorch_dataset.json"):
+def format_telemetry_for_training(
+    input_file="baton-ml/baton_vulnerability_dataset.jsonl",
+    output_file="baton-ml/baton_pytorch_dataset.json"
+):
     """
-    Ingests recorded telemetry dataset entries and formats them into an Alpaca/ShareGPT
-    instruction-tuning dataset for PyTorch / HuggingFace fine-tuning.
+    Ingests recorded telemetry and vulnerability datasets and formats them into an
+    Alpaca/ShareGPT instruction-tuning dataset for PyTorch / HuggingFace fine-tuning.
     """
-    if not os.path.exists(input_file):
-        print(f"[DATASET-FORMATTER] No telemetry file found at {input_file}. Creating sample entry.")
+    candidates = [
+        input_file,
+        "baton-ml/baton_vulnerability_dataset.jsonl",
+        "gateway-engine/telemetry_dataset.jsonl"
+    ]
+    resolved_input = None
+    for path in candidates:
+        if os.path.exists(path):
+            resolved_input = path
+            break
+
+    if not resolved_input:
+        print(f"[DATASET-FORMATTER] No dataset found. Creating sample entry.")
         sample_data = [
             {
                 "instruction": "Analyze the following security event log and recommend defensive remediation.",
@@ -20,23 +34,28 @@ def format_telemetry_for_training(input_file="gateway-engine/telemetry_dataset.j
         return
 
     formatted_entries = []
-    with open(input_file, "r", encoding="utf-8") as f:
+    with open(resolved_input, "r", encoding="utf-8") as f:
         for line in f:
             if not line.strip():
                 continue
             try:
                 entry = json.loads(line)
-                level = entry.get("level", "WARN")
-                msg = entry.get("msg", "")
-                
-                instruction = "Analyze the following gateway security telemetry log and classify the threat level and recommended patch."
-                output = f"Threat Level: {level}. Recommendation: Analyze source IP behavior, update crate dependencies if CVE, or block offending IP."
-                
-                formatted_entries.append({
-                    "instruction": instruction,
-                    "input": f"[{level}] {msg}",
-                    "output": output
-                })
+                if "diff" in entry:
+                    subject = entry.get("subject", "Security patch")
+                    diff_text = entry.get("diff", "")[:2000] # Cap length per sample
+                    formatted_entries.append({
+                        "instruction": f"Analyze this security patch commit and summarize the mitigation: {subject}",
+                        "input": diff_text,
+                        "output": f"Summary: Commit '{subject}' applies critical hardening to resolve vulnerabilities and stabilize architecture."
+                    })
+                else:
+                    level = entry.get("level", "WARN")
+                    msg = entry.get("msg", "")
+                    formatted_entries.append({
+                        "instruction": "Analyze the following gateway security telemetry log and classify the threat level and recommended patch.",
+                        "input": f"[{level}] {msg}",
+                        "output": f"Threat Level: {level}. Recommendation: Analyze source IP behavior, update crate dependencies if CVE, or block offending IP."
+                    })
             except Exception as e:
                 continue
 

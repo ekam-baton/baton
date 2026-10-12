@@ -32,7 +32,8 @@ class AgentDetailsViewModel(
     private val mcpMessageSender: McpMessageSender,
     private val toolAuthManager: ToolAuthorizationManager,
     private val auditDao: AuditDao,
-    private val tunnelValidator: TunnelEndpointValidator
+    private val tunnelValidator: TunnelEndpointValidator,
+    private val ugcManager: com.ekam.baton.core.data.ugc.UgcManager? = null
 ) : ViewModel() {
 
     private val jsonPretty = Json {
@@ -255,6 +256,31 @@ class AgentDetailsViewModel(
             } finally {
                 _isExecutingTool.value = false
             }
+        }
+    }
+
+    fun toggleBlock(onComplete: () -> Unit = {}) {
+        val current = agent.value ?: return
+        viewModelScope.launch {
+            val nextState = !current.isBlocked
+            ugcManager?.setAgentBlocked(current.id, nextState)
+            onComplete()
+        }
+    }
+
+    fun reportAgent(reason: com.ekam.baton.core.data.ugc.ReportReason, details: String = "", onComplete: () -> Unit = {}) {
+        val current = agent.value ?: return
+        viewModelScope.launch {
+            val report = com.ekam.baton.core.data.ugc.ContentReport(
+                id = java.util.UUID.randomUUID().toString(),
+                conversationId = "",
+                messageId = null,
+                agentId = current.id,
+                reason = reason,
+                details = details
+            )
+            ugcManager?.reportContent(report)
+            onComplete()
         }
     }
 

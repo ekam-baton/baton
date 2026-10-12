@@ -266,6 +266,8 @@ class SwarmTopologyViewModelTest {
         override suspend fun upsertAgent(agent: AgentEntity) {}
         override suspend fun deleteAgent(id: String) {}
         override suspend fun updateLastUsed(id: String, timestamp: Long) {}
+        override suspend fun updateBlockedStatus(id: String, isBlocked: Boolean) {}
+        override fun isAgentBlocked(id: String): Flow<Boolean?> = flowOf(false)
     }
 
     private class FakeTokenLedgerDao : TokenLedgerDao {

@@ -1,18 +1,21 @@
 package com.ekam.baton.di
 
 import com.ekam.baton.MainViewModel
-import com.ekam.baton.feature.agents.AgentsViewModel
 import com.ekam.baton.feature.agents.AgentDetailsViewModel
+import com.ekam.baton.feature.agents.AgentsViewModel
 import com.ekam.baton.feature.agents.a2a.A2AViewModel
+import com.ekam.baton.feature.agents.creator.BotCreatorViewModel
+import com.ekam.baton.feature.agents.manager.BatonBotManagerViewModel
 import com.ekam.baton.feature.agents.tunnel.TunnelSetupViewModel
 import com.ekam.baton.feature.chat.ChatViewModel
 import com.ekam.baton.feature.chat.SwarmChatViewModel
 import com.ekam.baton.feature.chat.SwarmTopologyViewModel
 import com.ekam.baton.feature.memory.MemoryViewModel
-import com.ekam.baton.feature.settings.SettingsViewModel
-import com.ekam.baton.feature.settings.KeyBackupViewModel
 import com.ekam.baton.feature.settings.ExecutionLedgerViewModel
+import com.ekam.baton.feature.settings.KeyBackupViewModel
+import com.ekam.baton.feature.settings.SettingsViewModel
 import com.ekam.baton.ui.auth.AuthViewModel
+import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 
@@ -21,6 +24,8 @@ val appModule = module {
     viewModelOf(::AuthViewModel)
     viewModelOf(::AgentsViewModel)
     viewModelOf(::AgentDetailsViewModel)
+    viewModelOf(::BotCreatorViewModel)
+    viewModelOf(::BatonBotManagerViewModel)
     viewModelOf(::A2AViewModel)
     viewModelOf(::TunnelSetupViewModel)
     viewModelOf(::ChatViewModel)
@@ -31,4 +36,8 @@ val appModule = module {
     viewModelOf(::KeyBackupViewModel)
     viewModelOf(::ExecutionLedgerViewModel)
     single { com.ekam.baton.push.FcmTokenManager(get(), get()) }
+    single { com.ekam.baton.notification.BatonNotificationManager(androidContext()) }
+    single<com.ekam.baton.core.data.notification.AgentNotificationDispatcher> {
+        get<com.ekam.baton.notification.BatonNotificationManager>()
+    }
 }

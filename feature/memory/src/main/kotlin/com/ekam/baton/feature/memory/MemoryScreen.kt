@@ -179,10 +179,10 @@ fun MemoryScreen(
         val mem = memoryPendingDelete!!
         AlertDialog(
             onDismissRequest = { memoryPendingDelete = null },
-            title = { Text("Revoke Memory", color = Color.White, fontWeight = FontWeight.Bold) },
+            title = { Text("Delete Memory", color = Color.White, fontWeight = FontWeight.Bold) },
             text = {
                 Text(
-                    "Are you sure you want to delete this memory from the sovereign vault? This operation is cryptographically logged and irreversible.",
+                    "Are you sure you want to delete this memory? This action cannot be undone.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             },
@@ -194,7 +194,7 @@ fun MemoryScreen(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text("REVOKE", fontWeight = FontWeight.Bold)
+                    Text("DELETE", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
@@ -238,12 +238,12 @@ fun MemoryScreen(
                         } else {
                             Column {
                                 Text(
-                                    text = "Sovereign Memory Vault",
+                                    text = "Memory Vault",
                                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                                     color = Color.White
                                 )
                                 Text(
-                                    text = "Tri-Layer Cognitive Hierarchy",
+                                    text = "Working, Episodic & Semantic",
                                     style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
                                     color = MaterialTheme.colorScheme.tertiary
                                 )

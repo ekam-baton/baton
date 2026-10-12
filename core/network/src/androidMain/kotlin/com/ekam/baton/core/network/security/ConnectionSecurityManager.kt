@@ -16,6 +16,7 @@ import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.PBEKeySpec
 import javax.crypto.spec.SecretKeySpec
+import org.json.JSONObject
 
 /**
  * Handles X25519 key generation, Android Keystore wrapper encryption,
@@ -129,14 +130,7 @@ open class ConnectionSecurityManager constructor(
      */
     open fun generateClientKeys(): ClientKeyDetails {
         if (!isNativeLoaded) {
-            val privateKey = ByteArray(32).also { secureRandom.nextBytes(it) }
-            val publicKey = ByteArray(32).also { secureRandom.nextBytes(it) }
-            val (encPrivKey, iv) = encryptPrivateKey(privateKey)
-            return ClientKeyDetails(
-                publicKeyHex = toHex(publicKey),
-                encryptedPrivateKeyBase64 = encPrivKey,
-                privateKeyIvBase64 = iv
-            )
+            throw SecurityException("Native cryptographic engine is required for sovereign X25519 key generation")
         }
         try {
             val privateKey = generatePrivateKeyRust()
@@ -157,10 +151,7 @@ open class ConnectionSecurityManager constructor(
      */
     open fun deriveSharedSecret(privateKey: ByteArray, peerPublicKeyHex: String): ByteArray {
         if (!isNativeLoaded) {
-            val md = MessageDigest.getInstance("SHA-256")
-            md.update(privateKey)
-            md.update(fromHex(peerPublicKeyHex))
-            return md.digest()
+            throw SecurityException("Native cryptographic engine is required for Diffie-Hellman shared secret derivation")
         }
         try {
             val peerPublicKey = fromHex(peerPublicKeyHex)
@@ -176,8 +167,9 @@ open class ConnectionSecurityManager constructor(
     fun encryptPayload(plaintext: String, sharedKey: ByteArray, nonce: String, timestamp: Long): EncryptedPayload {
         try {
             val json = encryptPayloadRust(plaintext.toByteArray(Charsets.UTF_8), sharedKey, nonce, timestamp)
-            val ct = json.substringAfter("\"ciphertext\":\"").substringBefore("\"")
-            val iv = json.substringAfter("\"iv\":\"").substringBefore("\"")
+            val jsonObject = JSONObject(json)
+            val ct = jsonObject.getString("ciphertext")
+            val iv = jsonObject.getString("iv")
             return EncryptedPayload(
                 ciphertextBase64 = ct,
                 ivBase64 = iv

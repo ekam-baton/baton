@@ -5,13 +5,21 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import java.util.UUID
 
+import androidx.room.Index
+
 /**
  * Represents a single conversation thread in BATON.
  *
  * A conversation is the top-level container for all messages exchanged with
  * a specific agent.
  */
-@Entity(tableName = "conversations")
+@Entity(
+    tableName = "conversations",
+    indices = [
+        Index(value = ["agent_id"], name = "index_conversations_agent_id"),
+        Index(value = ["is_pinned", "updated_at"], name = "index_conversations_pinned_updated")
+    ]
+)
 data class ConversationEntity(
     @PrimaryKey
     @ColumnInfo(name = "id")

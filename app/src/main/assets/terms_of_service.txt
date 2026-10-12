@@ -13,10 +13,11 @@ To use the Application, you must:
 - Explicitly and affirmatively consent to these Terms and our Privacy Policy during registration by checking the consent checkbox.
 - Configure secure biometric authentication on your device to protect access to the Application.
 
-3. USER-CONFIGURED ENDPOINTS (MCP)
+3. USER-CONFIGURED ENDPOINTS & USER-GENERATED CONTENT (UGC)
 - Responsibility: You are solely responsible for the configuration, hosting, safety, and security of any Model Context Protocol (MCP) endpoints or tunnels connected to the Application.
+- Zero Tolerance Policy for Objectionable Content & Abuse: In compliance with Apple App Store Guideline 1.2 and Google Play Developer Policies, Baton maintains a strict zero-tolerance policy for objectionable content, harassment, hate speech, threats, and abusive behavior. Users may report any message and block any agent or peer at any time using the in-app tools. Reports are reviewed and acted upon within 24 hours. Offending users or accounts will be blocked and terminated immediately.
 - Network Usage: Connecting the Application to third-party endpoints may consume mobile data or broadband network bandwidth. You are responsible for all carrier and network charges.
-- Lawful Use: You agree not to use the Application to create, process, transmit, or share any content that is unlawful under the laws of India, including but not limited to content prohibited under the Bharatiya Nyaya Sanhita (BNS), 2023, the Information Technology Act, 2000, or the Protection of Children from Sexual Offences (POCSO) Act, 2012.
+- Lawful Use: You agree not to use the Application to create, process, transmit, or share any content that is unlawful, including but not limited to content prohibited under the Bharatiya Nyaya Sanhita (BNS), 2023, the Information Technology Act, 2000, or the Protection of Children from Sexual Offences (POCSO) Act, 2012.
 
 4. DISCLAIMER OF WARRANTIES
 - THE APPLICATION IS PROVIDED ON AN "AS IS" AND "AS AVAILABLE" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED.

@@ -56,18 +56,49 @@ class AgentsViewModel(
     private val _isDiscovering = kotlinx.coroutines.flow.MutableStateFlow(false)
     val isDiscovering: StateFlow<Boolean> = _isDiscovering
 
-    fun startTemporaryDiscovery() {
-        if (_isDiscovering.value) return
-        
-        viewModelScope.launch {
+    private var discoveryJob: kotlinx.coroutines.Job? = null
+
+    fun toggleDiscovery(enabled: Boolean) {
+        discoveryJob?.cancel()
+        if (enabled) {
             _isDiscovering.value = true
             mdnsDiscoveryManager.startDiscovery()
-            
-            // Run for 10 seconds to save battery
-            kotlinx.coroutines.delay(10000)
-            
+            discoveryJob = viewModelScope.launch {
+                // Auto shut-off after 30 seconds to protect battery life
+                kotlinx.coroutines.delay(30000)
+                mdnsDiscoveryManager.stopDiscovery()
+                _isDiscovering.value = false
+            }
+        } else {
             mdnsDiscoveryManager.stopDiscovery()
             _isDiscovering.value = false
+        }
+    }
+
+    fun startTemporaryDiscovery() {
+        toggleDiscovery(true)
+    }
+
+    fun quickProvisionDiscoveredAgent(
+        discovered: com.ekam.baton.core.network.mdns.DiscoveredAgent,
+        onComplete: (String) -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            val agent = Agent(
+                name = discovered.name.ifBlank { "Local AI Node" },
+                description = "Discovered on local Wi-Fi at ${discovered.ipAddress}:${discovered.port}",
+                providerType = "local_mcp",
+                mcpEndpointUrl = discovered.url,
+                authType = "none",
+                authConfig = "",
+                isActive = true,
+                colorAccent = "#00D2FF",
+                securityMode = "standard",
+                role = "COORDINATOR",
+                ownerName = discovered.ownerName
+            )
+            agentRepository.upsertAgent(agent)
+            onComplete(agent.id)
         }
     }
 

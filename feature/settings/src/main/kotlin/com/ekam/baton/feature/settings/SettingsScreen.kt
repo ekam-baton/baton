@@ -93,6 +93,8 @@ fun SettingsScreen(
     var showFontSizeDialog by remember { mutableStateOf(false) }
     var showMemoryRetentionDialog by remember { mutableStateOf(false) }
     var showWipeDialog by remember { mutableStateOf(false) }
+    var showDeleteAccountDialog by remember { mutableStateOf(false) }
+    var deleteAccountConfirmationText by remember { mutableStateOf("") }
     var showClearMemoriesDialog by remember { mutableStateOf(false) }
     var showBackendUrlDialog by remember { mutableStateOf(false) }
     var backendUrlInput by remember { mutableStateOf("") }
@@ -311,7 +313,7 @@ fun SettingsScreen(
                 )
                 ListItem(
                     headlineContent = { Text("Audit & Execution Ledger") },
-                    supportingContent = { Text("Inspect cryptographic hash chains and prune genesis blocks") },
+                    supportingContent = { Text("Review token usage, execution logs, and cost history") },
                     leadingContent = { Icon(Icons.Default.Security, contentDescription = null) },
                     modifier = Modifier.clickable {
                         if (enableHapticFeedback) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -334,7 +336,12 @@ fun SettingsScreen(
                     supportingContent = { Text("Permanently delete all agents, chats, and memories", color = MaterialTheme.colorScheme.error.copy(alpha = 0.7f)) },
                     leadingContent = { Icon(Icons.Default.DeleteForever, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
                     modifier = Modifier.clickable { showWipeDialog = true },
-                    
+                )
+                ListItem(
+                    headlineContent = { Text("Delete Account & Wipe Data", color = MaterialTheme.colorScheme.error) },
+                    supportingContent = { Text("Permanently delete account, purge crypto keys, and wipe all data", color = MaterialTheme.colorScheme.error.copy(alpha = 0.7f)) },
+                    leadingContent = { Icon(Icons.Default.PersonRemove, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                    modifier = Modifier.clickable { showDeleteAccountDialog = true },
                 )
             }
 
@@ -655,6 +662,69 @@ fun SettingsScreen(
                         )
                     ) {
                         Text("Clear Data")
+                    }
+                }
+            },
+            dismissButton = null
+        )
+    }
+
+    if (showDeleteAccountDialog) {
+        AlertDialog(
+            onDismissRequest = { 
+                showDeleteAccountDialog = false 
+                deleteAccountConfirmationText = ""
+            },
+            title = { Text("Delete Account & Wipe Data", color = MaterialTheme.colorScheme.error) },
+            text = {
+                Column {
+                    Text(
+                        "Per Apple & Google privacy requirements, this will unregister your account from the authentication server, purge all cryptographic private keys from Android Keystore, wipe SQLCipher databases, and permanently delete all agents and conversations.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = deleteAccountConfirmationText,
+                        onValueChange = { deleteAccountConfirmationText = it },
+                        label = { Text("Type DELETE to confirm") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = { 
+                            showDeleteAccountDialog = false 
+                            deleteAccountConfirmationText = ""
+                        },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)
+                    ) {
+                        Text("Cancel")
+                    }
+                    Button(
+                        onClick = {
+                            if (deleteAccountConfirmationText == "DELETE") {
+                                showDeleteAccountDialog = false
+                                deleteAccountConfirmationText = ""
+                                viewModel.deleteAccountAndWipeData {
+                                    activity?.finishAffinity()
+                                }
+                            }
+                        },
+                        enabled = deleteAccountConfirmationText == "DELETE",
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError
+                        )
+                    ) {
+                        Text("Delete Account")
                     }
                 }
             },

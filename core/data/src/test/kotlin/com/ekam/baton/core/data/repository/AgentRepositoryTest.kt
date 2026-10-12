@@ -47,6 +47,17 @@ class FakeAgentDao : AgentDao {
             emit()
         }
     }
+
+    override suspend fun updateBlockedStatus(id: String, isBlocked: Boolean) {
+        val index = agents.indexOfFirst { it.id == id }
+        if (index != -1) {
+            agents[index] = agents[index].copy(isBlocked = isBlocked)
+            emit()
+        }
+    }
+
+    override fun isAgentBlocked(id: String): Flow<Boolean?> =
+        kotlinx.coroutines.flow.flowOf(agents.firstOrNull { it.id == id }?.isBlocked)
 }
 
 class AgentRepositoryTest {

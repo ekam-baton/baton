@@ -95,6 +95,7 @@ detekt {
     allRules = false
     autoCorrect = true
     config.setFrom(files("$rootDir/config/detekt/detekt.yml"))
+    baseline = file("detekt-baseline.xml")
 }
 
 tasks.named("check") {

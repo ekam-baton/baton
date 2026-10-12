@@ -113,19 +113,8 @@ fun CallScreen(
         String.format(java.util.Locale.US, "%02d:%02d", minutes, seconds)
     }
 
-    // Dynamic squircle avatar pulse scaled by live audio amplitude
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-    val pulsePhase by infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = 1.12f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1200, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "pulsePhase"
-    )
-
-    val effectivePulseScale = if (isMuted) 1f else pulsePhase + (liveAmplitude * 0.12f)
+    // Avatar halo scaled directly by live audio amplitude
+    val effectivePulseScale = if (isMuted) 1f else 1f + (liveAmplitude * 0.15f)
     val effectivePulseAlpha = if (isMuted) 0.15f else (0.25f + liveAmplitude * 0.35f).coerceIn(0.1f, 0.7f)
 
     Box(
@@ -423,16 +412,6 @@ fun AudioWaveformVisualizer(
     modifier: Modifier = Modifier
 ) {
     val barCount = 28
-    val infiniteTransition = rememberInfiniteTransition(label = "waveform")
-    val phase by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 6.28f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2400, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "phase"
-    )
 
     Row(
         modifier = modifier
@@ -448,9 +427,8 @@ fun AudioWaveformVisualizer(
             val barHeightFraction = if (isMuted) {
                 0.08f
             } else {
-                val harmonic = kotlin.math.sin(phase + i * 0.4f).toFloat()
                 val envelope = kotlin.math.sin(normalizedIdx * 3.14f).toFloat()
-                val dynamic = 0.12f + (amplitude * envelope * (0.45f + 0.35f * harmonic)).coerceIn(0f, 0.88f)
+                val dynamic = 0.12f + (amplitude * envelope * 0.76f).coerceIn(0f, 0.88f)
                 dynamic
             }
 

@@ -28,6 +28,17 @@ class ToolAuthorizationManager constructor() {
     }
 
     suspend fun requestAuthorization(toolName: String, arguments: JsonObject): Boolean {
+        // Enforce sovereign sandbox policy (blocked directives, payload caps)
+        val defaultPolicyJson = """{"allowed_tools":["*"],"max_payload_bytes":65536,"allowed_hosts":[],"blocked_keywords":["rm -rf","su -","/system/bin","/data/data","chmod 777",":(){ :|:& };:","mkfs"]}"""
+        val validationResult = com.ekam.baton.core.network.security.NativeCoreEngine.validateToolCall(
+            toolName = toolName,
+            argumentsJson = arguments.toString(),
+            policyJson = defaultPolicyJson
+        )
+        if (validationResult.isFailure) {
+            return false
+        }
+
         if (!isDestructive(toolName)) {
             return true
         }

@@ -24,7 +24,8 @@ class SettingsViewModel(
     private val sessionManager: SessionManager,
     private val subscriptionManager: SubscriptionManager,
     private val auditDao: AuditDao,
-    val billingManager: BillingManager
+    val billingManager: BillingManager,
+    private val ugcManager: com.ekam.baton.core.data.ugc.UgcManager? = null
 ) : ViewModel() {
 
     val agents: StateFlow<List<Agent>> = agentRepository.getAllAgents()
@@ -201,6 +202,14 @@ class SettingsViewModel(
     fun clearAllData() = viewModelScope.launch {
         wipeDataManager.wipeAllData()
         sessionManager.clearRegistration()
+    }
+
+    fun deleteAccountAndWipeData(onComplete: () -> Unit = {}) = viewModelScope.launch {
+        ugcManager?.deleteAccountAndWipeData() ?: run {
+            wipeDataManager.wipeAllData()
+            sessionManager.clearRegistration()
+        }
+        onComplete()
     }
 
     fun clearAllMemories() = viewModelScope.launch {

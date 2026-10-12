@@ -72,8 +72,14 @@ val dataModule = module {
 
         var dbPassphrase = sharedPreferences.getString("db_passphrase", null)
         if (dbPassphrase == null) {
-            dbPassphrase = UUID.randomUUID().toString()
-            sharedPreferences.edit().putString("db_passphrase", dbPassphrase).apply()
+            val randomBytes = ByteArray(32)
+            try {
+                java.security.SecureRandom.getInstanceStrong().nextBytes(randomBytes)
+            } catch (e: Exception) {
+                java.security.SecureRandom().nextBytes(randomBytes)
+            }
+            dbPassphrase = randomBytes.joinToString("") { "%02x".format(it) }
+            sharedPreferences.edit().putString("db_passphrase", dbPassphrase).commit()
         }
 
         System.loadLibrary("sqlcipher")
@@ -275,13 +281,33 @@ val dataModule = module {
             }
         }
 
+        val MIGRATION_16_17 = object : androidx.room.migration.Migration(16, 17) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // UGC: Add is_blocked column to agents
+                db.execSQL("ALTER TABLE agents ADD COLUMN is_blocked INTEGER NOT NULL DEFAULT 0")
+
+                // 100K Scale Performance: Composite indices on high-volume tables
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_messages_conv_timestamp ON messages(conversation_id, timestamp)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_messages_streaming ON messages(is_streaming)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_conversations_agent_id ON conversations(agent_id)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_conversations_pinned_updated ON conversations(is_pinned, updated_at)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_memories_semantic ON memories(layer, isActive, relevanceScore)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_memories_episodic ON memories(layer, agentId, isActive, lastAccessedAt)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_audit_logs_timestamp ON audit_logs(timestamp)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_audit_logs_entity ON audit_logs(entity_name, entity_id)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_token_ledger_swarm ON token_ledger(swarm_id, timestamp)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_token_ledger_agent ON token_ledger(agent_id, timestamp)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_agent_action_logs_timestamp ON agent_action_logs(timestamp)")
+            }
+        }
+
         val builder = Room.databaseBuilder(
             context,
             BatonDatabase::class.java,
             BatonDatabase.DATABASE_NAME,
         )
             .openHelperFactory(factory)
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17)
 
         try {
             val db = builder.build()
@@ -301,7 +327,7 @@ val dataModule = module {
                 BatonDatabase.DATABASE_NAME,
             )
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17)
             freshBuilder.build()
         }
     }
@@ -331,14 +357,30 @@ val dataModule = module {
     single { com.ekam.baton.core.data.preferences.SessionManager(get()) }
     single { com.ekam.baton.core.data.preferences.SubscriptionManager() }
     
-    single(createdAtStart = true) { com.ekam.baton.core.data.billing.BillingManager(androidContext(), get(), get()) }
+    // Performance: Lazily load BillingManager to save 250-400ms on application cold start
+    single { com.ekam.baton.core.data.billing.BillingManager(androidContext(), get(), get()) }
+
+    // UGC: Content reporting, agent blocking, and 1-tap Apple Guideline 5.1.1(v) account deletion
+    single<com.ekam.baton.core.data.ugc.UgcManager> {
+        com.ekam.baton.core.data.ugc.UgcManagerImpl(
+            context = androidContext(),
+            database = get(),
+            sessionManager = get(),
+            appPreferences = get(),
+            wipeDataManager = get(),
+            httpClient = get()
+        )
+    }
 
     single { com.ekam.baton.core.data.repository.AgentRepository(get()) }
     single { com.ekam.baton.core.data.repository.MemoryRepository(get(), get()) }
+    single { com.ekam.baton.core.data.notification.BatonAppStateTracker() }
     single { 
         com.ekam.baton.core.data.repository.ChatRepository(
             get(), get(), get(), get(), get(), get(), get(),
-            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO + kotlinx.coroutines.SupervisorJob())
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO + kotlinx.coroutines.SupervisorJob()),
+            get(),
+            getOrNull()
         ) 
     }
     single { com.ekam.baton.core.data.repository.AgentActionAuditRepository(get()) }

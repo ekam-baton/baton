@@ -83,79 +83,77 @@ class SecurityInterceptor(
         val privateKey = securityManager.decryptPrivateKey(privKeyBase64, privKeyIvBase64)
         val sharedSecret = securityManager.deriveSharedSecret(privateKey, peerPubKeyHex)
 
-        // Read request body to encrypt
-        val rawBody = request.body
-        val rawPlaintext = if (rawBody != null) {
-            val buffer = okio.Buffer()
-            rawBody.writeTo(buffer)
-            buffer.readUtf8()
-        } else {
-            ""
-        }
+        try {
+            // Read request body to encrypt
+            val rawBody = request.body
+            val rawPlaintext = if (rawBody != null) {
+                val buffer = okio.Buffer()
+                rawBody.writeTo(buffer)
+                buffer.readUtf8()
+            } else {
+                ""
+            }
 
-        if (rawPlaintext.isBlank()) {
-            return chain.proceed(request)
-        }
+            if (rawPlaintext.isBlank()) {
+                return chain.proceed(request)
+            }
 
-        // Always generate a nonce and timestamp for encrypted requests
-        val timestamp = System.currentTimeMillis()
-        val nonce = UUID.randomUUID().toString().replace("-", "")
+            // Always generate a nonce and timestamp for encrypted requests
+            val timestamp = System.currentTimeMillis()
+            val nonce = UUID.randomUUID().toString().replace("-", "")
 
-        // Encrypt request body
-        val encrypted = securityManager.encryptPayload(rawPlaintext, sharedSecret, nonce, timestamp)
-        val encryptedJson = JSONObject().apply {
-            put("ciphertext", encrypted.ciphertextBase64)
-            put("iv", encrypted.ivBase64)
-        }.toString()
+            // Encrypt request body
+            val encrypted = securityManager.encryptPayload(rawPlaintext, sharedSecret, nonce, timestamp)
+            val encryptedJson = JSONObject().apply {
+                put("ciphertext", encrypted.ciphertextBase64)
+                put("iv", encrypted.ivBase64)
+            }.toString()
 
-        var newRequestBuilder = request.newBuilder()
-            .post(encryptedJson.toRequestBody(jsonMediaType))
-            .addHeader("X-Baton-Timestamp", timestamp.toString())
-            .addHeader("X-Baton-Nonce", nonce)
+            var newRequestBuilder = request.newBuilder()
+                .post(encryptedJson.toRequestBody(jsonMediaType))
+                .addHeader("X-Baton-Timestamp", timestamp.toString())
+                .addHeader("X-Baton-Nonce", nonce)
 
-        // If in Signed or Sovereign mode, add replay signature headers
-        if (mode == "signed" || mode == "sovereign") {
-            val signature = securityManager.computeSignature(
-                timestamp,
-                nonce,
-                encrypted.ciphertextBase64,
-                sharedSecret
-            )
-            newRequestBuilder = newRequestBuilder.addHeader("X-Baton-Signature", signature)
-        }
+            // If in Signed or Sovereign mode, add replay signature headers
+            if (mode == "signed" || mode == "sovereign") {
+                val signature = securityManager.computeSignature(
+                    timestamp,
+                    nonce,
+                    encrypted.ciphertextBase64,
+                    sharedSecret
+                )
+                newRequestBuilder = newRequestBuilder.addHeader("X-Baton-Signature", signature)
+            }
 
-        val encryptedRequest = newRequestBuilder.build()
-        val response = chain.proceed(encryptedRequest)
+            val encryptedRequest = newRequestBuilder.build()
+            val response = chain.proceed(encryptedRequest)
 
-        if (!response.isSuccessful) {
-            privateKey.fill(0)
-            sharedSecret.fill(0)
-            return response
-        }
+            if (!response.isSuccessful) {
+                return response
+            }
 
-        // Decrypt response body
-        val responseBodyString = response.body?.string() ?: ""
-        if (responseBodyString.isBlank()) {
-            privateKey.fill(0)
-            sharedSecret.fill(0)
-            return response
-        }
+            // Decrypt response body
+            val responseBodyString = response.body?.string() ?: ""
+            if (responseBodyString.isBlank()) {
+                return response
+            }
 
-        val decryptedPlaintext = try {
-            val jsonResponse = JSONObject(responseBodyString)
-            val ciphertext = jsonResponse.getString("ciphertext")
-            val iv = jsonResponse.getString("iv")
-            securityManager.decryptPayload(ciphertext, iv, sharedSecret, nonce, timestamp)
-        } catch (e: Exception) {
-            throw IOException("Failed to decrypt response payload: ${e.localizedMessage}", e)
+            val decryptedPlaintext = try {
+                val jsonResponse = JSONObject(responseBodyString)
+                val ciphertext = jsonResponse.getString("ciphertext")
+                val iv = jsonResponse.getString("iv")
+                securityManager.decryptPayload(ciphertext, iv, sharedSecret, nonce, timestamp)
+            } catch (e: Exception) {
+                throw IOException("Failed to decrypt response payload: ${e.localizedMessage}", e)
+            }
+
+            val newResponseBody = decryptedPlaintext.toResponseBody(response.body?.contentType())
+            return response.newBuilder()
+                .body(newResponseBody)
+                .build()
         } finally {
             privateKey.fill(0)
             sharedSecret.fill(0)
         }
-
-        val newResponseBody = decryptedPlaintext.toResponseBody(response.body?.contentType())
-        return response.newBuilder()
-            .body(newResponseBody)
-            .build()
     }
 }

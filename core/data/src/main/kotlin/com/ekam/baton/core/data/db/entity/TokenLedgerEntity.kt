@@ -5,11 +5,19 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import java.util.UUID
 
+import androidx.room.Index
+
 /**
  * Immutable ledger tracking every token consumed and its associated cost.
  * Critical for Cost Visibility constraints and protecting against run-away agent loops.
  */
-@Entity(tableName = "token_ledger")
+@Entity(
+    tableName = "token_ledger",
+    indices = [
+        Index(value = ["swarm_id", "timestamp"], name = "index_token_ledger_swarm"),
+        Index(value = ["agent_id", "timestamp"], name = "index_token_ledger_agent")
+    ]
+)
 data class TokenLedgerEntity(
     @PrimaryKey
     @ColumnInfo(name = "id")

@@ -5,10 +5,18 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import java.util.UUID
 
+import androidx.room.Index
+
 /**
  * Represents a single message within a conversation.
  */
-@Entity(tableName = "messages")
+@Entity(
+    tableName = "messages",
+    indices = [
+        Index(value = ["conversation_id", "timestamp"], name = "index_messages_conv_timestamp"),
+        Index(value = ["is_streaming"], name = "index_messages_streaming")
+    ]
+)
 data class MessageEntity(
     @PrimaryKey
     @ColumnInfo(name = "id")

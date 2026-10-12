@@ -1,6 +1,5 @@
 package com.ekam.baton.ui.auth
 
-import android.util.Base64
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -15,8 +14,6 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
-import javax.crypto.Mac
-import javax.crypto.spec.SecretKeySpec
 
 private const val TAG = "AuthViewModel"
 
@@ -59,21 +56,21 @@ class AuthViewModel(
                 val registerUrl = if (backendUrlStr.endsWith("/")) {
                     "${backendUrlStr}auth/register"
                 } else {
-                    "${backendUrlStr}/auth/register"
+                    "$backendUrlStr/auth/register"
                 }
 
                 val jsonInput = JSONObject().apply {
                     put("email", email)
                     if (phone.isNotBlank()) put("phone_number", phone)
                     put("password", password)
-                    
+
                     val clientKeys = securityManager.generateClientKeys()
                     val privateKeyBytes = securityManager.decryptPrivateKey(
-                        clientKeys.encryptedPrivateKeyBase64, 
+                        clientKeys.encryptedPrivateKeyBase64,
                         clientKeys.privateKeyIvBase64
                     )
                     val backupPayload = CryptoHelper.encryptBackupKey(password, privateKeyBytes)
-                    
+
                     put("backup_payload", backupPayload)
                     put("public_key", clientKeys.publicKeyHex)
                 }.toString()
@@ -93,19 +90,19 @@ class AuthViewModel(
                     val jsonResponse = JSONObject(responseBody)
                     val token = jsonResponse.optString("token", "")
                     val refreshToken = jsonResponse.optString("refresh_token", "")
-                    
+
                     if (token.isNotBlank()) {
                         appPreferences.setJwtSecret(token)
                     }
                     if (refreshToken.isNotBlank()) {
                         appPreferences.setRefreshToken(refreshToken)
                     }
-                    
+
                     val subscriptionStatus = jsonResponse.optString("subscription_status", "free")
                     viewModelScope.launch {
                         appPreferences.setPremiumUnlocked(subscriptionStatus == "premium")
                     }
-                    
+
                     sessionManager.register(email, phone, consentTimestamp, policyVersion, region)
                     sessionManager.setLoggedIn(true)
                 } else {
@@ -127,7 +124,7 @@ class AuthViewModel(
                 val loginUrl = if (backendUrlStr.endsWith("/")) {
                     "${backendUrlStr}auth/login"
                 } else {
-                    "${backendUrlStr}/auth/login"
+                    "$backendUrlStr/auth/login"
                 }
 
                 val jsonInput = JSONObject().apply {
@@ -150,19 +147,19 @@ class AuthViewModel(
                     val jsonResponse = JSONObject(responseBody)
                     val token = jsonResponse.optString("token", "")
                     val refreshToken = jsonResponse.optString("refresh_token", "")
-                    
+
                     if (token.isNotBlank()) {
                         appPreferences.setJwtSecret(token)
                     }
                     if (refreshToken.isNotBlank()) {
                         appPreferences.setRefreshToken(refreshToken)
                     }
-                    
+
                     val subscriptionStatus = jsonResponse.optString("subscription_status", "free")
                     viewModelScope.launch {
                         appPreferences.setPremiumUnlocked(subscriptionStatus == "premium")
                     }
-                    
+
                     // Note: Region and Consent are not returned by login, so we use defaults or skip
                     sessionManager.register(email, "", 0L, "", "Global")
                     sessionManager.setLoggedIn(true)

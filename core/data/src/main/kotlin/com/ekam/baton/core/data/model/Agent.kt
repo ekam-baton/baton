@@ -30,7 +30,8 @@ data class Agent(
     val cardAvatarSeed: String = "",
     val worldRoomId: String? = null,
     val ownerId: String? = null,
-    val ownerName: String? = null
+    val ownerName: String? = null,
+    val isBlocked: Boolean = false
 )
 
 fun AgentEntity.toDomainModel() = Agent(
@@ -59,7 +60,8 @@ fun AgentEntity.toDomainModel() = Agent(
     cardAvatarSeed = cardAvatarSeed,
     worldRoomId = worldRoomId,
     ownerId = ownerId,
-    ownerName = ownerName
+    ownerName = ownerName,
+    isBlocked = isBlocked
 )
 
 fun Agent.toEntity() = AgentEntity(
@@ -88,5 +90,6 @@ fun Agent.toEntity() = AgentEntity(
     cardAvatarSeed = cardAvatarSeed,
     worldRoomId = worldRoomId,
     ownerId = ownerId,
-    ownerName = ownerName
+    ownerName = ownerName,
+    isBlocked = isBlocked
 )

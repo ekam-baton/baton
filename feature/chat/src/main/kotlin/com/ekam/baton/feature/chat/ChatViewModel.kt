@@ -35,13 +35,18 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.first
 
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 
 import com.ekam.baton.core.data.db.dao.SwarmDao
 import com.ekam.baton.core.data.db.entity.SwarmEntity
 import com.ekam.baton.core.network.service.SwarmForegroundService
 import org.json.JSONArray
+
+import com.ekam.baton.core.data.ugc.ReportReason
+import com.ekam.baton.core.data.ugc.ContentReport
+import com.ekam.baton.core.data.ugc.UgcManager
+import kotlinx.coroutines.flow.firstOrNull
 
 private const val TAG = "ChatViewModel"
 private val jsonParser = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
@@ -54,8 +59,15 @@ class ChatViewModel(
     private val httpClient: okhttp3.OkHttpClient,
     private val context: Context,
     private val swarmDao: SwarmDao,
-    savedStateHandle: SavedStateHandle
+    savedStateHandle: SavedStateHandle,
+    private val appStateTracker: com.ekam.baton.core.data.notification.BatonAppStateTracker? = null,
+    private val ugcManager: UgcManager? = null
 ) : ViewModel() {
+
+    init {
+        val cid: String? = savedStateHandle["conversationId"]
+        cid?.let { appStateTracker?.setActiveConversationId(it) }
+    }
 
     companion object {
         const val MIME_TYPE_OCTET_STREAM = "application/octet-stream"
@@ -136,6 +148,9 @@ class ChatViewModel(
     private val _currentAgent = MutableStateFlow<Agent?>(null)
     val currentAgent: StateFlow<Agent?> = _currentAgent.asStateFlow()
 
+    private val _isAgentBlocked = MutableStateFlow(false)
+    val isAgentBlocked: StateFlow<Boolean> = _isAgentBlocked.asStateFlow()
+
     private val _availableTools = MutableStateFlow<List<com.ekam.baton.core.network.mcp.McpTool>>(emptyList())
     val availableTools: StateFlow<List<com.ekam.baton.core.network.mcp.McpTool>> = _availableTools.asStateFlow()
 
@@ -153,6 +168,52 @@ class ChatViewModel(
 
     fun clearError() {
         _uiError.value = null
+    }
+
+    fun toggleBlockCurrentAgent() {
+        val agentId = _currentAgentId.value ?: return
+        viewModelScope.launch {
+            val newBlockedState = !_isAgentBlocked.value
+            ugcManager?.setAgentBlocked(agentId, newBlockedState)
+            _isAgentBlocked.value = newBlockedState
+            val updated = chatRepository.getAgentById(agentId)
+            _currentAgent.value = updated
+        }
+    }
+
+    fun reportMessage(messageId: String, reason: ReportReason, details: String = "", onComplete: () -> Unit = {}) {
+        viewModelScope.launch {
+            val report = ContentReport(
+                id = UUID.randomUUID().toString(),
+                conversationId = conversationId ?: "",
+                messageId = messageId,
+                agentId = _currentAgentId.value ?: "unknown",
+                reason = reason,
+                details = details
+            )
+            ugcManager?.reportContent(report)
+            withContext(Dispatchers.Main) {
+                onComplete()
+            }
+        }
+    }
+
+    fun reportCurrentAgent(reason: ReportReason, details: String = "", onComplete: () -> Unit = {}) {
+        val agentId = _currentAgentId.value ?: return
+        viewModelScope.launch {
+            val report = ContentReport(
+                id = UUID.randomUUID().toString(),
+                conversationId = conversationId ?: "",
+                messageId = null,
+                agentId = agentId,
+                reason = reason,
+                details = details
+            )
+            ugcManager?.reportContent(report)
+            withContext(Dispatchers.Main) {
+                onComplete()
+            }
+        }
     }
 
     fun updateAgentEndpoint(newUrl: String) {
@@ -185,7 +246,9 @@ class ChatViewModel(
             viewModelScope.launch {
                 val conv = chatRepository.getConversationById(id) ?: return@launch
                 _currentAgentId.value = conv.agentId
-                _currentAgent.value = chatRepository.getAgentById(conv.agentId)
+                val agent = chatRepository.getAgentById(conv.agentId)
+                _currentAgent.value = agent
+                _isAgentBlocked.value = agent?.isBlocked ?: false
 
                 // Observe memory count on the same coroutine, after agent is resolved
                 memoryRepository.getMemoriesForAgent(conv.agentId).collect { memories ->
@@ -219,6 +282,20 @@ class ChatViewModel(
 
     fun sendMessage(content: String, attachments: List<Uri> = emptyList()) {
         val cid = conversationId ?: return
+        // Prevent sending to blocked agent
+        if (_isAgentBlocked.value) {
+            _uiError.value = "Cannot send message: This agent is blocked."
+            return
+        }
+        // UGC Safety filter
+        ugcManager?.let { mgr ->
+            val safetyCheck = mgr.checkContentSafety(content)
+            if (!safetyCheck.isSafe) {
+                val reason = safetyCheck.explanation ?: safetyCheck.flaggedCategory ?: "Content violates safety standards"
+                _uiError.value = "Message blocked: $reason"
+                return
+            }
+        }
         // Prevent double-submission while a response is already streaming
         if (_isStreaming.value) return
         viewModelScope.launch {
@@ -480,9 +557,12 @@ class ChatViewModel(
         }
     }
 
+    private val cleanupScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     override fun onCleared() {
         super.onCleared()
-        GlobalScope.launch {
+        appStateTracker?.setActiveConversationId(null)
+        cleanupScope.launch {
             try {
                 chatRepository.clearStreamingStates()
             } catch (e: Exception) {

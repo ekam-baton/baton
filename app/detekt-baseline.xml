@@ -1,0 +1,12 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues></ManuallySuppressedIssues>
+  <CurrentIssues>
+    <ID>DestructuringDeclarationWithTooManyEntries:CryptoHelper.kt$CryptoHelper$val (saltB64, ivB64, cipherB64, iterations) = if (parts.size == 4 &amp;&amp; parts[0] == "1") { // New format: 1:salt:iv:ciphertext Tuple4(parts[1], parts[2], parts[3], 600_000) } else if (parts.size == 3) { // Legacy format: salt:iv:ciphertext Tuple4(parts[0], parts[1], parts[2], 100_000) } else { throw IllegalArgumentException("Invalid backup payload format") }</ID>
+    <ID>LongParameterList:AuthViewModel.kt$AuthViewModel$(email: String, phone: String, password: String, consentTimestamp: Long, policyVersion: String, region: String)</ID>
+    <ID>ReturnCount:SignupScreen.kt$fun handleSubmit()</ID>
+    <ID>TooGenericExceptionCaught:AuthViewModel.kt$AuthViewModel$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:BatonFirebaseMessagingService.kt$BatonFirebaseMessagingService$e: Exception</ID>
+    <ID>UseRequire:CryptoHelper.kt$CryptoHelper$throw IllegalArgumentException("Invalid backup payload format")</ID>
+  </CurrentIssues>
+</SmellBaseline>

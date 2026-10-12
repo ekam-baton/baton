@@ -1,0 +1,26 @@
+{
+  "name": "@baton/bridge",
+  "version": "1.0.0",
+  "description": "Telegram & WhatsApp-level 1-click desktop bridge companion for pairing Antigravity and local AI engines with the Baton Android app",
+  "main": "src/server.js",
+  "bin": {
+    "baton-bridge": "./bin/baton-bridge.js"
+  },
+  "scripts": {
+    "start": "node ./bin/baton-bridge.js",
+    "test": "node test/run-tests.js"
+  },
+  "keywords": [
+    "baton",
+    "mcp",
+    "antigravity",
+    "cloudflare-tunnel",
+    "ai-agent",
+    "sovereign"
+  ],
+  "author": "Baton Project",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

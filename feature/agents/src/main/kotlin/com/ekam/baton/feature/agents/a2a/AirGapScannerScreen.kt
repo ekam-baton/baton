@@ -80,28 +80,6 @@ fun AirGapScannerScreen(
         }
     }
 
-    // Laser Animation
-    val infiniteTransition = rememberInfiniteTransition(label = "laser")
-    val laserY by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1800, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "laser_y"
-    )
-
-    // Pulse animation for Enclave status dot
-    val beaconAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.4f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(800, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "beacon_alpha"
-    )
 
     Box(modifier = Modifier.fillMaxSize().background(Color(0xFF080E1A))) {
         if (hasCameraPermission) {
@@ -228,20 +206,6 @@ fun AirGapScannerScreen(
             drawLine(cornerColor, Offset(boxRect.right, boxRect.bottom - 20f), Offset(boxRect.right, boxRect.bottom - 20f - cornerLen), strokeWidth = cornerStroke)
             drawLine(cornerColor, Offset(boxRect.right - 20f, boxRect.bottom), Offset(boxRect.right - 20f - cornerLen, boxRect.bottom), strokeWidth = cornerStroke)
 
-            // Sweeping Animated Cyan Laser Line
-            val laserYPos = boxRect.top + (boxRect.height * laserY)
-            drawLine(
-                brush = Brush.horizontalGradient(
-                    listOf(
-                        Color(0xFF00D2FF).copy(alpha = 0.1f),
-                        Color(0xFF00D2FF).copy(alpha = 0.9f),
-                        Color(0xFF00D2FF).copy(alpha = 0.1f)
-                    )
-                ),
-                start = Offset(boxRect.left + 16f, laserYPos),
-                end = Offset(boxRect.right - 16f, laserYPos),
-                strokeWidth = 6f
-            )
         }
 
         // Foreground UI Elements
@@ -284,11 +248,11 @@ fun AirGapScannerScreen(
                             modifier = Modifier
                                 .size(8.dp)
                                 .clip(CircleShape)
-                                .background(Color(0xFF10B981).copy(alpha = beaconAlpha))
+                                .background(Color(0xFF10B981))
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "AIR-GAP ENCLAVE • RF SILENT",
+                            text = "OFFLINE OPTICAL LINK • SECURE",
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontFamily = FontFamily.Monospace,
                                 fontWeight = FontWeight.Bold,

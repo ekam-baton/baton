@@ -1,6 +1,6 @@
 use jni::JNIEnv;
-use jni::objects::{JClass, JString, JByteArray};
-use jni::sys::{jbyteArray, jlong, jstring};
+use jni::objects::{JClass, JString, JByteArray, JFloatArray};
+use jni::sys::{jbyteArray, jlong, jstring, jfloatArray, jfloat, jboolean, jint};
 use aes_gcm::aead::{Aead, KeyInit};
 use aes_gcm::{Aes256Gcm, Nonce};
 use base64::Engine;
@@ -12,6 +12,22 @@ use hkdf::Hkdf;
 use rand::RngCore;
 
 pub mod ratchet;
+pub mod vector_memory;
+pub mod vault;
+pub mod mesh;
+pub mod policy;
+pub mod noise;
+pub mod vector_storage;
+pub mod markdown_stream;
+
+// Helper to convert JNI float array to Rust Vec<f32>
+fn to_float_vec(env: &mut JNIEnv, array: jfloatArray) -> Result<Vec<f32>, jni::errors::Error> {
+    let array_wrapper = unsafe { JFloatArray::from_raw(array) };
+    let len = env.get_array_length(&array_wrapper)? as usize;
+    let mut buf = vec![0.0f32; len];
+    env.get_float_array_region(&array_wrapper, 0, &mut buf)?;
+    Ok(buf)
+}
 
 
 
@@ -481,3 +497,485 @@ pub extern "system" fn Java_com_ekam_baton_core_network_security_ConnectionSecur
         }
     })).unwrap_or(std::ptr::null_mut())
 }
+
+// =========================================================================
+// NativeCoreEngine JNI Bindings (Vector Memory, Vault, Mesh, Policy)
+// =========================================================================
+
+#[no_mangle]
+pub extern "system" fn Java_com_ekam_baton_core_network_security_NativeCoreEngine_nativeVectorCosineSimilarity(
+    mut env: JNIEnv,
+    _class: JClass,
+    vec_a: jfloatArray,
+    vec_b: jfloatArray,
+) -> jfloat {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let a = match to_float_vec(&mut env, vec_a) {
+            Ok(v) => v,
+            Err(_) => return 0.0,
+        };
+        let b = match to_float_vec(&mut env, vec_b) {
+            Ok(v) => v,
+            Err(_) => return 0.0,
+        };
+        vector_memory::cosine_similarity(&a, &b)
+    })).unwrap_or(0.0)
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_ekam_baton_core_network_security_NativeCoreEngine_nativeVectorBatchSearch(
+    mut env: JNIEnv,
+    _class: JClass,
+    query_vec: jfloatArray,
+    index_json: jstring,
+    top_k: jint,
+    min_score: jfloat,
+) -> jstring {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let query = match to_float_vec(&mut env, query_vec) {
+            Ok(v) => v,
+            Err(_) => return std::ptr::null_mut(),
+        };
+        let json_str = match to_string(&mut env, index_json) {
+            Ok(s) => s,
+            Err(_) => return std::ptr::null_mut(),
+        };
+
+        let index = match vector_memory::VectorMemoryIndex::from_json(&json_str) {
+            Ok(idx) => idx,
+            Err(_) => return std::ptr::null_mut(),
+        };
+
+        let results = index.search(&query, top_k as usize, min_score);
+        let result_json = serde_json::to_string(&results).unwrap_or_else(|_| "[]".to_string());
+
+        match env.new_string(result_json) {
+            Ok(js) => js.into_raw(),
+            Err(_) => std::ptr::null_mut(),
+        }
+    })).unwrap_or(std::ptr::null_mut())
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_ekam_baton_core_network_security_NativeCoreEngine_nativeSignIdentity(
+    mut env: JNIEnv,
+    _class: JClass,
+    private_key: jbyteArray,
+    message: jbyteArray,
+) -> jbyteArray {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let priv_bytes = match to_vec(&mut env, private_key) {
+            Ok(b) if b.len() == 32 => b,
+            _ => return std::ptr::null_mut(),
+        };
+        let msg_bytes = match to_vec(&mut env, message) {
+            Ok(b) => b,
+            Err(_) => return std::ptr::null_mut(),
+        };
+
+        let mut priv_array = [0u8; 32];
+        priv_array.copy_from_slice(&priv_bytes);
+
+        let sig = vault::sign_agent_identity(&priv_array, &msg_bytes);
+        match to_jarray(&mut env, &sig) {
+            Ok(arr) => arr,
+            Err(_) => std::ptr::null_mut(),
+        }
+    })).unwrap_or(std::ptr::null_mut())
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_ekam_baton_core_network_security_NativeCoreEngine_nativeVerifyIdentity(
+    mut env: JNIEnv,
+    _class: JClass,
+    public_key: jbyteArray,
+    message: jbyteArray,
+    signature: jbyteArray,
+) -> jboolean {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let pub_bytes = match to_vec(&mut env, public_key) {
+            Ok(b) if b.len() == 32 => b,
+            _ => return 0,
+        };
+        let msg_bytes = match to_vec(&mut env, message) {
+            Ok(b) => b,
+            Err(_) => return 0,
+        };
+        let sig_bytes = match to_vec(&mut env, signature) {
+            Ok(b) if b.len() == 64 => b,
+            _ => return 0,
+        };
+
+        let mut pub_array = [0u8; 32];
+        pub_array.copy_from_slice(&pub_bytes);
+
+        let mut sig_array = [0u8; 64];
+        sig_array.copy_from_slice(&sig_bytes);
+
+        if vault::verify_agent_identity(&pub_array, &msg_bytes, &sig_array) {
+            1
+        } else {
+            0
+        }
+    })).unwrap_or(0)
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_ekam_baton_core_network_security_NativeCoreEngine_nativeComputeSafetyFingerprint(
+    mut env: JNIEnv,
+    _class: JClass,
+    local_key: jbyteArray,
+    remote_key: jbyteArray,
+) -> jstring {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let l_bytes = match to_vec(&mut env, local_key) {
+            Ok(b) if b.len() == 32 => b,
+            _ => return std::ptr::null_mut(),
+        };
+        let r_bytes = match to_vec(&mut env, remote_key) {
+            Ok(b) if b.len() == 32 => b,
+            _ => return std::ptr::null_mut(),
+        };
+
+        let mut l_arr = [0u8; 32];
+        l_arr.copy_from_slice(&l_bytes);
+
+        let mut r_arr = [0u8; 32];
+        r_arr.copy_from_slice(&r_bytes);
+
+        let fp = vault::compute_safety_fingerprint(&l_arr, &r_arr);
+        match env.new_string(fp) {
+            Ok(js) => js.into_raw(),
+            Err(_) => std::ptr::null_mut(),
+        }
+    })).unwrap_or(std::ptr::null_mut())
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_ekam_baton_core_network_security_NativeCoreEngine_nativeEncodeMeshFrame(
+    mut env: JNIEnv,
+    _class: JClass,
+    packet_type_int: jint,
+    session_id: jbyteArray,
+    sequence: jlong,
+    nonce: jbyteArray,
+    payload: jbyteArray,
+) -> jbyteArray {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let sid_bytes = match to_vec(&mut env, session_id) {
+            Ok(b) if b.len() == 16 => b,
+            _ => return std::ptr::null_mut(),
+        };
+        let nonce_bytes = match to_vec(&mut env, nonce) {
+            Ok(b) if b.len() == 12 => b,
+            _ => return std::ptr::null_mut(),
+        };
+        let payload_bytes = match to_vec(&mut env, payload) {
+            Ok(b) => b,
+            Err(_) => return std::ptr::null_mut(),
+        };
+
+        let mut sid_arr = [0u8; 16];
+        sid_arr.copy_from_slice(&sid_bytes);
+
+        let mut nonce_arr = [0u8; 12];
+        nonce_arr.copy_from_slice(&nonce_bytes);
+
+        let frame = mesh::MeshFrame::new(
+            mesh::PacketType::from(packet_type_int as u8),
+            sid_arr,
+            sequence as u64,
+            nonce_arr,
+            payload_bytes,
+        );
+
+        let encoded = frame.encode();
+        match to_jarray(&mut env, &encoded) {
+            Ok(arr) => arr,
+            Err(_) => std::ptr::null_mut(),
+        }
+    })).unwrap_or(std::ptr::null_mut())
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_ekam_baton_core_network_security_NativeCoreEngine_nativeDecodeMeshFrame(
+    mut env: JNIEnv,
+    _class: JClass,
+    wire_bytes: jbyteArray,
+) -> jstring {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let wire = match to_vec(&mut env, wire_bytes) {
+            Ok(b) => b,
+            Err(_) => return std::ptr::null_mut(),
+        };
+
+        match mesh::MeshFrame::decode(&wire) {
+            Ok(frame) => {
+                let json = serde_json::to_string(&frame).unwrap_or_default();
+                match env.new_string(json) {
+                    Ok(js) => js.into_raw(),
+                    Err(_) => std::ptr::null_mut(),
+                }
+            }
+            Err(_) => std::ptr::null_mut(),
+        }
+    })).unwrap_or(std::ptr::null_mut())
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_ekam_baton_core_network_security_NativeCoreEngine_nativeSplitAirGapQr(
+    mut env: JNIEnv,
+    _class: JClass,
+    payload: jbyteArray,
+    chunk_size: jint,
+) -> jstring {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let payload_bytes = match to_vec(&mut env, payload) {
+            Ok(b) => b,
+            Err(_) => return std::ptr::null_mut(),
+        };
+
+        let chunks = mesh::AirGapChunker::split_payload(&payload_bytes, chunk_size as usize);
+        let json = serde_json::to_string(&chunks).unwrap_or_else(|_| "[]".to_string());
+
+        match env.new_string(json) {
+            Ok(js) => js.into_raw(),
+            Err(_) => std::ptr::null_mut(),
+        }
+    })).unwrap_or(std::ptr::null_mut())
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_ekam_baton_core_network_security_NativeCoreEngine_nativeReassembleAirGapQr(
+    mut env: JNIEnv,
+    _class: JClass,
+    chunks_json: jstring,
+) -> jbyteArray {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let json_str = match to_string(&mut env, chunks_json) {
+            Ok(s) => s,
+            Err(_) => return std::ptr::null_mut(),
+        };
+
+        let chunks: Vec<String> = match serde_json::from_str(&json_str) {
+            Ok(c) => c,
+            Err(_) => return std::ptr::null_mut(),
+        };
+
+        match mesh::AirGapChunker::reassemble_chunk(&chunks) {
+            Ok(data) => match to_jarray(&mut env, &data) {
+                Ok(arr) => arr,
+                Err(_) => std::ptr::null_mut(),
+            },
+            Err(_) => std::ptr::null_mut(),
+        }
+    })).unwrap_or(std::ptr::null_mut())
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_ekam_baton_core_network_security_NativeCoreEngine_nativeValidateToolCall(
+    mut env: JNIEnv,
+    _class: JClass,
+    tool_name: jstring,
+    arguments_json: jstring,
+    policy_json: jstring,
+) -> jstring {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let t_name = match to_string(&mut env, tool_name) {
+            Ok(s) => s,
+            Err(_) => return std::ptr::null_mut(),
+        };
+        let args = match to_string(&mut env, arguments_json) {
+            Ok(s) => s,
+            Err(_) => return std::ptr::null_mut(),
+        };
+        let pol_str = match to_string(&mut env, policy_json) {
+            Ok(s) => s,
+            Err(_) => String::new(),
+        };
+
+        let policy = if pol_str.is_empty() {
+            policy::ToolExecutionPolicy::default()
+        } else {
+            serde_json::from_str(&pol_str).unwrap_or_default()
+        };
+
+        let res_str = match policy::validate_tool_execution(&t_name, &args, &policy) {
+            Ok(()) => String::new(), // Empty string indicates valid/success
+            Err(violation) => format!("{violation:?}"),
+        };
+
+        match env.new_string(res_str) {
+            Ok(js) => js.into_raw(),
+            Err(_) => std::ptr::null_mut(),
+        }
+    })).unwrap_or(std::ptr::null_mut())
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_ekam_baton_core_network_security_NativeCoreEngine_nativeVectorStorageSave(
+    mut env: JNIEnv,
+    _class: JClass,
+    path: jstring,
+    dimension: jint,
+    entries_json: jstring,
+) -> jboolean {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let path_str = match to_string(&mut env, path) {
+            Ok(s) => s,
+            Err(_) => return 0,
+        };
+        let json_str = match to_string(&mut env, entries_json) {
+            Ok(s) => s,
+            Err(_) => return 0,
+        };
+        let entries: Vec<vector_memory::VectorMemoryEntry> = match serde_json::from_str(&json_str) {
+            Ok(e) => e,
+            Err(_) => return 0,
+        };
+
+        let mut store = vector_storage::PersistentVectorStore::new(dimension as u16);
+        for entry in entries {
+            if store.upsert(entry).is_err() {
+                return 0;
+            }
+        }
+
+        match store.save_to_file(&path_str) {
+            Ok(()) => 1,
+            Err(_) => 0,
+        }
+    })).unwrap_or(0)
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_ekam_baton_core_network_security_NativeCoreEngine_nativeVectorStorageQuery(
+    mut env: JNIEnv,
+    _class: JClass,
+    path: jstring,
+    query_vec: jfloatArray,
+    top_k: jint,
+    min_score: jfloat,
+    layer_filter: jstring,
+) -> jstring {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let path_str = match to_string(&mut env, path) {
+            Ok(s) => s,
+            Err(_) => return std::ptr::null_mut(),
+        };
+        let query = match to_float_vec(&mut env, query_vec) {
+            Ok(q) => q,
+            Err(_) => return std::ptr::null_mut(),
+        };
+        let layer_str = match to_string(&mut env, layer_filter) {
+            Ok(s) => if s.is_empty() { None } else { Some(s) },
+            Err(_) => None,
+        };
+
+        let store = match vector_storage::PersistentVectorStore::load_from_file(&path_str) {
+            Ok(s) => s,
+            Err(_) => return std::ptr::null_mut(),
+        };
+
+        let results = store.search(&query, top_k as usize, min_score, layer_str.as_deref());
+        let json = serde_json::to_string(&results).unwrap_or_else(|_| "[]".to_string());
+
+        match env.new_string(json) {
+            Ok(js) => js.into_raw(),
+            Err(_) => std::ptr::null_mut(),
+        }
+    })).unwrap_or(std::ptr::null_mut())
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_ekam_baton_core_network_security_NativeCoreEngine_nativeParseStreamingMarkdown(
+    mut env: JNIEnv,
+    _class: JClass,
+    raw_text: jstring,
+) -> jstring {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let text = match to_string(&mut env, raw_text) {
+            Ok(t) => t,
+            Err(_) => return std::ptr::null_mut(),
+        };
+
+        let parsed = markdown_stream::StreamingMarkdownParser::parse_stream(&text);
+        let json = serde_json::to_string(&parsed).unwrap_or_default();
+
+        match env.new_string(json) {
+            Ok(js) => js.into_raw(),
+            Err(_) => std::ptr::null_mut(),
+        }
+    })).unwrap_or(std::ptr::null_mut())
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_ekam_baton_core_network_security_NativeCoreEngine_nativeNoiseChannelEncrypt(
+    mut env: JNIEnv,
+    _class: JClass,
+    key_bytes: jbyteArray,
+    nonce: jlong,
+    plaintext: jbyteArray,
+) -> jbyteArray {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let key_vec = match to_vec(&mut env, key_bytes) {
+            Ok(k) if k.len() == 32 => k,
+            _ => return std::ptr::null_mut(),
+        };
+        let pt = match to_vec(&mut env, plaintext) {
+            Ok(p) => p,
+            Err(_) => return std::ptr::null_mut(),
+        };
+
+        let mut key_arr = [0u8; 32];
+        key_arr.copy_from_slice(&key_vec);
+        let mut channel = noise::NoiseCipherChannel {
+            key: key_arr,
+            nonce: nonce as u64,
+        };
+
+        match channel.encrypt(&pt) {
+            Ok(ct) => match to_jarray(&mut env, &ct) {
+                Ok(arr) => arr,
+                Err(_) => std::ptr::null_mut(),
+            },
+            Err(_) => std::ptr::null_mut(),
+        }
+    })).unwrap_or(std::ptr::null_mut())
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_ekam_baton_core_network_security_NativeCoreEngine_nativeNoiseChannelDecrypt(
+    mut env: JNIEnv,
+    _class: JClass,
+    key_bytes: jbyteArray,
+    nonce: jlong,
+    ciphertext: jbyteArray,
+) -> jbyteArray {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let key_vec = match to_vec(&mut env, key_bytes) {
+            Ok(k) if k.len() == 32 => k,
+            _ => return std::ptr::null_mut(),
+        };
+        let ct = match to_vec(&mut env, ciphertext) {
+            Ok(c) => c,
+            Err(_) => return std::ptr::null_mut(),
+        };
+
+        let mut key_arr = [0u8; 32];
+        key_arr.copy_from_slice(&key_vec);
+        let mut channel = noise::NoiseCipherChannel {
+            key: key_arr,
+            nonce: nonce as u64,
+        };
+
+        match channel.decrypt(&ct) {
+            Ok(pt) => match to_jarray(&mut env, &pt) {
+                Ok(arr) => arr,
+                Err(_) => std::ptr::null_mut(),
+            },
+            Err(_) => std::ptr::null_mut(),
+        }
+    })).unwrap_or(std::ptr::null_mut())
+}
+

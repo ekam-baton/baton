@@ -54,7 +54,7 @@ import com.ekam.baton.core.data.db.entity.TokenLedgerEntity
         SwarmEntity::class,
         TokenLedgerEntity::class,
     ],
-    version = 16,
+    version = 17,
     exportSchema = true,
 )
 abstract class BatonDatabase : RoomDatabase() {

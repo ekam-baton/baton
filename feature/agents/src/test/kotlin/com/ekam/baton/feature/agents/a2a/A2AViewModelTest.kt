@@ -20,6 +20,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -375,6 +376,15 @@ class A2AViewModelTest {
             val updated = existing.copy(lastUsedAt = timestamp)
             upsertAgent(updated)
         }
+
+        override suspend fun updateBlockedStatus(id: String, isBlocked: Boolean) {
+            val existing = agents.find { it.id == id } ?: return
+            val updated = existing.copy(isBlocked = isBlocked)
+            upsertAgent(updated)
+        }
+
+        override fun isAgentBlocked(id: String): Flow<Boolean?> =
+            flow.map { agents -> agents.find { it.id == id }?.isBlocked }
     }
 
     private class FakeWorldRoomRepository : WorldRoomRepository(null, null) {

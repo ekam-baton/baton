@@ -338,14 +338,23 @@ private fun SwarmTelemetryBanner(
                 }
                 Column {
                     Text("STATUS", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
-                    Text(
-                        text = "E2EE Verified",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = FontFamily.Monospace
-                        ),
-                        color = Color(0xFFFFA040)
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(6.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF10B981))
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Encrypted",
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace
+                            ),
+                            color = Color(0xFF10B981)
+                        )
+                    }
                 }
             }
         }
@@ -366,17 +375,6 @@ private fun TopologyGraphCard(
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFF121B2B))
     ) {
-        val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-        val pulsePhase by infiniteTransition.animateFloat(
-            initialValue = 0f,
-            targetValue = 1f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(2400, easing = LinearEasing),
-                repeatMode = RepeatMode.Restart
-            ),
-            label = "pulsePhase"
-        )
-
         Box(modifier = Modifier.fillMaxSize()) {
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val cx = size.width / 2f
@@ -398,16 +396,6 @@ private fun TopologyGraphCard(
                             start = Offset(cx, cy),
                             end = Offset(wx, wy),
                             strokeWidth = 2.dp.toPx()
-                        )
-
-                        // Data packet pulse dot
-                        val packetProgress = (pulsePhase + (index.toFloat() / workerAgents.size)) % 1f
-                        val px = cx + (wx - cx) * packetProgress
-                        val py = cy + (wy - cy) * packetProgress
-                        drawCircle(
-                            color = Color(0xFF00D2FF),
-                            radius = 4.dp.toPx(),
-                            center = Offset(px, py)
                         )
                     }
                 }

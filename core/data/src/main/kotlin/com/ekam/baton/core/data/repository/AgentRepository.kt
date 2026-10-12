@@ -29,4 +29,12 @@ open class AgentRepository constructor(
     open suspend fun updateLastUsed(id: String, timestamp: Long) {
         agentDao.updateLastUsed(id, timestamp)
     }
+
+    open suspend fun setBlocked(id: String, isBlocked: Boolean) {
+        agentDao.updateBlockedStatus(id, isBlocked)
+    }
+
+    open fun isAgentBlocked(id: String): Flow<Boolean> {
+        return agentDao.isAgentBlocked(id).map { it ?: false }
+    }
 }

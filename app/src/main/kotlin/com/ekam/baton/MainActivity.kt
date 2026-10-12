@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -28,7 +29,6 @@ import com.ekam.baton.ui.auth.SignupScreen
 import com.ekam.baton.ui.auth.UpgradeScreen
 import com.ekam.baton.ui.walkthrough.WalkthroughOverlay
 import com.ekam.baton.ui.walkthrough.rememberWalkthroughState
-import androidx.compose.foundation.layout.Box
 import org.koin.androidx.compose.koinViewModel
 import org.koin.androidx.viewmodel.ext.android.viewModel
 
@@ -40,6 +40,9 @@ class MainActivity : AppCompatActivity() {
 
     // Holds a deep-link URL to navigate to once the nav graph is ready
     private val pendingDeepLinkUrl = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
+
+    // Holds a notification click conversation ID to navigate directly to ChatScreen
+    private val pendingChatConversationId = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -53,10 +56,12 @@ class MainActivity : AppCompatActivity() {
 
         // Extract deep link URL from intent
         pendingDeepLinkUrl.value = extractBatonDeepLinkUrl(intent)
+        pendingChatConversationId.value = extractConversationIdFromIntent(intent)
 
         setContent {
             val accentColor by mainViewModel.accentColor.collectAsStateWithLifecycle()
             val deepLinkUrl by pendingDeepLinkUrl.collectAsStateWithLifecycle()
+            val pendingChatId by pendingChatConversationId.collectAsStateWithLifecycle()
 
             BatonTheme(
                 accentColor = Color(accentColor)
@@ -73,6 +78,13 @@ class MainActivity : AppCompatActivity() {
                         pendingDeepLinkUrl.value = null
                     }
                 }
+                // Navigate to Chat screen when opened via Telegram/WhatsApp-grade notification
+                androidx.compose.runtime.LaunchedEffect(pendingChatId) {
+                    pendingChatId?.let { cid ->
+                        navController.navigate("chats/$cid")
+                        pendingChatConversationId.value = null
+                    }
+                }
                 BatonAppShell(
                     navController = navController,
                     mainViewModel = mainViewModel
@@ -85,13 +97,20 @@ class MainActivity : AppCompatActivity() {
         super.onNewIntent(intent)
         // Handle deep link if app is already running
         pendingDeepLinkUrl.value = extractBatonDeepLinkUrl(intent)
+        pendingChatConversationId.value = extractConversationIdFromIntent(intent)
+    }
+
+    private fun extractConversationIdFromIntent(intent: android.content.Intent?): String? {
+        if (intent == null) return null
+        return intent.getStringExtra(com.ekam.baton.notification.BatonNotificationManager.EXTRA_CONVERSATION_ID)
+            ?: intent.getStringExtra("conversationId")
     }
 
     private fun extractBatonDeepLinkUrl(intent: android.content.Intent?): String? {
         val data = intent?.data ?: return null
         val isCustomScheme = data.scheme == "baton" && data.host == "connect"
-        val isApplink = (data.scheme == "https" || data.scheme == "http") && data.host == "baton.com" && data.path?.startsWith("/connect") == true
-        
+        val isApplink = data.scheme == "https" && data.host == "baton.com" && data.path?.startsWith("/connect") == true
+
         return if (isCustomScheme || isApplink) {
             data.getQueryParameter("url")?.let { sanitizePairingUrl(it) }
         } else {
@@ -160,7 +179,7 @@ internal fun BatonAppShell(
     var showSplash by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(true) }
 
     androidx.compose.runtime.LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(1500)
+        kotlinx.coroutines.delay(200)
         showSplash = false
     }
 
@@ -221,7 +240,7 @@ internal fun BatonAppShell(
                 } else {
                     val hasSeenWalkthrough by mainViewModel.hasSeenWalkthrough.collectAsStateWithLifecycle()
                     val walkthroughState = rememberWalkthroughState()
-                    
+
                     Box(modifier = Modifier.fillMaxSize()) {
                         Scaffold(
                             modifier = Modifier.fillMaxSize(),
@@ -248,7 +267,7 @@ internal fun BatonAppShell(
                                     .consumeWindowInsets(innerPadding),
                             )
                         }
-                        
+
                         if (!hasSeenWalkthrough) {
                             WalkthroughOverlay(
                                 walkthroughState = walkthroughState,

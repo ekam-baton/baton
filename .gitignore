@@ -37,8 +37,9 @@ temp_*
 temp_*/
 list.txt
 tree.json
-task.md
-resize.ps1
-
 .kotlin/
 .kotlin
+
+# Node / Desktop Bridge
+node_modules/
+.bridge_auth_key

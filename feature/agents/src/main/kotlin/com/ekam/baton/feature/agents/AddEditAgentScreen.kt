@@ -51,7 +51,7 @@ fun AddEditAgentScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = if (agentId == null) "Provision Agent" else "Edit Agent Node",
+                        text = if (agentId == null) "New Agent" else "Edit Agent",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                         color = Color.White,
                         maxLines = 1,
@@ -82,7 +82,7 @@ fun AddEditAgentScreen(
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth().height(56.dp)
                 ) {
-                    Text("INITIALIZE NODE", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace))
+                    Text(if (agentId == null) "CREATE AGENT" else "SAVE CHANGES", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace))
                 }
             }
         }
@@ -97,16 +97,16 @@ fun AddEditAgentScreen(
         ) {
             // Section: Identity
             Column {
-                Text("NODE IDENTITY", style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace), color = MaterialTheme.colorScheme.tertiary)
+                Text("AGENT IDENTITY", style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace), color = MaterialTheme.colorScheme.tertiary)
                 Spacer(modifier = Modifier.height(12.dp))
-                CustomTextField(value = name, onValueChange = { name = it }, label = "Agent Designation (e.g., Synthex Lead)")
+                CustomTextField(value = name, onValueChange = { name = it }, label = "Agent Name (e.g. Research Assistant)")
                 Spacer(modifier = Modifier.height(12.dp))
-                CustomTextField(value = description, onValueChange = { description = it }, label = "System Prompt / Primary Objective", singleLine = false, lines = 3)
+                CustomTextField(value = description, onValueChange = { description = it }, label = "System Prompt / Instructions", singleLine = false, lines = 3)
             }
 
             // Section: Provider & Networking
             Column {
-                Text("PROVIDER & ROUTING", style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace), color = MaterialTheme.colorScheme.tertiary)
+                Text("PROVIDER & CONNECTION", style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace), color = MaterialTheme.colorScheme.tertiary)
                 Spacer(modifier = Modifier.height(12.dp))
                 
                 // Provider Selection
@@ -137,7 +137,7 @@ fun AddEditAgentScreen(
                 OutlinedTextField(
                     value = authToken,
                     onValueChange = { authToken = it },
-                    label = { Text("Cryptographic Token / API Key", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    label = { Text("API Key / Bearer Token", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     visualTransformation = if (showToken) VisualTransformation.None else PasswordVisualTransformation(),
                     trailingIcon = {
                         IconButton(onClick = { showToken = !showToken }) {
@@ -158,7 +158,7 @@ fun AddEditAgentScreen(
 
             // Section: Security Posture
             Column {
-                Text("SECURITY POSTURE", style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace), color = MaterialTheme.colorScheme.tertiary)
+                Text("SECURITY MODE", style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace), color = MaterialTheme.colorScheme.tertiary)
                 Spacer(modifier = Modifier.height(12.dp))
                 
                 Column(modifier = Modifier.glassCard(shape = RoundedCornerShape(16.dp)).padding(16.dp)) {

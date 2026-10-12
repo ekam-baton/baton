@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Baton PC Edition — Sovereign Desktop Companion</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-void: #0A0F1D;
+      --bg-panel: #0D1424;
+      --bg-surface: #131B2E;
+      --bg-surface-hover: #1A253E;
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-glow: rgba(0, 210, 255, 0.25);
+      --border-glow-active: rgba(0, 210, 255, 0.6);
+      --accent-cyan: #00D2FF;
+      --accent-cyan-dim: rgba(0, 210, 255, 0.15);
+      --accent-blue: #3D8EFF;
+      --accent-green: #10B981;
+      --accent-green-dim: rgba(16, 185, 129, 0.15);
+      --accent-amber: #F59E0B;
+      --accent-red: #EF4444;
+      --text-main: #FFFFFF;
+      --text-muted: rgba(255, 255, 255, 0.65);
+      --text-dim: rgba(255, 255, 255, 0.4);
+      --font-sans: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-void);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+      background-image: 
+        radial-gradient(circle at 10% 20%, rgba(0, 210, 255, 0.03) 0%, transparent 40%),
+        radial-gradient(circle at 90% 80%, rgba(61, 142, 255, 0.04) 0%, transparent 40%);
+    }
+
+    /* ─── TOP HEADER ─── */
+    header {
+      background: rgba(13, 20, 36, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-subtle);
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+    }
+
+    .brand-icon {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--bg-void);
+      font-weight: 800;
+      font-size: 16px;
+      box-shadow: 0 0 15px var(--accent-cyan-dim);
+    }
+
+    .brand-title {
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: var(--text-main);
+    }
+
+    .brand-tag {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--accent-cyan);
+      background: var(--accent-cyan-dim);
+      padding: 3px 7px;
+      border-radius: 4px;
+      border: 1px solid var(--border-glow);
+    }
+
+    .header-status {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      padding: 6px 12px;
+      border-radius: 20px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-green);
+      box-shadow: 0 0 8px var(--accent-green);
+    }
+
+    .btn-header {
+      background: transparent;
+      border: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      padding: 6px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .btn-header:hover {
+      border-color: var(--accent-cyan);
+      color: var(--accent-cyan);
+      background: var(--accent-cyan-dim);
+    }
+
+    /* ─── AUTH SCREEN ─── */
+    #auth-screen {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 16px;
+    }
+
+    .auth-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-glow);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 0 30px rgba(0, 210, 255, 0.08);
+      border-radius: 24px;
+      width: 100%;
+      max-width: 460px;
+      padding: 36px;
+      text-align: center;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .auth-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      background: var(--accent-green-dim);
+      border: 1px solid var(--accent-green);
+      color: var(--accent-green);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      border-radius: 20px;
+      margin-bottom: 20px;
+    }
+
+    .auth-title {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-bottom: 8px;
+    }
+
+    .auth-subtitle {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-bottom: 24px;
+      line-height: 1.5;
+    }
+
+    /* Auth Tabs */
+    .auth-tabs {
+      display: flex;
+      background: var(--bg-void);
+      border-radius: 12px;
+      padding: 4px;
+      border: 1px solid var(--border-subtle);
+      margin-bottom: 24px;
+    }
+
+    .auth-tab {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-family: var(--font-sans);
+      font-size: 13px;
+      font-weight: 600;
+      padding: 8px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .auth-tab.active {
+      background: var(--bg-surface);
+      color: var(--accent-cyan);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    }
+
+    .auth-panel {
+      display: none;
+    }
+
+    .auth-panel.active {
+      display: block;
+    }
+
+    /* QR Container */
+    .qr-box {
+      background: #0A0F1D;
+      border: 1px solid var(--border-subtle);
+      border-radius: 18px;
+      padding: 18px;
+      display: inline-block;
+      margin-bottom: 20px;
+      position: relative;
+    }
+
+    .qr-box svg {
+      width: 220px;
+      height: 220px;
+      display: block;
+    }
+
+    .qr-instruction {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+      line-height: 1.5;
+    }
+
+    /* Input styles */
+    .form-group {
+      text-align: left;
+      margin-bottom: 16px;
+    }
+
+    .form-label {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      display: block;
+    }
+
+    .cyber-input {
+      width: 100%;
+      background: var(--bg-void);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-main);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .cyber-input:focus {
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 10px var(--accent-cyan-dim);
+    }
+
+    .btn-cyber-primary {
+      width: 100%;
+      background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+      color: var(--bg-void);
+      border: none;
+      font-family: var(--font-sans);
+      font-size: 14px;
+      font-weight: 700;
+      padding: 12px 18px;
+      border-radius: 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s;
+      margin-top: 8px;
+    }
+
+    .btn-cyber-primary:hover {
+      opacity: 0.95;
+      box-shadow: 0 0 20px rgba(0, 210, 255, 0.4);
+    }
+
+    .btn-cyber-secondary {
+      width: 100%;
+      background: var(--bg-void);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      font-size: 13px;
+      font-weight: 600;
+      padding: 10px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+      margin-top: 10px;
+      transition: all 0.2s;
+    }
+
+    .btn-cyber-secondary:hover {
+      border-color: var(--accent-cyan);
+      color: var(--accent-cyan);
+    }
+
+    .error-msg {
+      color: var(--accent-red);
+      font-size: 12px;
+      font-family: var(--font-mono);
+      margin-top: 8px;
+      display: none;
+    }
+
+    /* ─── DESKTOP DASHBOARD SCREEN ─── */
+    #dashboard-screen {
+      flex: 1;
+      display: none;
+      grid-template-columns: 240px 1fr;
+      min-height: calc(100vh - 64px);
+    }
+
+    /* Sidebar */
+    aside {
+      background: var(--bg-panel);
+      border-right: 1px solid var(--border-subtle);
+      padding: 20px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .nav-category {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-dim);
+      padding: 12px 10px 4px 10px;
+      letter-spacing: 1px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      color: var(--text-muted);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.2s;
+    }
+
+    .nav-item:hover {
+      background: var(--bg-surface);
+      color: var(--text-main);
+    }
+
+    .nav-item.active {
+      background: var(--accent-cyan-dim);
+      color: var(--accent-cyan);
+      border-color: var(--border-glow);
+    }
+
+    .nav-icon {
+      font-size: 16px;
+    }
+
+    .workspace-pill {
+      margin-top: auto;
+      background: var(--bg-void);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 10px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+
+    .workspace-pill b {
+      color: var(--text-muted);
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    /* Main Content Area */
+    main {
+      padding: 24px 32px;
+      overflow-y: auto;
+      max-height: calc(100vh - 64px);
+    }
+
+    .tab-content {
+      display: none;
+      animation: fadeIn 0.2s ease;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* Section Headings */
+    .view-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+
+    .view-title {
+      font-size: 22px;
+      font-weight: 700;
+    }
+
+    .view-subtitle {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* Grid Layouts */
+    .grid-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .cyber-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      padding: 20px;
+      position: relative;
+      transition: all 0.2s;
+    }
+
+    .cyber-card:hover {
+      border-color: var(--border-glow);
+      transform: translateY(-2px);
+    }
+
+    .card-label {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-bottom: 8px;
+    }
+
+    .card-value {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card-footer {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 10px;
+      font-family: var(--font-mono);
+    }
+
+    /* Console / Chat Window */
+    .console-container {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 18px;
+      height: 600px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .console-header {
+      padding: 12px 18px;
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .console-title {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--accent-cyan);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .messages-stream {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      font-family: var(--font-sans);
+    }
+
+    .message-bubble {
+      max-width: 80%;
+      padding: 14px 18px;
+      border-radius: 14px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .message-bubble.user {
+      align-self: flex-end;
+      background: linear-gradient(135deg, rgba(0, 210, 255, 0.2), rgba(61, 142, 255, 0.2));
+      border: 1px solid var(--border-glow);
+      color: #FFFFFF;
+    }
+
+    .message-bubble.agent {
+      align-self: flex-start;
+      background: var(--bg-void);
+      border: 1px solid var(--border-subtle);
+      color: rgba(255, 255, 255, 0.9);
+    }
+
+    .message-bubble.agent pre {
+      background: rgba(0, 0, 0, 0.4);
+      padding: 10px;
+      border-radius: 8px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      overflow-x: auto;
+      margin: 8px 0;
+      border: 1px solid var(--border-subtle);
+    }
+
+    .console-input-bar {
+      padding: 14px 18px;
+      background: var(--bg-panel);
+      border-top: 1px solid var(--border-subtle);
+      display: flex;
+      gap: 10px;
+    }
+
+    .console-input {
+      flex: 1;
+      background: var(--bg-void);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-main);
+      padding: 12px 14px;
+      border-radius: 10px;
+      font-family: var(--font-sans);
+      font-size: 14px;
+      outline: none;
+    }
+
+    .console-input:focus {
+      border-color: var(--accent-cyan);
+    }
+
+    .btn-send {
+      background: var(--accent-cyan);
+      color: var(--bg-void);
+      border: none;
+      padding: 0 20px;
+      border-radius: 10px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    /* Tasks Table */
+    .cyber-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .cyber-table th {
+      text-align: left;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-dim);
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .cyber-table td {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border-subtle);
+      font-family: var(--font-mono);
+    }
+
+    .cyber-table tr:hover {
+      background: var(--bg-surface-hover);
+    }
+
+    .badge-status {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: bold;
+    }
+
+    .badge-status.completed {
+      background: var(--accent-green-dim);
+      color: var(--accent-green);
+    }
+
+    .badge-status.running {
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--accent-amber);
+    }
+
+    .badge-status.failed {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--accent-red);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header>
+    <a href="/" class="brand">
+      <div class="brand-icon">⚡</div>
+      <div class="brand-title">BATON</div>
+      <div class="brand-tag">PC EDITION</div>
+    </a>
+
+    <div class="header-status">
+      <div class="status-pill">
+        <span class="status-dot"></span>
+        <span id="header-conn-status">BRIDGE LIVE</span>
+      </div>
+      <button id="btn-lock" class="btn-header" style="display: none;" onclick="lockSession()">
+        🔒 Lock Console
+      </button>
+    </div>
+  </header>
+
+  <!-- AUTHENTICATION / LOGIN VIEW -->
+  <div id="auth-screen">
+    <div class="auth-card">
+      <div class="auth-badge">● LOCAL SOVEREIGN ENCLAVE</div>
+      <h1 class="auth-title">Baton PC Companion</h1>
+      <p class="auth-subtitle">Sovereign workspace bridge for local AI models, file automation, and mobile sync.</p>
+
+      <!-- TABS -->
+      <div class="auth-tabs">
+        <button class="auth-tab active" onclick="switchAuthTab('qr')">📷 Mobile QR Pair</button>
+        <button class="auth-tab" onclick="switchAuthTab('token')">🔑 Master Token</button>
+      </div>
+
+      <!-- TAB 1: QR CODE PAIRING -->
+      <div id="tab-qr" class="auth-panel active">
+        <div class="qr-box">
+          <div id="qr-svg-target">
+            <!-- Dynamic SVG injected here -->
+          </div>
+        </div>
+        <p class="qr-instruction">
+          1. Open <b>Baton</b> on your Android phone<br>
+          2. Tap agent header &rarr; <b>Bot Manager</b> &rarr; <b>Scan Pairing QR</b><br>
+          3. Point camera to pair immediately
+        </p>
+        <button class="btn-cyber-primary" onclick="authorizeWithCurrentToken()">
+          ⚡ Quick Authorize This Session
+        </button>
+      </div>
+
+      <!-- TAB 2: TOKEN INPUT -->
+      <div id="tab-token" class="auth-panel">
+        <div class="form-group">
+          <label class="form-label">BRIDGE BEARER TOKEN</label>
+          <input type="password" id="input-token" class="cyber-input" placeholder="btn_sec_...">
+        </div>
+        <button class="btn-cyber-primary" onclick="submitToken()">
+          Unlock Console
+        </button>
+        <div id="token-error" class="error-msg">Invalid token. Please check the terminal bridge log.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DASHBOARD VIEW -->
+  <div id="dashboard-screen">
+    <!-- SIDEBAR -->
+    <aside>
+      <div class="nav-category">CORE CONSOLE</div>
+      <div class="nav-item active" onclick="switchTab('chat')">
+        <span class="nav-icon">💬</span> Chat & Runner
+      </div>
+      <div class="nav-item" onclick="switchTab('tools')">
+        <span class="nav-icon">🛠️</span> MCP Tool Sandbox
+      </div>
+      <div class="nav-item" onclick="switchTab('tasks')">
+        <span class="nav-icon">⚡</span> Background Tasks
+      </div>
+
+      <div class="nav-category">CONNECTIVITY</div>
+      <div class="nav-item" onclick="switchTab('pairing')">
+        <span class="nav-icon">🔲</span> Mobile Link & QR
+      </div>
+      <div class="nav-item" onclick="switchTab('system')">
+        <span class="nav-icon">🛡️</span> Sovereign Security
+      </div>
+
+      <div class="workspace-pill">
+        <b>WORKSPACE BOUNDARY</b>
+        <span id="sidebar-workspace">...</span>
+      </div>
+    </aside>
+
+    <!-- MAIN VIEW -->
+    <main>
+      <!-- TAB: CHAT & COMMAND RUNNER -->
+      <div id="view-chat" class="tab-content active">
+        <div class="view-header">
+          <div>
+            <h2 class="view-title">Sovereign Chat & Tool Runner</h2>
+            <p class="view-subtitle">Execute MCP commands directly or converse with paired agents.</p>
+          </div>
+          <button class="btn-header" onclick="clearMessages()">Clear Screen</button>
+        </div>
+
+        <div class="console-container">
+          <div class="console-header">
+            <div class="console-title">
+              <span class="status-dot"></span>
+              <span>MCP RUNNER (SSE ACTIVE)</span>
+            </div>
+            <div style="font-family: var(--font-mono); font-size: 11px; color: var(--text-dim);" id="chat-model-info">
+              Model: antigravity-bridge
+            </div>
+          </div>
+
+          <div id="messages-stream" class="messages-stream">
+            <div class="message-bubble agent">
+              ⚡ <b>Baton Desktop Bridge Connected</b>.<br>
+              System ready. Try running a command using <code>/run &lt;command&gt;</code> or type a message.
+            </div>
+          </div>
+
+          <div class="console-input-bar">
+            <input type="text" id="chat-input" class="console-input" placeholder="Enter message or /run dir..." onkeydown="handleChatKey(event)">
+            <button class="btn-send" onclick="sendChatMessage()">Send &rarr;</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: TOOLS SANDBOX -->
+      <div id="view-tools" class="tab-content">
+        <div class="view-header">
+          <div>
+            <h2 class="view-title">MCP Tools & Capabilities</h2>
+            <p class="view-subtitle">Active tools registered on this desktop node conforming to MCP 2024-11-05.</p>
+          </div>
+        </div>
+
+        <div id="tools-container" class="grid-cards">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+
+      <!-- TAB: TASKS MONITOR -->
+      <div id="view-tasks" class="tab-content">
+        <div class="view-header">
+          <div>
+            <h2 class="view-title">Async Background Tasks</h2>
+            <p class="view-subtitle">WorkManager & Mobile polling queue for long-running CLI execution.</p>
+          </div>
+          <button class="btn-header" onclick="loadTasks()">Refresh Tasks</button>
+        </div>
+
+        <div class="cyber-card" style="padding: 0; overflow: hidden;">
+          <table class="cyber-table">
+            <thead>
+              <tr>
+                <th>TASK ID</th>
+                <th>COMMAND / TITLE</th>
+                <th>STATUS</th>
+                <th>DURATION</th>
+                <th>STARTED AT</th>
+              </tr>
+            </thead>
+            <tbody id="tasks-table-body">
+              <tr>
+                <td colspan="5" style="text-align: center; color: var(--text-dim); padding: 24px;">No active background tasks.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- TAB: PAIRING QR -->
+      <div id="view-pairing" class="tab-content">
+        <div class="view-header">
+          <div>
+            <h2 class="view-title">Mobile Pairing & Handshake</h2>
+            <p class="view-subtitle">Connect new Android devices using CameraX QR scanner.</p>
+          </div>
+        </div>
+
+        <div class="cyber-card" style="max-width: 500px; margin: 0 auto; text-align: center;">
+          <div class="qr-box" id="pairing-tab-qr"></div>
+          <div class="form-group" style="margin-top: 16px;">
+            <label class="form-label">DIRECT PAIRING URI</label>
+            <input type="text" id="direct-uri-input" class="cyber-input" readonly>
+          </div>
+          <button class="btn-cyber-secondary" onclick="copyDirectUri()">📋 Copy Pairing Link</button>
+        </div>
+      </div>
+
+      <!-- TAB: SECURITY & SYSTEM -->
+      <div id="view-system" class="tab-content">
+        <div class="view-header">
+          <div>
+            <h2 class="view-title">Sovereign Security & Network Audit</h2>
+            <p class="view-subtitle">Hardware enclave, loopback rules, and encryption posture.</p>
+          </div>
+        </div>
+
+        <div class="grid-cards">
+          <div class="cyber-card">
+            <div class="card-label">SANDBOX STATUS</div>
+            <div class="card-value" style="color: var(--accent-green);">PROTECTED</div>
+            <div class="card-footer">Path Traversal Block Active</div>
+          </div>
+          <div class="cyber-card">
+            <div class="card-label">TUNNEL SECURITY</div>
+            <div class="card-value" style="color: var(--accent-cyan);" id="sec-tunnel-type">TLS 1.3</div>
+            <div class="card-footer" id="sec-tunnel-url">...</div>
+          </div>
+          <div class="cyber-card">
+            <div class="card-label">AUTHENTICATION</div>
+            <div class="card-value">BEARER TIMING-SAFE</div>
+            <div class="card-footer">Constant-Time Crypto Hash</div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    let activeToken = sessionStorage.getItem('baton_token') || '';
+    let serverMeta = null;
+
+    // Initialize application
+    async function init() {
+      try {
+        const res = await fetch('/status');
+        serverMeta = await res.json();
+        
+        document.getElementById('sidebar-workspace').textContent = serverMeta.workspace;
+        document.getElementById('sec-tunnel-url').textContent = serverMeta.tunnelUrl;
+        document.getElementById('direct-uri-input').value = serverMeta.pairingUrl;
+
+        // Populate QR Code
+        if (serverMeta.svgQr) {
+          document.getElementById('qr-svg-target').innerHTML = serverMeta.svgQr;
+          document.getElementById('pairing-tab-qr').innerHTML = serverMeta.svgQr;
+        }
+
+        // Auto-login if session already has valid token
+        if (activeToken) {
+          verifyAndLaunch(activeToken);
+        }
+      } catch (err) {
+        console.error('Bridge init error:', err);
+      }
+    }
+
+    function switchAuthTab(tab) {
+      document.querySelectorAll('.auth-tab').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.auth-panel').forEach(p => p.classList.remove('active'));
+      
+      if (tab === 'qr') {
+        document.querySelectorAll('.auth-tab')[0].classList.add('active');
+        document.getElementById('tab-qr').classList.add('active');
+      } else {
+        document.querySelectorAll('.auth-tab')[1].classList.add('active');
+        document.getElementById('tab-token').classList.add('active');
+      }
+    }
+
+    async function authorizeWithCurrentToken() {
+      if (serverMeta && serverMeta.token) {
+        verifyAndLaunch(serverMeta.token);
+      }
+    }
+
+    async function submitToken() {
+      const token = document.getElementById('input-token').value.trim();
+      if (!token) return;
+      verifyAndLaunch(token);
+    }
+
+    async function verifyAndLaunch(token) {
+      try {
+        const res = await fetch('/tools/list', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ id: 1, jsonrpc: '2.0' })
+        });
+
+        if (res.ok) {
+          activeToken = token;
+          sessionStorage.setItem('baton_token', token);
+          document.getElementById('auth-screen').style.display = 'none';
+          document.getElementById('dashboard-screen').style.display = 'grid';
+          document.getElementById('btn-lock').style.display = 'flex';
+          
+          const toolsData = await res.json();
+          renderTools(toolsData.result?.tools || []);
+          loadTasks();
+        } else {
+          document.getElementById('token-error').style.display = 'block';
+        }
+      } catch (err) {
+        document.getElementById('token-error').style.display = 'block';
+      }
+    }
+
+    function lockSession() {
+      activeToken = '';
+      sessionStorage.removeItem('baton_token');
+      document.getElementById('dashboard-screen').style.display = 'none';
+      document.getElementById('auth-screen').style.display = 'flex';
+      document.getElementById('btn-lock').style.display = 'none';
+    }
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      
+      event.currentTarget.classList.add('active');
+      document.getElementById(`view-${tabId}`).classList.add('active');
+
+      if (tabId === 'tasks') loadTasks();
+    }
+
+    function renderTools(tools) {
+      const container = document.getElementById('tools-container');
+      container.innerHTML = '';
+      tools.forEach(t => {
+        const card = document.createElement('div');
+        card.className = 'cyber-card';
+        card.innerHTML = `
+          <div class="card-label">TOOL IMPLEMENTATION</div>
+          <div class="card-value" style="font-size: 15px; color: var(--accent-cyan); font-family: var(--font-mono);">${t.name}</div>
+          <div class="card-footer" style="color: var(--text-muted); font-family: var(--font-sans); margin-top: 8px;">${t.description}</div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    async function loadTasks() {
+      if (!activeToken) return;
+      try {
+        const res = await fetch('/tasks', {
+          headers: { 'Authorization': `Bearer ${activeToken}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const tbody = document.getElementById('tasks-table-body');
+          if (!data.tasks || data.tasks.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-dim); padding: 24px;">No active background tasks.</td></tr>';
+            return;
+          }
+          tbody.innerHTML = '';
+          data.tasks.forEach(t => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td>${t.id}</td>
+              <td style="color: var(--text-main); font-weight: 600;">${t.command || t.title}</td>
+              <td><span class="badge-status ${t.status.toLowerCase()}">${t.status}</span></td>
+              <td>${t.durationMs ? t.durationMs + 'ms' : '...'}</td>
+              <td style="color: var(--text-dim);">${new Date(t.startedAt).toLocaleTimeString()}</td>
+            `;
+            tbody.appendChild(tr);
+          });
+        }
+      } catch (e) {
+        console.error('Error loading tasks:', e);
+      }
+    }
+
+    async function sendChatMessage() {
+      const input = document.getElementById('chat-input');
+      const text = input.value.trim();
+      if (!text) return;
+
+      appendMessage('user', text);
+      input.value = '';
+
+      if (text.startsWith('/run ')) {
+        const cmd = text.substring(5);
+        executeCommandFromChat(cmd);
+      } else {
+        // Echo / assistant reply
+        setTimeout(() => {
+          appendMessage('agent', `Sovereign Bridge received: "${text}". Command ready for dispatch.`);
+        }, 300);
+      }
+    }
+
+    async function executeCommandFromChat(command) {
+      appendMessage('agent', `Executing in workspace: <code>${command}</code>...`);
+      try {
+        const res = await fetch('/tools/call', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${activeToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            id: Date.now(),
+            name: 'execute_command',
+            arguments: { command }
+          })
+        });
+        const data = await res.json();
+        const output = data.result?.content?.[0]?.text || JSON.stringify(data);
+        appendMessage('agent', `<pre>${output}</pre>`);
+      } catch (err) {
+        appendMessage('agent', `<span style="color: var(--accent-red)">Error: ${err.message}</span>`);
+      }
+    }
+
+    function appendMessage(sender, html) {
+      const stream = document.getElementById('messages-stream');
+      const bubble = document.createElement('div');
+      bubble.className = `message-bubble ${sender}`;
+      bubble.innerHTML = html;
+      stream.appendChild(bubble);
+      stream.scrollTop = stream.scrollHeight;
+    }
+
+    function handleChatKey(e) {
+      if (e.key === 'Enter') sendChatMessage();
+    }
+
+    function clearMessages() {
+      document.getElementById('messages-stream').innerHTML = '';
+    }
+
+    function copyDirectUri() {
+      const input = document.getElementById('direct-uri-input');
+      input.select();
+      navigator.clipboard.writeText(input.value);
+      alert('Pairing URI copied to clipboard!');
+    }
+
+    window.onload = init;
+  </script>
+</body>
+</html>

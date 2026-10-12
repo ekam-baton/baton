@@ -1,9 +1,10 @@
-﻿package com.ekam.baton.core.network.mcp
+package com.ekam.baton.core.network.mcp
 
 import com.ekam.baton.core.network.security.AgentSecurityConfigProvider
 import com.ekam.baton.core.network.security.ConnectionSecurityManager
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -32,6 +33,8 @@ class McpWebSocketTransport constructor(
     companion object {
         private val agentMutexes = ConcurrentHashMap<String, Mutex>()
     }
+
+    private val transportScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override suspend fun initialize(endpointUrl: String, authHeader: String?, agentId: String?): Result<JsonObject> {
         return Result.success(JsonObject(emptyMap())) 
@@ -106,9 +109,8 @@ class McpWebSocketTransport constructor(
             private var privateKey: ByteArray? = null
             private var securityMode: String = "standard"
 
-            @OptIn(kotlinx.coroutines.DelicateCoroutinesApi::class)
             override fun onOpen(webSocket: WebSocket, response: Response) {
-                GlobalScope.launch(Dispatchers.IO) {
+                transportScope.launch {
                     val details = configProvider.getSecurityConfig(agentId)
                     if (details != null && details.securityMode != "standard") {
                         securityMode = details.securityMode

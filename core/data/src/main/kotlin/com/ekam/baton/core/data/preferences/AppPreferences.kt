@@ -213,9 +213,10 @@ open class AppPreferences constructor(
         get() = securePrefs?.getString("qtsp_password", null)?.toCharArray()
         set(value) {
             if (value == null) {
-                securePrefs?.edit()?.remove("qtsp_password")?.apply()
+                securePrefs?.edit()?.remove("qtsp_password")?.commit()
             } else {
-                securePrefs?.edit()?.putString("qtsp_password", String(value))?.apply()
+                securePrefs?.edit()?.putString("qtsp_password", String(value))?.commit()
+                value.fill('\u0000')
             }
         }
 
@@ -301,20 +302,20 @@ open class AppPreferences constructor(
     }
 
     suspend fun setJwtSecret(secret: String) {
-        securePrefs?.edit()?.putString("jwt_secret", secret)?.apply()
+        securePrefs?.edit()?.putString("jwt_secret", secret)?.commit()
         _jwtSecretFlow.value = secret
         // Clear from plaintext datastore if it was previously stored there
         context?.dataStore?.edit { preferences -> preferences.remove(JWT_SECRET) }
     }
 
     suspend fun setRefreshToken(token: String) {
-        securePrefs?.edit()?.putString("refresh_token", token)?.apply()
+        securePrefs?.edit()?.putString("refresh_token", token)?.commit()
         _refreshTokenFlow.value = token
         context?.dataStore?.edit { preferences -> preferences.remove(REFRESH_TOKEN) }
     }
 
     suspend fun setPremiumUnlocked(unlocked: Boolean) {
-        securePrefs?.edit()?.putBoolean("is_premium_unlocked", unlocked)?.apply()
+        securePrefs?.edit()?.putBoolean("is_premium_unlocked", unlocked)?.commit()
         _isPremiumUnlockedFlow.value = unlocked
         // Clear from plaintext datastore if it was previously stored there
         context?.dataStore?.edit { preferences -> preferences.remove(IS_PREMIUM_UNLOCKED) }

@@ -82,6 +82,16 @@
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 
+        <!-- Sovereign Agent In-Notification Direct Reply & Action Receiver -->
+        <receiver
+            android:name=".notification.AgentNotificationActionReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.ekam.baton.ACTION_AGENT_NOTIFICATION_REPLY" />
+                <action android:name="com.ekam.baton.ACTION_AGENT_NOTIFICATION_COPY" />
+            </intent-filter>
+        </receiver>
+
     </application>
 
 </manifest>

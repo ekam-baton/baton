@@ -7,6 +7,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -17,7 +18,6 @@ import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material3.*
@@ -40,13 +40,17 @@ import com.ekam.baton.core.ui.components.glassCard
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
+import androidx.compose.material.icons.filled.AutoAwesome
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatsListScreen(
     onNavigateToChat: (String) -> Unit,
-    onNavigateToCall: (String) -> Unit,
     onNavigateToSwarm: (String) -> Unit = {},
     onNavigateToSwarmTopology: (String) -> Unit = {},
+    onNavigateToAgents: () -> Unit = {},
+    onNavigateToCreator: () -> Unit = onNavigateToAgents,
+    onNavigateToManager: () -> Unit = {},
     viewModel: ChatViewModel = koinViewModel()
 ) {
     val conversations = viewModel.conversations.collectAsLazyPagingItems()
@@ -166,7 +170,10 @@ fun ChatsListScreen(
 
             if (selectedTab == 0) {
                 if (conversations.itemCount == 0) {
-                    EmptyChatsState(modifier = Modifier.weight(1f))
+                    EmptyChatsState(
+                        modifier = Modifier.weight(1f),
+                        onInitializeClick = onNavigateToCreator
+                    )
                 } else {
                     LazyColumn(
                         modifier = Modifier.weight(1f),
@@ -183,7 +190,6 @@ fun ChatsListScreen(
                                     conversation = conversation,
                                     agentColorHex = agents.find { it.id == conversation.agentId }?.colorAccent,
                                     onClick = { onNavigateToChat(conversation.id) },
-                                    onCallClick = { onNavigateToCall(conversation.title) },
                                     onDelete = { viewModel.deleteConversation(conversation.id) }
                                 )
                             }
@@ -271,22 +277,24 @@ fun EmptyChatsState(modifier: Modifier = Modifier, onInitializeClick: () -> Unit
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = "No Active Agents",
+                text = "No Conversations Yet",
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "The telemetry dashboard is empty.",
+                text = "Start a chat with an agent or configure a new bot in the Agent Directory.",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
             Spacer(modifier = Modifier.height(24.dp))
             Button(
                 onClick = onInitializeClick,
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                shape = RoundedCornerShape(12.dp)
             ) {
-                Text("[Initialize First Agent]")
+                Text("Go to Agent Directory", fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -298,7 +306,6 @@ fun SwipeToDeleteConversationItem(
     conversation: Conversation,
     agentColorHex: String?,
     onClick: () -> Unit,
-    onCallClick: () -> Unit,
     onDelete: () -> Unit
 ) {
     val dismissState = rememberSwipeToDismissBoxState(
@@ -336,8 +343,7 @@ fun SwipeToDeleteConversationItem(
         ConversationItem(
             conversation = conversation,
             agentColorHex = agentColorHex,
-            onClick = onClick,
-            onCallClick = onCallClick
+            onClick = onClick
         )
     }
 }
@@ -346,8 +352,7 @@ fun SwipeToDeleteConversationItem(
 fun ConversationItem(
     conversation: Conversation,
     agentColorHex: String?,
-    onClick: () -> Unit,
-    onCallClick: () -> Unit
+    onClick: () -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -420,27 +425,21 @@ fun ConversationItem(
             
             Spacer(modifier = Modifier.height(4.dp))
             
-            val (telemetryText, telemetryColor) = when (conversation.id.lastOrNull()) {
-                '1', '2' -> "⚠️ Agent loop detected - Halting" to MaterialTheme.colorScheme.error
-                '3', '4' -> "✋ Blocked: Awaiting Human Approval" to Color(0xFFFFB300)
-                '5', '6' -> "🛑 Token limit exceeded" to MaterialTheme.colorScheme.error
-                else -> "⚡ Executing [Web Search]..." to MaterialTheme.colorScheme.primary
-            }
             Text(
-                text = telemetryText,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                    fontWeight = FontWeight.Medium
-                ),
-                color = telemetryColor,
+                text = if (conversation.messageCount > 0) "${conversation.messageCount} messages" else "No messages yet",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
         }
         
-        IconButton(onClick = onCallClick) {
-            Icon(Icons.Default.Phone, contentDescription = "Call", tint = MaterialTheme.colorScheme.primary)
-        }
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+            modifier = Modifier.size(18.dp)
+        )
     }
 }
 
@@ -673,4 +672,6 @@ fun SwarmClusterCard(
         }
     }
 }
+
+
 

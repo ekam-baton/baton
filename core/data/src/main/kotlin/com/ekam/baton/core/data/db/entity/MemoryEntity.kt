@@ -2,8 +2,15 @@ package com.ekam.baton.core.data.db.entity
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import androidx.room.Index
 
-@Entity(tableName = "memories")
+@Entity(
+    tableName = "memories",
+    indices = [
+        Index(value = ["layer", "isActive", "relevanceScore"], name = "index_memories_semantic"),
+        Index(value = ["layer", "agentId", "isActive", "lastAccessedAt"], name = "index_memories_episodic")
+    ]
+)
 data class MemoryEntity(
     @PrimaryKey val id: String,
     val layer: String, // "working" | "episodic" | "semantic"

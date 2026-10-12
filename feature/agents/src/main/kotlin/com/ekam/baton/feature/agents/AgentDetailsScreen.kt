@@ -1,5 +1,6 @@
 package com.ekam.baton.feature.agents
 
+import kotlinx.coroutines.launch
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -34,6 +35,7 @@ import com.ekam.baton.core.ui.components.glassCard
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import com.ekam.baton.feature.agents.qr.AgentPairingQrDialog
 import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -43,6 +45,7 @@ fun AgentDetailsScreen(
     onNavigateBack: () -> Unit,
     onEditClick: (String) -> Unit,
     onMemoryVaultClick: (String) -> Unit,
+    onNavigateToBotManager: (String) -> Unit = {},
     viewModel: AgentDetailsViewModel = koinViewModel()
 ) {
     LaunchedEffect(agentId) {
@@ -65,6 +68,10 @@ fun AgentDetailsScreen(
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     var expandedToolName by remember { mutableStateOf<String?>(null) }
     var showDecommissionDialog by remember { mutableStateOf(false) }
+    var showPairingQrDialog by remember { mutableStateOf(false) }
+    var showReportDialog by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
     // Intercept tool authorization requests during diagnostic execution
     var activeAuthRequest by remember { mutableStateOf<ToolAuthorizationRequest?>(null) }
@@ -153,6 +160,7 @@ fun AgentDetailsScreen(
 
     Scaffold(
         containerColor = Color(0xFF0D131F),
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = {
@@ -165,7 +173,7 @@ fun AgentDetailsScreen(
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            "NODE DIAGNOSTICS & MCP CAPABILITIES",
+                            "AGENT DETAILS & TOOLS",
                             style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace, fontSize = 9.sp),
                             color = Color(0xFF00D2FF)
                         )
@@ -177,6 +185,12 @@ fun AgentDetailsScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { showPairingQrDialog = true }) {
+                        Icon(Icons.Default.QrCode2, contentDescription = "Show Pairing QR", tint = Color(0xFF00D2FF))
+                    }
+                    IconButton(onClick = { onNavigateToBotManager(agentId) }) {
+                        Icon(Icons.Default.SmartToy, contentDescription = "Bot Manager", tint = Color.White)
+                    }
                     IconButton(onClick = { onEditClick(agentId) }) {
                         Icon(Icons.Default.Edit, contentDescription = "Edit Configuration", tint = Color.White)
                     }
@@ -192,11 +206,11 @@ fun AgentDetailsScreen(
                     onDismissRequest = { showDecommissionDialog = false },
                     containerColor = Color(0xFF131E31),
                     title = {
-                        Text("Decommission Agent Node", color = Color.White, fontWeight = FontWeight.Bold)
+                        Text("Delete Agent", color = Color.White, fontWeight = FontWeight.Bold)
                     },
                     text = {
                         Text(
-                            "Are you sure you want to decommission \"${currentAgent.name}\"? This will sever cryptographic sessions and remove it from your swarm directory.",
+                            "Are you sure you want to delete \"${currentAgent.name}\"? This will remove it from your agent directory and clear local sessions.",
                             color = Color.White.copy(alpha = 0.8f)
                         )
                     },
@@ -210,7 +224,7 @@ fun AgentDetailsScreen(
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626))
                         ) {
-                            Text("Decommission", fontWeight = FontWeight.Bold)
+                            Text("Delete", fontWeight = FontWeight.Bold)
                         }
                     },
                     dismissButton = {
@@ -220,24 +234,85 @@ fun AgentDetailsScreen(
                     }
                 )
             }
+            if (showReportDialog) {
+                ReportAgentDialog(
+                    agentName = currentAgent.name,
+                    onDismiss = { showReportDialog = false },
+                    onSubmit = { reason, details ->
+                        viewModel.reportAgent(reason, details) {
+                            scope.launch {
+                                snackbarHostState.showSnackbar("Agent reported. Thank you for your feedback.")
+                            }
+                        }
+                        showReportDialog = false
+                    }
+                )
+            }
 
-            Box(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .glassCard(shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
                     .padding(16.dp)
-                    .navigationBarsPadding()
+                    .navigationBarsPadding(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = {
+                            viewModel.toggleBlock {
+                                scope.launch {
+                                    snackbarHostState.showSnackbar(
+                                        if (currentAgent.isBlocked) "Agent unblocked" else "Agent blocked"
+                                    )
+                                }
+                            }
+                        },
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = if (currentAgent.isBlocked) Color(0xFF00D2FF) else Color(0xFFF59E0B)
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            if (currentAgent.isBlocked) Color(0xFF00D2FF).copy(alpha = 0.5f) else Color(0xFFF59E0B).copy(alpha = 0.5f)
+                        ),
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.weight(1f).height(48.dp)
+                    ) {
+                        Icon(Icons.Default.Block, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            if (currentAgent.isBlocked) "UNBLOCK" else "BLOCK",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                        )
+                    }
+                    OutlinedButton(
+                        onClick = { showReportDialog = true },
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFDC2626)),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFDC2626).copy(alpha = 0.5f)),
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.weight(1f).height(48.dp)
+                    ) {
+                        Icon(Icons.Default.Flag, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            "REPORT",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                        )
+                    }
+                }
                 Button(
                     onClick = { showDecommissionDialog = true },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)),
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.fillMaxWidth().height(52.dp)
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.fillMaxWidth().height(48.dp)
                 ) {
                     Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        "DECOMMISSION NODE",
+                        "DELETE AGENT",
                         style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
                     )
                 }
@@ -301,7 +376,7 @@ fun AgentDetailsScreen(
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = if (pingLatencyMs != null && pingLatencyMs!! >= 0) "ONLINE" else "STANDBY / UNPROBED",
+                                    text = if (pingLatencyMs != null && pingLatencyMs!! >= 0) "ONLINE" else "STANDBY",
                                     style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold),
                                     color = if (pingLatencyMs != null && pingLatencyMs!! >= 0) Color(0xFF10B981) else Color(0xFFF59E0B)
                                 )
@@ -344,6 +419,60 @@ fun AgentDetailsScreen(
                             }
                         }
                     }
+
+                    // Quick Profile Operations Bar
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // 1. Bot Manager Jump
+                        FilledTonalButton(
+                            onClick = { onNavigateToBotManager(agentId) },
+                            modifier = Modifier.weight(1f).height(38.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.filledTonalButtonColors(
+                                containerColor = Color(0xFF3D8EFF).copy(alpha = 0.2f),
+                                contentColor = Color(0xFF3D8EFF)
+                            ),
+                            contentPadding = PaddingValues(horizontal = 6.dp)
+                        ) {
+                            Icon(Icons.Default.SmartToy, contentDescription = null, modifier = Modifier.size(15.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Bot Manager", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        // 2. Pairing QR
+                        FilledTonalButton(
+                            onClick = { showPairingQrDialog = true },
+                            modifier = Modifier.weight(1f).height(38.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.filledTonalButtonColors(
+                                containerColor = Color(0xFF00D2FF).copy(alpha = 0.2f),
+                                contentColor = Color(0xFF00D2FF)
+                            ),
+                            contentPadding = PaddingValues(horizontal = 6.dp)
+                        ) {
+                            Icon(Icons.Default.QrCode2, contentDescription = null, modifier = Modifier.size(15.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Pairing QR", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        // 3. Memory Vault
+                        FilledTonalButton(
+                            onClick = { onMemoryVaultClick(agentId) },
+                            modifier = Modifier.weight(0.9f).height(38.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.filledTonalButtonColors(
+                                containerColor = Color(0xFF8B5CF6).copy(alpha = 0.2f),
+                                contentColor = Color(0xFF8B5CF6)
+                            ),
+                            contentPadding = PaddingValues(horizontal = 6.dp)
+                        ) {
+                            Icon(Icons.Default.Memory, contentDescription = null, modifier = Modifier.size(15.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Memory", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
             }
 
@@ -377,7 +506,7 @@ fun AgentDetailsScreen(
                     text = {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             Icon(Icons.Default.Security, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Text("TOPOLOGY & SECURITY", fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                            Text("SECURITY & IDENTITY", fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                         }
                     }
                 )
@@ -420,7 +549,7 @@ fun AgentDetailsScreen(
                                     Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(14.dp))
                                 }
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("REFRESH SCHEMA", fontFamily = FontFamily.Monospace, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text("REFRESH TOOLS", fontFamily = FontFamily.Monospace, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                         }
 
@@ -670,7 +799,7 @@ fun AgentDetailsScreen(
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Column {
                                             Text(
-                                                "DIAGNOSTIC TEST RUNNER",
+                                                "TOOL RUNNER",
                                                 fontFamily = FontFamily.Monospace,
                                                 fontSize = 10.sp,
                                                 fontWeight = FontWeight.Bold,
@@ -744,7 +873,7 @@ fun AgentDetailsScreen(
                                         } else {
                                             Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
                                             Spacer(modifier = Modifier.width(8.dp))
-                                            Text("INVOKE TOOL", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                            Text("RUN TOOL", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 11.sp)
                                         }
                                     }
                                 }
@@ -827,10 +956,10 @@ fun AgentDetailsScreen(
                                 .glassCard(shape = RoundedCornerShape(16.dp))
                                 .padding(16.dp)
                         ) {
-                            Text("PRIMARY OBJECTIVE / SYSTEM PROMPT", style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace), color = MaterialTheme.colorScheme.tertiary)
+                            Text("INSTRUCTIONS / SYSTEM PROMPT", style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace), color = MaterialTheme.colorScheme.tertiary)
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = currentAgent.description.takeIf { it.isNotBlank() } ?: "No system instructions provided for this node.",
+                                text = currentAgent.description.takeIf { it.isNotBlank() } ?: "No system instructions provided for this agent.",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = Color.White
                             )
@@ -872,7 +1001,7 @@ fun AgentDetailsScreen(
                                     modifier = Modifier.size(22.dp)
                                 )
                                 Spacer(modifier = Modifier.height(10.dp))
-                                Text("POSTURE", style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace), color = Color.White.copy(alpha = 0.6f))
+                                Text("SECURITY", style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace), color = Color.White.copy(alpha = 0.6f))
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
                                     text = currentAgent.securityMode.uppercase(),
@@ -892,7 +1021,7 @@ fun AgentDetailsScreen(
                                 .padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Text("MCP CONNECTION ENDPOINT", style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace), color = MaterialTheme.colorScheme.tertiary)
+                            Text("CONNECTION ENDPOINT", style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace), color = MaterialTheme.colorScheme.tertiary)
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -926,7 +1055,7 @@ fun AgentDetailsScreen(
 
                             if (!currentAgent.ownerName.isNullOrBlank()) {
                                 HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
-                                Text("NODE OPERATOR IDENTITY", style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace), color = MaterialTheme.colorScheme.tertiary)
+                                Text("OPERATOR IDENTITY", style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace), color = MaterialTheme.colorScheme.tertiary)
                                 Text(
                                     text = currentAgent.ownerName ?: "",
                                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
@@ -951,7 +1080,7 @@ fun AgentDetailsScreen(
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(Icons.Default.Storage, contentDescription = null, modifier = Modifier.size(20.dp), tint = Color(0xFF00D2FF))
                                     Spacer(modifier = Modifier.width(12.dp))
-                                    Text("OPEN MEMORY VAULT", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace))
+                                    Text("VIEW MEMORY VAULT", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace))
                                 }
                                 Icon(Icons.Default.Memory, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White.copy(alpha = 0.5f))
                             }
@@ -962,5 +1091,13 @@ fun AgentDetailsScreen(
                 }
             }
         }
+    }
+
+    if (showPairingQrDialog && agent != null) {
+        AgentPairingQrDialog(
+            agent = currentAgent,
+            onDismiss = { showPairingQrDialog = false },
+            onNavigateToManager = { onNavigateToBotManager(agentId) }
+        )
     }
 }

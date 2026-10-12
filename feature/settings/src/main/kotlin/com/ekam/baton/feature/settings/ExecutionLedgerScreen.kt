@@ -291,7 +291,7 @@ private fun EconomicsTabContent(
                 )
                 KpiMetricCard(
                     modifier = Modifier.weight(1f),
-                    title = "BURN RATE",
+                    title = "THROUGHPUT",
                     value = String.format(Locale.US, "%.1f", avgBurnRate),
                     subtext = "Tokens / Sec",
                     accentColor = Color(0xFF00D2FF) // Cyan

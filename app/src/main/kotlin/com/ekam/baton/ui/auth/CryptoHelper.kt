@@ -44,7 +44,7 @@ object CryptoHelper {
 
     fun decryptBackupKey(password: String, encryptedPayload: String): ByteArray {
         val parts = encryptedPayload.split(":")
-        
+
         val (saltB64, ivB64, cipherB64, iterations) = if (parts.size == 4 && parts[0] == "1") {
             // New format: 1:salt:iv:ciphertext
             Tuple4(parts[1], parts[2], parts[3], 600_000)

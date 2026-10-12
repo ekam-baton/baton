@@ -39,10 +39,14 @@ val networkModule = module {
     }
 
     single {
+        val certificatePinner = okhttp3.CertificatePinner.Builder()
+            .add("baton.com", "sha256/7HIpactkIAq2Y49orFOOQKurWxmmSFZhBCoQYcRhJ3Y=")
+            .add("*.baton.com", "sha256/7HIpactkIAq2Y49orFOOQKurWxmmSFZhBCoQYcRhJ3Y=")
+            .build()
+
         OkHttpClient.Builder()
             .dns(get<com.ekam.baton.core.network.security.SsrfProtectionDns>())
-            // TODO: Attach CertificatePinner when real SPKI pins exist
-            // .certificatePinner(certificatePinner)
+            .certificatePinner(certificatePinner)
             .addInterceptor(get<SecurityInterceptor>())
             .addInterceptor(get<HttpLoggingInterceptor>())
             .connectTimeout(30, TimeUnit.SECONDS)
