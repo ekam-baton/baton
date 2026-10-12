@@ -401,4 +401,8 @@ val dataModule = module {
     single<com.ekam.baton.core.network.BackendUrlProvider> {
         com.ekam.baton.core.data.preferences.AppPreferencesBackendUrlProvider(get())
     }
+
+    // Day 1 ML Telemetry & Security Data Collection Engine
+    single { com.ekam.baton.core.data.telemetry.SecurityTelemetryManager(androidContext()) }
 }
+

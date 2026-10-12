@@ -10,6 +10,7 @@ const os = require('node:os');
 const crypto = require('node:crypto');
 const { exec } = require('node:child_process');
 const { renderSvgQr } = require('./qr.js');
+const { BridgeTelemetryLogger } = require('./telemetry.js');
 
 class McpBridgeServer {
   constructor(options = {}) {
@@ -22,6 +23,7 @@ class McpBridgeServer {
     this.onActivity = options.onActivity || (() => {});
     this.qrMatrix = options.qrMatrix || null;
     this.tasks = new Map();
+    this.telemetry = new BridgeTelemetryLogger(this.workspaceDir);
   }
 
   isAuthorized(req) {
@@ -36,6 +38,12 @@ class McpBridgeServer {
     const resolved = path.resolve(this.workspaceDir, userPath || '.');
     // Ensure path remains inside workspace directory
     if (!resolved.startsWith(this.workspaceDir)) {
+      this.telemetry.logSecurityIncident(
+        'PATH_TRAVERSAL_ATTEMPT',
+        { attempted_path: userPath, resolved_target: resolved },
+        'BLOCKED',
+        'Target path was outside configured workspace root jail boundary.'
+      );
       throw new Error(`Access denied: path ${userPath} is outside workspace boundary`);
     }
     return resolved;
@@ -472,6 +480,21 @@ class McpBridgeServer {
             }
             const allTasks = Array.from(this.tasks.values()).slice(-20);
             this.sendJson(res, 200, { tasks: allTasks });
+            return;
+          }
+
+          // 2.7 Telemetry synchronization from Mobile
+          if (pathname === '/telemetry/sync' && req.method === 'POST') {
+            if (!this.isAuthorized(req)) {
+              this.sendJson(res, 401, { error: 'Unauthorized' });
+              return;
+            }
+            const body = await this.readBody(req);
+            const samples = Array.isArray(body.samples) ? body.samples : [];
+            samples.forEach(s => {
+              this.telemetry.recordSample(s.instruction, s.input, s.output);
+            });
+            this.sendJson(res, 200, { success: true, synced: samples.length });
             return;
           }
 

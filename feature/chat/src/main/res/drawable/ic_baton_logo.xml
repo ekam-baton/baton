@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="120dp"
+    android:height="120dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Subtle circular halo -->
+    <path
+        android:fillColor="#131B2E"
+        android:pathData="M54,54m-36,0a36,36 0,1 1,72 0a36,36 0,1 1,-72 0" />
+
+    <!-- The Baton (Stylized Exclamation) -->
+    <group
+        android:translateX="54"
+        android:translateY="54">
+
+        <!-- Tapered Baton Stroke -->
+        <path
+            android:fillColor="#ECEFF4"
+            android:pathData="M-0.5,-22 L0.5,-22 L3.5,8 L-3.5,8 Z" />
+
+        <!-- Baton Dot (Cyan Accent) -->
+        <path
+            android:fillColor="#00D2FF"
+            android:pathData="M0,17m-4.5,0a4.5,4.5 0,1 1,9 0a4.5,4.5 0,1 1,-9 0" />
+    </group>
+</vector>

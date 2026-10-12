@@ -60,6 +60,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -449,10 +451,6 @@ fun ChatScreen(
         ) {
             if (messages.itemCount == 0) {
                 SovereignEmptyState(
-                    agentName = currentAgent?.name ?: "Baton Sovereign Companion",
-                    onPromptClick = { prompt ->
-                        viewModel.sendMessage(prompt, emptyList())
-                    },
                     modifier = Modifier.align(Alignment.Center)
                 )
             }
@@ -488,99 +486,32 @@ fun ChatScreen(
 
 @Composable
 private fun SovereignEmptyState(
-    agentName: String,
-    onPromptClick: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp),
+            .padding(horizontal = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Surface(
-            shape = CircleShape,
-            color = Color(0xFF131B2E),
-            border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF00D2FF).copy(alpha = 0.4f)),
-            modifier = Modifier.size(64.dp)
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = Icons.Outlined.Lock,
-                    contentDescription = null,
-                    tint = Color(0xFF00D2FF),
-                    modifier = Modifier.size(32.dp)
-                )
-            }
-        }
+        androidx.compose.foundation.Image(
+            painter = painterResource(id = R.drawable.ic_baton_logo),
+            contentDescription = "Baton Logo",
+            modifier = Modifier
+                .size(76.dp)
+                .alpha(0.30f)
+        )
 
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            Text(
-                text = agentName,
-                style = MaterialTheme.typography.titleLarge.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-            )
-            Text(
-                text = "Offline-first, end-to-end encrypted neural assistant ready.",
-                style = MaterialTheme.typography.bodySmall.copy(
-                    color = Color.White.copy(alpha = 0.6f)
-                ),
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-            )
-        }
-
-        Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = Color(0xFF131B2E).copy(alpha = 0.8f),
-            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00D2FF).copy(alpha = 0.2f)),
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Text(
-                    text = "Quick Actions",
-                    style = MaterialTheme.typography.labelMedium.copy(
-                        color = Color(0xFF00D2FF),
-                        fontWeight = FontWeight.SemiBold
-                    )
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    SuggestionChip(
-                        onClick = { onPromptClick("Check system diagnostics and tunnel status") },
-                        label = { Text("Diagnostics", style = MaterialTheme.typography.labelSmall) },
-                        border = SuggestionChipDefaults.suggestionChipBorder(
-                            borderColor = Color(0xFF3D8EFF).copy(alpha = 0.4f),
-                            enabled = true
-                        ),
-                        colors = SuggestionChipDefaults.suggestionChipColors(
-                            containerColor = Color(0xFF0A0F1D)
-                        )
-                    )
-                    SuggestionChip(
-                        onClick = { onPromptClick("Summarize active memory vault items") },
-                        label = { Text("Memory Vault", style = MaterialTheme.typography.labelSmall) },
-                        border = SuggestionChipDefaults.suggestionChipBorder(
-                            borderColor = Color(0xFF3D8EFF).copy(alpha = 0.4f),
-                            enabled = true
-                        ),
-                        colors = SuggestionChipDefaults.suggestionChipColors(
-                            containerColor = Color(0xFF0A0F1D)
-                        )
-                    )
-                }
-            }
-        }
+        Text(
+            text = "Finding Peace in the Chaos",
+            style = MaterialTheme.typography.bodyMedium.copy(
+                color = Color.White.copy(alpha = 0.45f),
+                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                letterSpacing = 1.2.sp
+            ),
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+        )
     }
 }
 
