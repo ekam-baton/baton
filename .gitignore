@@ -42,4 +42,10 @@ tree.json
 
 # Node / Desktop Bridge
 node_modules/
-.bridge_auth_key
+.bridge_auth_key
+
+# Python / ML
+__pycache__/
+*.py[cod]
+*$py.class
+baton-ml/output/
