@@ -94,13 +94,14 @@ tasks.register<Exec>("compileRustJni") {
     )
     onlyIf {
         val cryptoDir = file("../../baton-crypto-android")
+        val hasNdk = System.getenv("ANDROID_NDK_HOME") != null || System.getenv("NDK_HOME") != null
         val hasCargoNdk = try {
             val process = ProcessBuilder("cargo", "ndk", "--version").start()
             process.waitFor() == 0
         } catch (_: Exception) {
             false
         }
-        cryptoDir.exists() && hasCargoNdk
+        cryptoDir.exists() && hasCargoNdk && hasNdk
     }
 }
 

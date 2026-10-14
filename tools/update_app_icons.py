@@ -1,19 +1,19 @@
 import os
 import xml.etree.ElementTree as ET
 from PIL import Image, ImageDraw, ImageFilter
-import numpy as np
 
-# Load the exact vector path from baton_logo.svg
-svg_path = r'C:\Users\yrish\.gemini\antigravity\brain\2bf7cb47-1def-49fd-a5b8-7fc094cece6e\baton_logo.svg'
+# Locate repository root
+repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+svg_path = os.path.join(repo_root, 'website', 'logo.svg')
 tree = ET.parse(svg_path)
 root = tree.getroot()
 path_elem = root.find('.//{http://www.w3.org/2000/svg}path')
 path_data = path_elem.get('d')
 
-print('Loaded exact path data, length:', len(path_data))
+print('Loaded exact path data from repo, length:', len(path_data))
 
 # 1. Update app/src/main/res/drawable/ic_launcher_foreground.xml
-app_res = r'C:\Users\yrish\.gemini\antigravity\scratch\baton\app\src\main\res'
+app_res = os.path.join(repo_root, 'app', 'src', 'main', 'res')
 ic_launcher_fg_path = os.path.join(app_res, 'drawable', 'ic_launcher_foreground.xml')
 
 launcher_fg_xml = f'''<?xml version="1.0" encoding="utf-8"?>
@@ -64,7 +64,7 @@ with open(app_baton_logo_xml, 'w', encoding='utf-8') as f:
 print('Updated app drawable ic_baton_logo.xml')
 
 # 4. Generate high-quality PNGs for ic_logo.png and ic_splash_logo.png
-src_png_path = r'C:\Users\yrish\.gemini\antigravity\brain\2bf7cb47-1def-49fd-a5b8-7fc094cece6e\ic_baton_logo.png'
+src_png_path = os.path.join(repo_root, 'website', 'ic_baton_logo.png')
 base_png = Image.open(src_png_path).convert('RGBA')
 
 # Save directly to ic_logo.png, ic_splash_logo.png
