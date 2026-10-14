@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BATON — Sovereign Personal AI Companion & Desktop Bridge</title>
+  <meta name="description" content="Finding Peace in the Chaos. High-agency sovereign AI companion with end-to-end encryption, local vault storage, and secure desktop bridge.">
+  <link rel="icon" type="image/svg+xml" href="logo.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&family=Sora:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-void: #0A0F1D;
+      --bg-surface: #131B2E;
+      --bg-surface-elevated: rgba(19, 27, 46, 0.75);
+      --accent-cyan: #00D2FF;
+      --accent-cyan-dim: rgba(0, 210, 255, 0.15);
+      --accent-cyan-glow: rgba(0, 210, 255, 0.4);
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-glow: rgba(0, 210, 255, 0.25);
+      --text-main: #EDF5F8;
+      --text-muted: #7C93A4;
+      --text-ghost: #3D5163;
+      --font-display: 'Sora', sans-serif;
+      --font-body: 'Manrope', sans-serif;
+      --font-mono: 'Space Grotesk', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-void);
+      color: var(--text-main);
+      font-family: var(--font-body);
+      min-height: 100vh;
+      overflow-x: hidden;
+      line-height: 1.6;
+      background-image:
+        radial-gradient(circle at 50% 15%, rgba(0, 210, 255, 0.07) 0%, transparent 60%),
+        radial-gradient(circle at 85% 75%, rgba(61, 142, 255, 0.05) 0%, transparent 50%),
+        radial-gradient(circle at 15% 85%, rgba(0, 210, 255, 0.04) 0%, transparent 50%);
+    }
+
+    /* ─── NAVIGATION ─── */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(10, 15, 29, 0.85);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 16px 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: var(--text-main);
+    }
+
+    .nav-logo-icon {
+      width: 24px;
+      height: 36px;
+      filter: drop-shadow(0 0 8px var(--accent-cyan-glow));
+    }
+
+    .nav-title {
+      font-family: var(--font-display);
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: 1px;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+    }
+
+    .nav-link {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+
+    .nav-link:hover {
+      color: var(--accent-cyan);
+    }
+
+    .btn-nav {
+      background: var(--accent-cyan);
+      color: var(--bg-void);
+      font-family: var(--font-mono);
+      font-weight: 600;
+      font-size: 13px;
+      padding: 8px 18px;
+      border-radius: 9999px;
+      text-decoration: none;
+      transition: all 0.2s;
+      box-shadow: 0 0 16px var(--accent-cyan-dim);
+    }
+
+    .btn-nav:hover {
+      box-shadow: 0 0 24px var(--accent-cyan-glow);
+      transform: translateY(-1px);
+    }
+
+    /* ─── HERO SECTION ─── */
+    .hero {
+      position: relative;
+      padding: 90px 24px 60px;
+      max-width: 1100px;
+      margin: 0 auto;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 16px;
+      border-radius: 9999px;
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-glow);
+      color: var(--accent-cyan);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      letter-spacing: 0.5px;
+      margin-bottom: 32px;
+    }
+
+    .hero-logo-container {
+      position: relative;
+      margin-bottom: 28px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .hero-aura {
+      position: absolute;
+      width: 180px;
+      height: 260px;
+      background: radial-gradient(circle, rgba(0, 210, 255, 0.22) 0%, transparent 70%);
+      filter: blur(40px);
+      pointer-events: none;
+      top: -20px;
+    }
+
+    .hero-baton-svg {
+      width: 76px;
+      height: 180px;
+      filter: drop-shadow(0 0 24px rgba(0, 210, 255, 0.45));
+      transition: transform 0.3s ease;
+    }
+
+    .hero-baton-svg:hover {
+      transform: scale(1.05);
+    }
+
+    .hero-motto {
+      font-family: var(--font-display);
+      font-style: italic;
+      font-weight: 300;
+      font-size: 22px;
+      color: rgba(255, 255, 255, 0.55);
+      letter-spacing: 1.5px;
+      margin-bottom: 24px;
+    }
+
+    .hero-heading {
+      font-family: var(--font-display);
+      font-size: clamp(38px, 6vw, 64px);
+      font-weight: 400;
+      line-height: 1.15;
+      letter-spacing: -1px;
+      max-width: 860px;
+      margin-bottom: 24px;
+    }
+
+    .hero-heading span {
+      background: linear-gradient(135deg, #FFFFFF 30%, var(--accent-cyan) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero-subtext {
+      font-size: 17px;
+      color: var(--text-muted);
+      max-width: 640px;
+      margin-bottom: 40px;
+      font-weight: 400;
+    }
+
+    .hero-cta-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      justify-content: center;
+    }
+
+    .btn-hero-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--accent-cyan);
+      color: var(--bg-void);
+      font-family: var(--font-mono);
+      font-size: 15px;
+      font-weight: 600;
+      padding: 14px 28px;
+      border-radius: 12px;
+      text-decoration: none;
+      box-shadow: 0 0 30px var(--accent-cyan-glow);
+      transition: all 0.2s;
+    }
+
+    .btn-hero-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 40px rgba(0, 210, 255, 0.6);
+    }
+
+    .btn-hero-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-glow);
+      color: var(--text-main);
+      font-family: var(--font-mono);
+      font-size: 15px;
+      font-weight: 500;
+      padding: 14px 28px;
+      border-radius: 12px;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+
+    .btn-hero-secondary:hover {
+      background: rgba(19, 27, 46, 0.9);
+      border-color: var(--accent-cyan);
+      transform: translateY(-2px);
+    }
+
+    /* ─── PLATFORMS / DOWNLOADS ─── */
+    .platforms {
+      max-width: 1000px;
+      margin: 60px auto 80px;
+      padding: 0 24px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+      gap: 24px;
+    }
+
+    .platform-card {
+      background: var(--bg-surface-elevated);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--border-subtle);
+      border-radius: 20px;
+      padding: 32px;
+      position: relative;
+      transition: all 0.3s;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .platform-card:hover {
+      border-color: var(--border-glow);
+      transform: translateY(-4px);
+    }
+
+    .platform-badge {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--accent-cyan);
+      background: var(--accent-cyan-dim);
+      padding: 4px 10px;
+      border-radius: 6px;
+      display: inline-block;
+      align-self: flex-start;
+      margin-bottom: 16px;
+    }
+
+    .platform-title {
+      font-family: var(--font-display);
+      font-size: 22px;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+
+    .platform-desc {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-bottom: 24px;
+      flex-grow: 1;
+    }
+
+    .platform-action {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-top: 1px solid var(--border-subtle);
+      padding-top: 20px;
+    }
+
+    .platform-code {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--accent-cyan);
+      background: rgba(0, 0, 0, 0.4);
+      padding: 6px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border-subtle);
+    }
+
+    /* ─── FEATURES GRID ─── */
+    .features {
+      max-width: 1100px;
+      margin: 40px auto 100px;
+      padding: 0 24px;
+    }
+
+    .section-header {
+      text-align: center;
+      margin-bottom: 60px;
+    }
+
+    .section-title {
+      font-family: var(--font-display);
+      font-size: 36px;
+      font-weight: 400;
+      margin-bottom: 12px;
+    }
+
+    .section-subtitle {
+      font-size: 16px;
+      color: var(--text-muted);
+      max-width: 540px;
+      margin: 0 auto;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 24px;
+    }
+
+    .feature-card {
+      background: var(--bg-surface-elevated);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border-subtle);
+      border-radius: 18px;
+      padding: 28px;
+      transition: all 0.2s;
+    }
+
+    .feature-card:hover {
+      border-color: var(--border-glow);
+    }
+
+    .feature-icon {
+      font-size: 28px;
+      margin-bottom: 16px;
+      display: inline-block;
+    }
+
+    .feature-heading {
+      font-family: var(--font-display);
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .feature-body {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    /* ─── FOOTER ─── */
+    footer {
+      border-top: 1px solid var(--border-subtle);
+      background: rgba(10, 15, 29, 0.95);
+      padding: 48px 32px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      text-align: center;
+    }
+
+    .footer-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .footer-logo {
+      width: 18px;
+      height: 28px;
+      filter: drop-shadow(0 0 6px var(--accent-cyan-glow));
+    }
+
+    .footer-text {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 24px;
+    }
+
+    .footer-link {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 13px;
+      transition: color 0.2s;
+    }
+
+    .footer-link:hover {
+      color: var(--accent-cyan);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAVIGATION -->
+  <nav>
+    <a href="/" class="nav-brand">
+      <svg class="nav-logo-icon" viewBox="230 90 60 335" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M258 105 C256.2038 145.94 255.105 186.89 254.074 227.86 C253.896 234.95 253.713 242.03 253.53 249.12 C253.328 256.9 253.129 264.69 252.931 272.47 C252.848 275.74 252.764 279 252.68 282.27 C252.581 286.09 252.484 289.92 252.389 293.74 C252.338 295.78 252.285 297.82 252.232 299.86 C252.017 308.58 251.963 317.28 252 326 C256.29 326 260.58 326 265 326 C264.339 285.62 263.315 245.26 262.203 204.9 C262.02 198.26 261.841 191.62 261.662 184.97 C261.465 177.65 261.265 170.32 261.065 163 C260.981 159.94 260.898 156.88 260.816 153.82 C260.378 137.54 259.874 121.27 259 105 C258.67 105 258.34 105 258 105 Z M246.5625 335.3125 C244.627 338.64 244.477 340.19 245 344 C245.495 345.13 245.99 346.27 246.5 347.44 C250.687 358.05 247.929 368.99 244.289 379.25 C241.39 387.69 239.47 395.36 243.562 403.75 C246.164 407.76 249.58 410.24 254 412 C258.671 412.91 262.581 412.52 266.812 410.31 C271.894 406.63 274.435 403.41 275.755 397.15 C276.568 390.01 274.314 383.49 271.938 376.88 C268.112 365.49 267.082 355.27 272 344 C272.41 340.51 272.225 338.57 270.938 335.31 C267.716 331.47 263.894 330.24 259 329.625 C253.953 330.26 250.263 331.8 246.5625 335.3125 Z" fill="#00D2FF"/>
+      </svg>
+      <span class="nav-title">BATON</span>
+    </a>
+    <div class="nav-links">
+      <a href="#features" class="nav-link">Features</a>
+      <a href="#downloads" class="nav-link">Downloads</a>
+      <a href="#architecture" class="nav-link">Architecture</a>
+      <a href="#downloads" class="btn-nav">Get Baton</a>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <header class="hero">
+    <div class="hero-badge">● SOVEREIGN PERSONAL AI ECOSYSTEM</div>
+
+    <div class="hero-logo-container">
+      <div class="hero-aura"></div>
+      <svg class="hero-baton-svg" viewBox="230 90 60 335" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M258 105 C256.2038 145.94 255.105 186.89 254.074 227.86 C253.896 234.95 253.713 242.03 253.53 249.12 C253.328 256.9 253.129 264.69 252.931 272.47 C252.848 275.74 252.764 279 252.68 282.27 C252.581 286.09 252.484 289.92 252.389 293.74 C252.338 295.78 252.285 297.82 252.232 299.86 C252.017 308.58 251.963 317.28 252 326 C256.29 326 260.58 326 265 326 C264.339 285.62 263.315 245.26 262.203 204.9 C262.02 198.26 261.841 191.62 261.662 184.97 C261.465 177.65 261.265 170.32 261.065 163 C260.981 159.94 260.898 156.88 260.816 153.82 C260.378 137.54 259.874 121.27 259 105 C258.67 105 258.34 105 258 105 Z M246.5625 335.3125 C244.627 338.64 244.477 340.19 245 344 C245.495 345.13 245.99 346.27 246.5 347.44 C250.687 358.05 247.929 368.99 244.289 379.25 C241.39 387.69 239.47 395.36 243.562 403.75 C246.164 407.76 249.58 410.24 254 412 C258.671 412.91 262.581 412.52 266.812 410.31 C271.894 406.63 274.435 403.41 275.755 397.15 C276.568 390.01 274.314 383.49 271.938 376.88 C268.112 365.49 267.082 355.27 272 344 C272.41 340.51 272.225 338.57 270.938 335.31 C267.716 331.47 263.894 330.24 259 329.625 C253.953 330.26 250.263 331.8 246.5625 335.3125 Z" fill="#00D2FF"/>
+      </svg>
+    </div>
+
+    <div class="hero-motto">"Finding Peace in the Chaos"</div>
+
+    <h1 class="hero-heading">
+      Command Your Digital Life With a <span>Sovereign AI Companion</span>
+    </h1>
+
+    <p class="hero-subtext">
+      Zero central servers. Zero surveillance. Baton unifies local on-device SQLite encryption with a real-time desktop MCP bridge, giving you complete autonomy over your intelligence, files, and workflows.
+    </p>
+
+    <div class="hero-cta-group">
+      <a href="#downloads" class="btn-hero-primary">📱 Download Android App</a>
+      <a href="#desktop" class="btn-hero-secondary">💻 Launch PC Bridge</a>
+    </div>
+  </header>
+
+  <!-- DOWNLOADS & PLATFORMS -->
+  <section id="downloads" class="platforms">
+    <!-- Android Platform -->
+    <div class="platform-card">
+      <div class="platform-badge">MOBILE COMPANION</div>
+      <h3 class="platform-title">Android Edition</h3>
+      <p class="platform-desc">
+        Modern Jetpack Compose application built with ChaCha20-Poly1305 encrypted local vault, offline-first Room database, biometric unlock, and real-time tool orchestration.
+      </p>
+      <div class="platform-action">
+        <a href="#" class="btn-hero-primary" style="padding: 10px 20px; font-size: 13px;">Download APK</a>
+        <span style="font-size: 12px; color: var(--text-muted);">Android 9.0+</span>
+      </div>
+    </div>
+
+    <!-- Desktop Bridge -->
+    <div id="desktop" class="platform-card">
+      <div class="platform-badge">DESKTOP COMPANION</div>
+      <h3 class="platform-title">Baton PC Edition</h3>
+      <p class="platform-desc">
+        Ultra-lightweight Model Context Protocol (MCP) server for Windows, macOS, and Linux. Grants your mobile companion safe, jailed access to filesystem tools, terminal tasks, and local LLMs.
+      </p>
+      <div class="platform-action">
+        <span class="platform-code">npx @baton/bridge</span>
+        <span style="font-size: 12px; color: var(--text-muted);">Node 18+</span>
+      </div>
+    </div>
+
+    <!-- Cloudflare & Tunnel Gateway -->
+    <div class="platform-card">
+      <div class="platform-badge">TUNNEL INFRASTRUCTURE</div>
+      <h3 class="platform-title">Encrypted Remote Mesh</h3>
+      <p class="platform-desc">
+        Connect securely anywhere in the world using zero-configuration Cloudflare Quick Tunnels, Ngrok, or local WiFi mDNS discovery with cryptographic mutual handshake.
+      </p>
+      <div class="platform-action">
+        <span class="platform-code">E2EE WireGuard / TLS</span>
+        <span style="font-size: 12px; color: var(--text-muted);">Zero Port-Forward</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section id="features" class="features">
+    <div class="section-header">
+      <h2 class="section-title">Engineered for Absolute Sovereignty</h2>
+      <p class="section-subtitle">
+        Your data never touches third-party training pipelines. Every tool call and memory is stored locally in your encrypted enclave.
+      </p>
+    </div>
+
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">🛡️</div>
+        <h4 class="feature-heading">SQLCipher & Rust Crypto Core</h4>
+        <p class="feature-body">
+          Military-grade ChaCha20-Poly1305 encryption powered by our native Rust cryptographic core and SQLCipher database layer.
+        </p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">⚡</div>
+        <h4 class="feature-heading">Model Context Protocol (MCP)</h4>
+        <p class="feature-body">
+          Built on the open standard (MCP 2024-11-05). Seamlessly execute system info lookups, file reads/writes, and background scripts.
+        </p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">🧠</div>
+        <h4 class="feature-heading">On-Device LoRA Telemetry</h4>
+        <p class="feature-body">
+          Curate private training datasets directly from your daily assistant interactions to fine-tune your own personal local models over time.
+        </p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">📷</div>
+        <h4 class="feature-heading">1-Tap Cryptographic QR Pair</h4>
+        <p class="feature-body">
+          Pair your smartphone and workstation in 2 seconds via camera QR scan. Token exchange happens entirely within local memory.
+        </p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">🔒</div>
+        <h4 class="feature-heading">Full Store UGC Compliance</h4>
+        <p class="feature-body">
+          Complete compliance with Apple App Store Guideline 1.2 and Google Play rules, including 1-tap content reporting, peer blocking, and instant account wiping.
+        </p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">🕊️</div>
+        <h4 class="feature-heading">Calm Void Design</h4>
+        <p class="feature-body">
+          Designed to dissolve technological distraction. Ethereal Sora typography, electric cyan edge glow, and mindful glassmorphism.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-brand">
+      <svg class="footer-logo" viewBox="230 90 60 335" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M258 105 C256.2038 145.94 255.105 186.89 254.074 227.86 C253.896 234.95 253.713 242.03 253.53 249.12 C253.328 256.9 253.129 264.69 252.931 272.47 C252.848 275.74 252.764 279 252.68 282.27 C252.581 286.09 252.484 289.92 252.389 293.74 C252.338 295.78 252.285 297.82 252.232 299.86 C252.017 308.58 251.963 317.28 252 326 C256.29 326 260.58 326 265 326 C264.339 285.62 263.315 245.26 262.203 204.9 C262.02 198.26 261.841 191.62 261.662 184.97 C261.465 177.65 261.265 170.32 261.065 163 C260.981 159.94 260.898 156.88 260.816 153.82 C260.378 137.54 259.874 121.27 259 105 C258.67 105 258.34 105 258 105 Z M246.5625 335.3125 C244.627 338.64 244.477 340.19 245 344 C245.495 345.13 245.99 346.27 246.5 347.44 C250.687 358.05 247.929 368.99 244.289 379.25 C241.39 387.69 239.47 395.36 243.562 403.75 C246.164 407.76 249.58 410.24 254 412 C258.671 412.91 262.581 412.52 266.812 410.31 C271.894 406.63 274.435 403.41 275.755 397.15 C276.568 390.01 274.314 383.49 271.938 376.88 C268.112 365.49 267.082 355.27 272 344 C272.41 340.51 272.225 338.57 270.938 335.31 C267.716 331.47 263.894 330.24 259 329.625 C253.953 330.26 250.263 331.8 246.5625 335.3125 Z" fill="#00D2FF"/>
+      </svg>
+      <span style="font-family: var(--font-display); font-weight: 600; font-size: 16px;">BATON</span>
+    </div>
+    <div style="font-style: italic; color: rgba(255, 255, 255, 0.45); font-size: 13px;">"Finding Peace in the Chaos"</div>
+    <div class="footer-links">
+      <a href="#" class="footer-link">Privacy Policy</a>
+      <a href="#" class="footer-link">Terms of Service (EULA)</a>
+      <a href="#" class="footer-link">GitHub</a>
+      <a href="#" class="footer-link">Architecture Spec</a>
+    </div>
+    <p class="footer-text">© 2026 EKAM. Built for sovereign agency. Open Source Apache 2.0.</p>
+  </footer>
+
+</body>
+</html>

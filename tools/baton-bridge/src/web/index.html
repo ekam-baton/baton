@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Baton PC Edition — Sovereign Desktop Companion</title>
+  <link rel="icon" type="image/svg+xml" href="/logo.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -72,17 +73,17 @@
     }
 
     .brand-icon {
-      width: 32px;
-      height: 32px;
-      background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
-      border-radius: 8px;
+      width: 28px;
+      height: 28px;
       display: flex;
       align-items: center;
       justify-content: center;
-      color: var(--bg-void);
-      font-weight: 800;
-      font-size: 16px;
-      box-shadow: 0 0 15px var(--accent-cyan-dim);
+      filter: drop-shadow(0 0 10px rgba(0, 210, 255, 0.45));
+    }
+
+    .brand-icon svg {
+      width: 100%;
+      height: 100%;
     }
 
     .brand-title {
@@ -662,7 +663,11 @@
   <!-- HEADER -->
   <header>
     <a href="/" class="brand">
-      <div class="brand-icon">⚡</div>
+      <div class="brand-icon">
+        <svg viewBox="230 90 60 335" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M258 105 C256.2038 145.94 255.105 186.89 254.074 227.86 C253.896 234.95 253.713 242.03 253.53 249.12 C253.328 256.9 253.129 264.69 252.931 272.47 C252.848 275.74 252.764 279 252.68 282.27 C252.581 286.09 252.484 289.92 252.389 293.74 C252.338 295.78 252.285 297.82 252.232 299.86 C252.017 308.58 251.963 317.28 252 326 C256.29 326 260.58 326 265 326 C264.339 285.62 263.315 245.26 262.203 204.9 C262.02 198.26 261.841 191.62 261.662 184.97 C261.465 177.65 261.265 170.32 261.065 163 C260.981 159.94 260.898 156.88 260.816 153.82 C260.378 137.54 259.874 121.27 259 105 C258.67 105 258.34 105 258 105 Z M246.5625 335.3125 C244.627 338.64 244.477 340.19 245 344 C245.495 345.13 245.99 346.27 246.5 347.44 C250.687 358.05 247.929 368.99 244.289 379.25 C241.39 387.69 239.47 395.36 243.562 403.75 C246.164 407.76 249.58 410.24 254 412 C258.671 412.91 262.581 412.52 266.812 410.31 C271.894 406.63 274.435 403.41 275.755 397.15 C276.568 390.01 274.314 383.49 271.938 376.88 C268.112 365.49 267.082 355.27 272 344 C272.41 340.51 272.225 338.57 270.938 335.31 C267.716 331.47 263.894 330.24 259 329.625 C253.953 330.26 250.263 331.8 246.5625 335.3125 Z" fill="#00D2FF"/>
+        </svg>
+      </div>
       <div class="brand-title">BATON</div>
       <div class="brand-tag">PC EDITION</div>
     </a>
@@ -681,6 +686,12 @@
   <!-- AUTHENTICATION / LOGIN VIEW -->
   <div id="auth-screen">
     <div class="auth-card">
+      <div style="display:flex; justify-content:center; align-items:center; margin-bottom: 12px;">
+        <svg style="width: 42px; height: 90px; filter: drop-shadow(0 0 16px rgba(0, 210, 255, 0.45)); opacity: 0.85;" viewBox="230 90 60 335" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M258 105 C256.2038 145.94 255.105 186.89 254.074 227.86 C253.896 234.95 253.713 242.03 253.53 249.12 C253.328 256.9 253.129 264.69 252.931 272.47 C252.848 275.74 252.764 279 252.68 282.27 C252.581 286.09 252.484 289.92 252.389 293.74 C252.338 295.78 252.285 297.82 252.232 299.86 C252.017 308.58 251.963 317.28 252 326 C256.29 326 260.58 326 265 326 C264.339 285.62 263.315 245.26 262.203 204.9 C262.02 198.26 261.841 191.62 261.662 184.97 C261.465 177.65 261.265 170.32 261.065 163 C260.981 159.94 260.898 156.88 260.816 153.82 C260.378 137.54 259.874 121.27 259 105 C258.67 105 258.34 105 258 105 Z M246.5625 335.3125 C244.627 338.64 244.477 340.19 245 344 C245.495 345.13 245.99 346.27 246.5 347.44 C250.687 358.05 247.929 368.99 244.289 379.25 C241.39 387.69 239.47 395.36 243.562 403.75 C246.164 407.76 249.58 410.24 254 412 C258.671 412.91 262.581 412.52 266.812 410.31 C271.894 406.63 274.435 403.41 275.755 397.15 C276.568 390.01 274.314 383.49 271.938 376.88 C268.112 365.49 267.082 355.27 272 344 C272.41 340.51 272.225 338.57 270.938 335.31 C267.716 331.47 263.894 330.24 259 329.625 C253.953 330.26 250.263 331.8 246.5625 335.3125 Z" fill="#00D2FF"/>
+        </svg>
+      </div>
+      <div style="font-style: italic; color: rgba(255, 255, 255, 0.45); font-size: 13px; text-align: center; margin-bottom: 16px; letter-spacing: 0.5px;">Finding Peace in the Chaos</div>
       <div class="auth-badge">● LOCAL SOVEREIGN ENCLAVE</div>
       <h1 class="auth-title">Baton PC Companion</h1>
       <p class="auth-subtitle">Sovereign workspace bridge for local AI models, file automation, and mobile sync.</p>

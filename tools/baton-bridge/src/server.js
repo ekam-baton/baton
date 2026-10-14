@@ -435,7 +435,16 @@ class McpBridgeServer {
             return;
           }
 
-          // 2. Visual Browser QR Pairing page
+          // 2. Visual Browser QR Pairing page & Static Assets
+          if ((pathname === '/logo.svg' || pathname === '/favicon.ico' || pathname === '/favicon.svg') && req.method === 'GET') {
+            const logoPath = path.join(__dirname, 'web', 'logo.svg');
+            if (fs.existsSync(logoPath)) {
+              res.writeHead(200, { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=86400' });
+              res.end(fs.readFileSync(logoPath));
+              return;
+            }
+          }
+
           if ((pathname === '/qr' || pathname === '/') && req.method === 'GET') {
             this.handleBrowserQrPage(res);
             return;
