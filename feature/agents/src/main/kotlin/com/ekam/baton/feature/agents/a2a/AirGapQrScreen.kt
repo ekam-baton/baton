@@ -36,6 +36,7 @@ fun AirGapQrScreen(
     onNavigateToScanner: () -> Unit = {},
     viewModel: A2AViewModel = koinViewModel()
 ) {
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
     val sdpOffer by viewModel.sdpOffer.collectAsStateWithLifecycle()
     val sdpAnswer by viewModel.sdpAnswer.collectAsStateWithLifecycle()
     
@@ -165,7 +166,10 @@ fun AirGapQrScreen(
 
             // Action Button
             Button(
-                onClick = onNavigateToScanner,
+                onClick = {
+                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
+                    onNavigateToScanner()
+                },
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                 shape = RoundedCornerShape(16.dp),
                 modifier = Modifier.fillMaxWidth().height(56.dp)

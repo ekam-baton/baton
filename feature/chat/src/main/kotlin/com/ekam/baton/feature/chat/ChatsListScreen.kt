@@ -169,7 +169,17 @@ fun ChatsListScreen(
             }
 
             if (selectedTab == 0) {
-                if (conversations.itemCount == 0) {
+                if (conversations.loadState.refresh is androidx.paging.LoadState.Loading && conversations.itemCount == 0) {
+                    LazyColumn(
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(6) {
+                            com.ekam.baton.core.ui.components.SkeletonChatItem()
+                        }
+                    }
+                } else if (conversations.itemCount == 0) {
                     EmptyChatsState(
                         modifier = Modifier.weight(1f),
                         onInitializeClick = onNavigateToCreator
@@ -308,9 +318,11 @@ fun SwipeToDeleteConversationItem(
     onClick: () -> Unit,
     onDelete: () -> Unit
 ) {
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = {
             if (it == SwipeToDismissBoxValue.EndToStart) {
+                haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
                 onDelete()
                 true
             } else {

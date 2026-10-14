@@ -60,6 +60,7 @@ fun AirGapScannerScreen(
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
     var hasCameraPermission by remember { mutableStateOf(false) }
     var scannedPayload by remember { mutableStateOf<String?>(null) }
     var isProcessing by remember { mutableStateOf(false) }
@@ -264,6 +265,7 @@ fun AirGapScannerScreen(
 
                     IconButton(
                         onClick = {
+                            haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
                             val nextTorch = !isTorchOn
                             camera?.cameraControl?.enableTorch(nextTorch)
                             isTorchOn = nextTorch
@@ -401,6 +403,7 @@ fun AirGapScannerScreen(
         // Processing State Overlay
         if (scannedPayload != null) {
             LaunchedEffect(scannedPayload) {
+                haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
                 try {
                     val bytes = Base64.decode(scannedPayload, Base64.NO_WRAP)
                     val inflater = Inflater()

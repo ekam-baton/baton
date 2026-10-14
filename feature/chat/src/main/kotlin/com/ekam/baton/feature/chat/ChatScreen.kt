@@ -111,6 +111,7 @@ fun ChatScreen(
     var reportTargetId by remember { mutableStateOf("") }
     var showTopOverflowMenu by remember { mutableStateOf(false) }
     val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
     val androidContext = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -175,6 +176,7 @@ fun ChatScreen(
                     headlineContent = { Text("Copy Text") },
                     leadingContent = { Icon(Icons.Default.Keyboard, contentDescription = null) },
                     modifier = Modifier.clickable {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(contextMenuMessage!!.content))
                         contextMenuMessage = null
                     }
@@ -183,6 +185,7 @@ fun ChatScreen(
                     headlineContent = { Text("Share Text") },
                     leadingContent = { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null) },
                     modifier = Modifier.clickable {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         val intent = Intent(Intent.ACTION_SEND).apply {
                             type = "text/plain"
                             putExtra(Intent.EXTRA_TEXT, contextMenuMessage!!.content)
@@ -195,6 +198,7 @@ fun ChatScreen(
                     headlineContent = { Text("Forward") },
                     leadingContent = { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, modifier = Modifier.size(24.dp)) }, 
                     modifier = Modifier.clickable {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         showForwardPicker = true
                     }
                 )
@@ -202,6 +206,7 @@ fun ChatScreen(
                     headlineContent = { Text("Delete", color = MaterialTheme.colorScheme.error) },
                     leadingContent = { Icon(Icons.Default.Delete, tint = MaterialTheme.colorScheme.error, contentDescription = null) },
                     modifier = Modifier.clickable {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         viewModel.deleteMessage(contextMenuMessage!!.id)
                         contextMenuMessage = null
                     }
@@ -210,6 +215,7 @@ fun ChatScreen(
                     headlineContent = { Text("Report Message", color = MaterialTheme.colorScheme.error) },
                     leadingContent = { Icon(Icons.Default.Flag, tint = MaterialTheme.colorScheme.error, contentDescription = null) },
                     modifier = Modifier.clickable {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         val msgId = contextMenuMessage!!.id
                         contextMenuMessage = null
                         reportTargetType = "MESSAGE"
@@ -304,6 +310,7 @@ fun ChatScreen(
                                         )
                                     },
                                     onClick = {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                         showTopOverflowMenu = false
                                         viewModel.toggleBlockCurrentAgent()
                                     }
@@ -344,6 +351,7 @@ fun ChatScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f))
+                    .navigationBarsPadding()
                     .imePadding()
             ) {
                 if (isAgentBlocked) {
@@ -488,6 +496,26 @@ fun ChatScreen(
 private fun SovereignEmptyState(
     modifier: Modifier = Modifier
 ) {
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        visible = true
+    }
+    val animatedAlpha by animateFloatAsState(
+        targetValue = if (visible) 0.35f else 0f,
+        animationSpec = tween(durationMillis = 700, easing = FastOutSlowInEasing),
+        label = "emptyLogoAlpha"
+    )
+    val animatedScale by animateFloatAsState(
+        targetValue = if (visible) 1f else 0.92f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+        label = "emptyLogoScale"
+    )
+    val textAlpha by animateFloatAsState(
+        targetValue = if (visible) 0.45f else 0f,
+        animationSpec = tween(durationMillis = 900, delayMillis = 150, easing = FastOutSlowInEasing),
+        label = "emptyTextAlpha"
+    )
+
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -500,13 +528,14 @@ private fun SovereignEmptyState(
             contentDescription = "Baton Logo",
             modifier = Modifier
                 .height(130.dp)
-                .alpha(0.35f)
+                .scale(animatedScale)
+                .alpha(animatedAlpha)
         )
 
         Text(
             text = "Finding Peace in the Chaos",
             style = MaterialTheme.typography.bodyMedium.copy(
-                color = Color.White.copy(alpha = 0.45f),
+                color = Color.White.copy(alpha = textAlpha),
                 fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
                 letterSpacing = 1.2.sp
             ),
@@ -571,7 +600,10 @@ fun MessageBubble(
                 .fillMaxWidth()
                 .combinedClickable(
                     onClick = {},
-                    onLongClick = { onLongClick?.invoke(message) }
+                    onLongClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onLongClick?.invoke(message)
+                    }
                 ),
             contentAlignment = if (isUser) Alignment.CenterEnd else Alignment.CenterStart
         ) {
@@ -1148,7 +1180,7 @@ fun ChatInputBar(
             IconButton(
                 onClick = {
                     if (text.text.isNotBlank() || attachments.isNotEmpty()) {
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         onSendMessage(text.text, attachments)
                         text = TextFieldValue("")
                         attachments = emptyList()
