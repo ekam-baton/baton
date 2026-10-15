@@ -84,20 +84,20 @@ open class McpMessageSender constructor(
         attachments: List<AttachmentDto> = emptyList(),
         relayUrl: String? = null,
         relayToken: String? = null
-    ): Flow<String> {
+    ): Flow<String> = flow {
         val sessionResult = connectionManager.getOrCreateSession(agentId, endpointUrl, authHeader)
         if (sessionResult.isFailure) {
-            return flow { emit("Error connecting to MCP Agent: ${sessionResult.exceptionOrNull()?.message}") }
+            throw java.io.IOException("Error connecting to MCP Agent: ${sessionResult.exceptionOrNull()?.message}")
         }
 
-        val session = sessionResult.getOrNull() ?: return flow { emit("Error: Session is null") }
+        val session = sessionResult.getOrNull() ?: throw java.io.IOException("Error: Session is null")
 
         val targetToolName = listOf("chat", "send_message", "complete", "generate").firstOrNull { desired ->
             session.availableTools.any { it.name == desired }
         }
 
         if (targetToolName == null) {
-            return flow { emit("Error: Agent does not support chat/send_message tools. Available tools: ${session.availableTools.map { it.name }}") }
+            throw IllegalStateException("Agent does not support chat/send_message tools. Available tools: ${session.availableTools.map { it.name }}")
         }
 
         val transport = connectionManager.getTransportForUrl(endpointUrl)
@@ -113,7 +113,7 @@ open class McpMessageSender constructor(
                 if (uploadResult.isSuccess) {
                     uploadedAttachments.add(att.copy(fileId = uploadResult.getOrNull()))
                 } else {
-                    return flow { emit("Error uploading attachment: ${uploadResult.exceptionOrNull()?.message}") }
+                    throw java.io.IOException("Error uploading attachment: ${uploadResult.exceptionOrNull()?.message}")
                 }
             } else {
                 uploadedAttachments.add(att)
@@ -144,22 +144,29 @@ open class McpMessageSender constructor(
             }
         }
 
-        return raceEndpoints(endpointUrl, authHeader, relayUrl, relayToken, targetToolName, argumentsJson, agentId)
+        raceEndpoints(endpointUrl, authHeader, relayUrl, relayToken, targetToolName, argumentsJson, agentId)
             .map { jsonString ->
                 try {
-                    // FIX: Reuse the injected Json instance — no per-event object creation
                     val mcpResponse = jsonParser.decodeFromString<McpResponse>(jsonString)
                     if (mcpResponse.error != null) {
-                        "Error: ${mcpResponse.error.message}"
+                        throw java.io.IOException("MCP Error: ${mcpResponse.error.message}")
                     } else {
                         val contentArray = mcpResponse.result?.get("content") as? kotlinx.serialization.json.JsonArray
                         val text = contentArray?.firstOrNull() as? kotlinx.serialization.json.JsonObject
                         text?.get("text")?.jsonPrimitive?.content ?: "Success, but no text returned."
                     }
                 } catch (e: Exception) {
-                    "Parse Error: ${e.message ?: e.toString()}\nRaw: $jsonString"
+                    if (e is java.io.IOException) throw e
+                    if (jsonString.startsWith("Error:") || jsonString.startsWith("error:")) {
+                        throw java.io.IOException(jsonString)
+                    }
+                    if (!jsonString.trim().startsWith("{")) {
+                        jsonString
+                    } else {
+                        throw java.io.IOException("Parse error: ${e.message} in response: $jsonString")
+                    }
                 }
-            }
+            }.collect { emit(it) }
     }
 
     open suspend fun pairWithAgent(endpointUrl: String, identityKeyHex: String, x25519KeyHex: String): Result<PairResult> {
@@ -204,32 +211,40 @@ open class McpMessageSender constructor(
         arguments: JsonObject,
         relayUrl: String? = null,
         relayToken: String? = null
-    ): Flow<String> {
+    ): Flow<String> = flow {
         val sessionResult = connectionManager.getOrCreateSession(agentId, endpointUrl, authHeader)
         if (sessionResult.isFailure) {
-            return flow { emit("Error connecting to MCP Agent: ${sessionResult.exceptionOrNull()?.message}") }
+            throw java.io.IOException("Error connecting to MCP Agent: ${sessionResult.exceptionOrNull()?.message}")
         }
 
         val isApproved = authorizationManager.requestAuthorization(toolName, arguments)
         if (!isApproved) {
-            return flow { emit("Error: Tool execution was denied by the user.") }
+            throw SecurityException("Tool execution was denied by the user.")
         }
 
-        return raceEndpoints(endpointUrl, authHeader, relayUrl, relayToken, toolName, arguments, agentId)
+        raceEndpoints(endpointUrl, authHeader, relayUrl, relayToken, toolName, arguments, agentId)
             .map { jsonString ->
                 try {
                     val mcpResponse = jsonParser.decodeFromString<McpResponse>(jsonString)
                     if (mcpResponse.error != null) {
-                        "Error: ${mcpResponse.error.message}"
+                        throw java.io.IOException("MCP Error: ${mcpResponse.error.message}")
                     } else {
                         val contentArray = mcpResponse.result?.get("content") as? kotlinx.serialization.json.JsonArray
                         val text = contentArray?.firstOrNull() as? JsonObject
                         text?.get("text")?.jsonPrimitive?.content ?: "Success, but no text returned."
                     }
                 } catch (e: Exception) {
-                    "Parse Error: ${e.message ?: e.toString()}\nRaw: $jsonString"
+                    if (e is java.io.IOException) throw e
+                    if (jsonString.startsWith("Error:") || jsonString.startsWith("error:")) {
+                        throw java.io.IOException(jsonString)
+                    }
+                    if (!jsonString.trim().startsWith("{")) {
+                        jsonString
+                    } else {
+                        throw java.io.IOException("Parse error: ${e.message} in response: $jsonString")
+                    }
                 }
-            }
+            }.collect { emit(it) }
     }
 
     private fun raceEndpoints(

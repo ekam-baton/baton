@@ -83,105 +83,116 @@ class SwarmChatViewModel(
     private val _activeAgentStatus = MutableStateFlow<String?>(null)
     val activeAgentStatus: StateFlow<String?> = _activeAgentStatus.asStateFlow()
 
+    private val _uiError = MutableStateFlow<String?>(null)
+    val uiError: StateFlow<String?> = _uiError.asStateFlow()
+
+    fun clearError() {
+        _uiError.value = null
+    }
+
     fun sendMessage(content: String) {
         if (content.isBlank() || _isDispatching.value) return
 
         viewModelScope.launch {
             _isDispatching.value = true
-
-            // 1. Insert User Message
-            val userMsg = MessageEntity(
-                id = UUID.randomUUID().toString(),
-                conversationId = swarmId,
-                role = "user",
-                content = content,
-                timestamp = System.currentTimeMillis()
-            )
-            messageDao.insertMessage(userMsg)
-
-            // 2. Swarm Orchestration Execution
-            val currentMembers = memberAgents.value
-            val currentSwarm = swarm.value
-
-            if (currentMembers.isNotEmpty()) {
-                val leader = currentMembers.find { it.id == currentSwarm?.leaderAgentId } ?: currentMembers.first()
-
-                _activeAgentStatus.value = "${leader.name} analyzing consensus..."
-                delay(800)
-
-                // Leader orchestrates task
-                val leaderResponse = "Swarm task acknowledged for topology [${currentSwarm?.topologyType ?: "P2P"}]. Delegating execution based on node specialization."
-                val promptTokens = content.length / 4 + 50
-                val completionTokens = leaderResponse.length / 4 + 30
-
-                messageDao.insertMessage(
-                    MessageEntity(
-                        id = UUID.randomUUID().toString(),
-                        conversationId = swarmId,
-                        role = "assistant",
-                        content = leaderResponse,
-                        timestamp = System.currentTimeMillis(),
-                        tokenCount = promptTokens + completionTokens
-                    )
+            try {
+                // 1. Insert User Message
+                val userMsg = MessageEntity(
+                    id = UUID.randomUUID().toString(),
+                    conversationId = swarmId,
+                    role = "user",
+                    content = content,
+                    timestamp = System.currentTimeMillis()
                 )
+                messageDao.insertMessage(userMsg)
 
-                tokenLedgerDao.insertLedgerEntry(
-                    TokenLedgerEntity(
-                        id = UUID.randomUUID().toString(),
-                        agentId = leader.id,
-                        swarmId = swarmId,
-                        modelName = leader.providerType.ifBlank { "claude-3-5-sonnet" },
-                        promptTokens = promptTokens,
-                        completionTokens = completionTokens,
-                        totalTokens = promptTokens + completionTokens,
-                        estimatedCostUsd = (promptTokens * 0.000003) + (completionTokens * 0.000015),
-                        burnRateTks = 48.2,
-                        timestamp = System.currentTimeMillis(),
-                        actionContext = "Swarm leadership orchestration"
-                    )
-                )
+                // 2. Swarm Orchestration Execution
+                val currentMembers = memberAgents.value
+                val currentSwarm = swarm.value
 
-                // If worker agents exist, first worker contributes execution result
-                val worker = currentMembers.find { it.id != leader.id }
-                if (worker != null) {
-                    _activeAgentStatus.value = "${worker.name} executing sub-routine..."
-                    delay(1200)
+                if (currentMembers.isNotEmpty()) {
+                    val leader = currentMembers.find { it.id == currentSwarm?.leaderAgentId } ?: currentMembers.first()
 
-                    val workerResponse = "Completed sub-routine execution for swarm intent: \"${currentSwarm?.intentContext ?: "Multi-agent coordination"}\". Synchronized output state."
-                    val workerPromptTokens = 85
-                    val workerCompTokens = 65
+                    _activeAgentStatus.value = "${leader.name} analyzing consensus..."
+                    delay(800)
+
+                    // Leader orchestrates task
+                    val leaderResponse = "Swarm task acknowledged for topology [${currentSwarm?.topologyType ?: "P2P"}]. Delegating execution based on node specialization."
+                    val promptTokens = content.length / 4 + 50
+                    val completionTokens = leaderResponse.length / 4 + 30
 
                     messageDao.insertMessage(
                         MessageEntity(
                             id = UUID.randomUUID().toString(),
                             conversationId = swarmId,
                             role = "assistant",
-                            content = workerResponse,
-                            timestamp = System.currentTimeMillis() + 50,
-                            tokenCount = workerPromptTokens + workerCompTokens
+                            content = leaderResponse,
+                            timestamp = System.currentTimeMillis(),
+                            tokenCount = promptTokens + completionTokens
                         )
                     )
 
                     tokenLedgerDao.insertLedgerEntry(
                         TokenLedgerEntity(
                             id = UUID.randomUUID().toString(),
-                            agentId = worker.id,
+                            agentId = leader.id,
                             swarmId = swarmId,
-                            modelName = worker.providerType.ifBlank { "gemini-1.5-pro" },
-                            promptTokens = workerPromptTokens,
-                            completionTokens = workerCompTokens,
-                            totalTokens = workerPromptTokens + workerCompTokens,
-                            estimatedCostUsd = (workerPromptTokens * 0.000002) + (workerCompTokens * 0.000010),
-                            burnRateTks = 62.0,
+                            modelName = leader.providerType.ifBlank { "claude-3-5-sonnet" },
+                            promptTokens = promptTokens,
+                            completionTokens = completionTokens,
+                            totalTokens = promptTokens + completionTokens,
+                            estimatedCostUsd = (promptTokens * 0.000003) + (completionTokens * 0.000015),
+                            burnRateTks = 48.2,
                             timestamp = System.currentTimeMillis(),
-                            actionContext = "Swarm worker execution"
+                            actionContext = "Swarm leadership orchestration"
                         )
                     )
-                }
-            }
 
-            _activeAgentStatus.value = null
-            _isDispatching.value = false
+                    // If worker agents exist, first worker contributes execution result
+                    val worker = currentMembers.find { it.id != leader.id }
+                    if (worker != null) {
+                        _activeAgentStatus.value = "${worker.name} executing sub-routine..."
+                        delay(1200)
+
+                        val workerResponse = "Completed sub-routine execution for swarm intent: \"${currentSwarm?.intentContext ?: "Multi-agent coordination"}\". Synchronized output state."
+                        val workerPromptTokens = 85
+                        val workerCompTokens = 65
+
+                        messageDao.insertMessage(
+                            MessageEntity(
+                                id = UUID.randomUUID().toString(),
+                                conversationId = swarmId,
+                                role = "assistant",
+                                content = workerResponse,
+                                timestamp = System.currentTimeMillis() + 50,
+                                tokenCount = workerPromptTokens + workerCompTokens
+                            )
+                        )
+
+                        tokenLedgerDao.insertLedgerEntry(
+                            TokenLedgerEntity(
+                                id = UUID.randomUUID().toString(),
+                                agentId = worker.id,
+                                swarmId = swarmId,
+                                modelName = worker.providerType.ifBlank { "gemini-1.5-pro" },
+                                promptTokens = workerPromptTokens,
+                                completionTokens = workerCompTokens,
+                                totalTokens = workerPromptTokens + workerCompTokens,
+                                estimatedCostUsd = (workerPromptTokens * 0.000002) + (workerCompTokens * 0.000010),
+                                burnRateTks = 62.0,
+                                timestamp = System.currentTimeMillis(),
+                                actionContext = "Swarm worker execution"
+                            )
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("SwarmChatViewModel", "Swarm execution failed", e)
+                _uiError.value = "Swarm execution failed: ${e.message}"
+            } finally {
+                _activeAgentStatus.value = null
+                _isDispatching.value = false
+            }
         }
     }
 

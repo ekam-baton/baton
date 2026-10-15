@@ -44,6 +44,15 @@ fun GroupChatScreen(
     val totalTokens by viewModel.totalTokens.collectAsStateWithLifecycle()
     val isDispatching by viewModel.isDispatching.collectAsStateWithLifecycle()
     val activeAgentStatus by viewModel.activeAgentStatus.collectAsStateWithLifecycle()
+    val uiError by viewModel.uiError.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(uiError) {
+        uiError?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearError()
+        }
+    }
 
     var textValue by remember { mutableStateOf("") }
     var showMenu by remember { mutableStateOf(false) }
@@ -75,6 +84,7 @@ fun GroupChatScreen(
 
     Scaffold(
         containerColor = Color(0xFF0D131F), // Deep Ocean Blue
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = {
