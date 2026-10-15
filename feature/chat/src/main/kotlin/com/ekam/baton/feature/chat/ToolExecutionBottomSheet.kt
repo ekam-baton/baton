@@ -63,7 +63,7 @@ fun ToolExecutionBottomSheet(
                         )
                         Spacer(Modifier.height(4.dp))
                         Text(
-                            text = tool.description,
+                            text = tool.description ?: "",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -26,6 +27,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.ekam.baton.core.data.model.Message
+
+private val attachmentJsonParser = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -61,26 +64,25 @@ fun MessageBubble(
             val color by androidx.compose.animation.animateColorAsState(
                 if (dismissState.targetValue == androidx.compose.material3.SwipeToDismissBoxValue.StartToEnd) 
                     MaterialTheme.colorScheme.primaryContainer 
-                else Color.Transparent,
-                label = "swipeColor"
+                else Color.Transparent, label = "swipeColor"
             )
             Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(color)
-                    .padding(horizontal = 20.dp),
+                Modifier.fillMaxSize().background(color).padding(horizontal = 20.dp),
                 contentAlignment = Alignment.CenterStart
             ) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Reply",
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer
-                )
+                if (dismissState.targetValue == androidx.compose.material3.SwipeToDismissBoxValue.StartToEnd) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Reply",
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
             }
-        }
+        },
+        modifier = modifier
     ) {
-        Column(
-            modifier = modifier
+        Box(
+            modifier = Modifier
                 .fillMaxWidth()
                 .combinedClickable(
                     onClick = {},
@@ -88,73 +90,53 @@ fun MessageBubble(
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         onLongClick?.invoke(message)
                     }
-                )
-                .padding(horizontal = 16.dp, vertical = 4.dp),
-            horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
+                ),
+            contentAlignment = if (isUser) Alignment.CenterEnd else Alignment.CenterStart
         ) {
-            if (message.replyToMessage != null) {
-                Surface(
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier
-                        .padding(bottom = 2.dp)
-                        .widthIn(max = 280.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .width(3.dp)
-                                .height(20.dp)
-                                .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(2.dp))
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            text = message.replyToMessage!!.content,
-                            maxLines = 1,
-                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
+            val attachments = remember(message.attachments) {
+                try {
+                    val attachmentsJson = message.attachments
+                    if (!attachmentsJson.isNullOrEmpty()) {
+                        attachmentJsonParser.decodeFromString<List<com.ekam.baton.core.network.mcp.AttachmentDto>>(attachmentsJson)
+                    } else emptyList()
+                } catch (e: Exception) { emptyList() }
             }
 
             if (isUser) {
                 // User Bubble
                 Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(20.dp, 4.dp, 20.dp, 20.dp))
+                        .clip(RoundedCornerShape(20.dp, 20.dp, 4.dp, 20.dp))
                         .background(MaterialTheme.colorScheme.tertiary)
                         .padding(horizontal = 16.dp, vertical = 12.dp)
                 ) {
                     Column {
-                        message.attachments?.forEach { attachment ->
+                        attachments.forEach { attachment ->
+                            val mimeType = attachment.mimeType.lowercase()
                             when {
-                                attachment.mimeType.startsWith("image/") -> {
-                                    attachment.uri?.let { uriString ->
-                                        coil3.compose.AsyncImage(
-                                            model = Uri.parse(uriString),
-                                            contentDescription = "Attached Image",
-                                            modifier = Modifier
-                                                .fillMaxWidth(0.7f)
-                                                .heightIn(max = 200.dp)
-                                                .clip(RoundedCornerShape(12.dp))
-                                                .clickable {
-                                                    val intent = Intent(Intent.ACTION_VIEW).apply {
-                                                        setDataAndType(Uri.parse(uriString), attachment.mimeType)
+                                mimeType.startsWith("image/") -> {
+                                    coil.compose.AsyncImage(
+                                        model = attachment.uri ?: attachment.dataBase64,
+                                        contentDescription = "Attachment",
+                                        modifier = Modifier
+                                            .fillMaxWidth(0.7f)
+                                            .heightIn(max = 300.dp)
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .padding(bottom = 8.dp)
+                                            .clickable {
+                                                attachment.uri?.let { uriString ->
+                                                    val intent = Intent(Intent.ACTION_SEND).apply {
+                                                        type = attachment.mimeType
+                                                        putExtra(Intent.EXTRA_STREAM, Uri.parse(uriString))
                                                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                                     }
-                                                    androidContext.startActivity(intent)
+                                                    androidContext.startActivity(Intent.createChooser(intent, "Share File"))
                                                 }
-                                                .padding(bottom = 8.dp),
-                                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                                        )
-                                    }
+                                            },
+                                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                    )
                                 }
-                                attachment.mimeType == "application/pdf" -> {
+                                mimeType == "application/pdf" -> {
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth(0.7f)
@@ -163,11 +145,11 @@ fun MessageBubble(
                                             .clickable {
                                                 attachment.uri?.let { uriString ->
                                                     val intent = Intent(Intent.ACTION_SEND).apply {
-                                                        type = "application/pdf"
+                                                        type = attachment.mimeType
                                                         putExtra(Intent.EXTRA_STREAM, Uri.parse(uriString))
                                                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                                     }
-                                                    androidContext.startActivity(Intent.createChooser(intent, "Share PDF"))
+                                                    androidContext.startActivity(Intent.createChooser(intent, "Share File"))
                                                 }
                                             }
                                             .padding(12.dp)
@@ -197,7 +179,7 @@ fun MessageBubble(
                                         }
                                     }
                                 }
-                                attachment.mimeType.contains("sheet") || attachment.mimeType.contains("excel") -> {
+                                mimeType.contains("excel") || mimeType.contains("spreadsheet") -> {
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth(0.7f)
