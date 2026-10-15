@@ -78,6 +78,16 @@ fun CallScreen(
             } catch (e: Exception) {
                 // Ignore
             }
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    audioManager?.clearCommunicationDevice()
+                } else {
+                    @Suppress("DEPRECATION")
+                    audioManager?.isSpeakerphoneOn = false
+                }
+            } catch (e: Exception) {
+                // Ignore
+            }
         }
     }
 

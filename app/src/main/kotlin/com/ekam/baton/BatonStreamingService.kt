@@ -73,21 +73,29 @@ class BatonStreamingService : Service() {
         const val ACTION_STOP_STREAMING = "com.ekam.baton.STOP_STREAMING"
 
         fun start(context: Context) {
-            val intent = Intent(context, BatonStreamingService::class.java).apply {
-                action = ACTION_START_STREAMING
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
+            try {
+                val intent = Intent(context, BatonStreamingService::class.java).apply {
+                    action = ACTION_START_STREAMING
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    context.startForegroundService(intent)
+                } else {
+                    context.startService(intent)
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("BatonStreamingService", "Failed to start BatonStreamingService", e)
             }
         }
 
         fun stop(context: Context) {
-            val intent = Intent(context, BatonStreamingService::class.java).apply {
-                action = ACTION_STOP_STREAMING
+            try {
+                val intent = Intent(context, BatonStreamingService::class.java).apply {
+                    action = ACTION_STOP_STREAMING
+                }
+                context.startService(intent)
+            } catch (e: Exception) {
+                android.util.Log.e("BatonStreamingService", "Failed to stop BatonStreamingService", e)
             }
-            context.startService(intent)
         }
     }
 }
