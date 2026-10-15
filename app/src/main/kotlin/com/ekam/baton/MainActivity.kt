@@ -29,6 +29,7 @@ import com.ekam.baton.ui.auth.SignupScreen
 import com.ekam.baton.ui.auth.UpgradeScreen
 import com.ekam.baton.ui.walkthrough.WalkthroughOverlay
 import com.ekam.baton.ui.walkthrough.rememberWalkthroughState
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import org.koin.androidx.compose.koinViewModel
 import org.koin.androidx.viewmodel.ext.android.viewModel
 
@@ -45,6 +46,7 @@ class MainActivity : AppCompatActivity() {
     private val pendingChatConversationId = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge(
             statusBarStyle = androidx.activity.SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),

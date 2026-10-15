@@ -20,7 +20,7 @@
     <!-- Splash theme using the AndroidX SplashScreen library -->
     <style name="Theme.Baton.Splash" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">#0F1623</item>
-        <item name="windowSplashScreenAnimatedIcon">@android:color/transparent</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_baton_logo</item>
         <item name="postSplashScreenTheme">@style/Theme.Baton</item>
     </style>
 

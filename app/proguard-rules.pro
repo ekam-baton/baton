@@ -1,8 +1,11 @@
-# ProGuard / R8 rules for BATON
+# ProGuard / R8 rules for BATON (Production Hardened)
 
-# ─── kotlinx.serialization ────────────────────────────────────────────────────
-# Keep the serializer metadata annotations and companion objects
--keepattributes *Annotation*, InnerClasses
+# ─── General Attributes & Stack Traces ───────────────────────────────────────
+-keepattributes SourceFile,LineNumberTable,Signature,Exceptions,*Annotation*,InnerClasses
+-renamesourcefileattribute SourceFile
+
+# ─── kotlinx.serialization ───────────────────────────────────────────────────
+# Keep serializer metadata annotations and companion objects
 -dontnote kotlinx.serialization.AnnotationsKt
 
 -keepclassmembers class kotlinx.serialization.json.** {
@@ -21,61 +24,83 @@
     kotlinx.serialization.KSerializer serializer(...);
 }
 
-# ─── Room ─────────────────────────────────────────────────────────────────────
+# ─── Room Database & SQLCipher ───────────────────────────────────────────────
 # Keep all Room @Entity, @Dao, @Database classes
 -keep class * extends androidx.room.RoomDatabase { *; }
 -keep @androidx.room.Entity class * { *; }
 -keep @androidx.room.Dao class * { *; }
 -keepclassmembers @androidx.room.Entity class * { *; }
 
-# ─── Koin ─────────────────────────────────────────────────────────────────────
+# SQLCipher native bindings and reflection
+-keep class net.zetetic.** { *; }
+-dontwarn net.zetetic.**
+
+# ─── Koin Dependency Injection ───────────────────────────────────────────────
 -keep class org.koin.** { *; }
 -keepclassmembers class org.koin.** { *; }
 -keepclasseswithmembers class * {
     @org.koin.core.annotation.* <methods>;
 }
 -keep class * extends androidx.lifecycle.ViewModel { *; }
+-dontwarn org.koin.**
 
-# ─── OkHttp & Retrofit ────────────────────────────────────────────────────────
+# ─── Kotlin Coroutines & Flow ────────────────────────────────────────────────
+-dontwarn kotlinx.coroutines.**
+-keepclassmembers class kotlinx.coroutines.** {
+    volatile <fields>;
+}
+
+# ─── Network & HTTP (OkHttp, Retrofit, Ktor) ──────────────────────────────────
 -dontwarn okhttp3.**
 -dontwarn okio.**
 -dontwarn retrofit2.**
 -keep class retrofit2.** { *; }
--keepattributes Signature
--keepattributes Exceptions
 
-# ─── General ─────────────────────────────────────────────────────────────────
--keepattributes SourceFile,LineNumberTable
--renamesourcefileattribute SourceFile
+-keep class io.ktor.** { *; }
+-dontwarn io.ktor.**
 
-# SQLCipher
--keep class net.zetetic.database.** { *; }
-
-# AndroidX Security Crypto
--keep class androidx.security.crypto.** { *; }
-
-# JNI native methods (Rust crypto bindings)
+# ─── Native JNI & Rust Cryptography ──────────────────────────────────────────
+# JNI native methods (Rust crypto bindings in core:network)
 -keepclasseswithmembernames class * {
     native <methods>;
 }
 
-# Baton Crypto JNI bridge
+# Baton Crypto JNI bridge & classes
 -keep class com.ekam.baton.core.network.security.ConnectionSecurityManager { *; }
 -keep class com.ekam.baton.core.network.security.CryptoHelper { *; }
+-keep class com.ekam.baton.core.network.security.** { *; }
 
-# WebRTC JNI & internal reflection
--keep class org.webrtc.** { *; }
--dontwarn org.webrtc.**
+# AndroidX Security Crypto
+-keep class androidx.security.crypto.** { *; }
+-dontwarn androidx.security.crypto.**
 
 # Matrix Olm SDK JNI bindings
 -keep class org.matrix.android.olm.** { *; }
 -dontwarn org.matrix.android.olm.**
 
-# ZXing & MLKit
+# ─── WebRTC Voice & Signaling ────────────────────────────────────────────────
+-keep class org.webrtc.** { *; }
+-dontwarn org.webrtc.**
+-keep class io.getstream.webrtc.** { *; }
+-dontwarn io.getstream.webrtc.**
+
+# ─── Optical QR Scanner (CameraX & MLKit / ZXing) ────────────────────────────
+-keep class androidx.camera.** { *; }
+-dontwarn androidx.camera.**
+-keep class com.google.mlkit.** { *; }
+-dontwarn com.google.mlkit.**
+-keep class com.google.android.gms.vision.** { *; }
+-dontwarn com.google.android.gms.vision.**
+
 -keep class com.google.zxing.** { *; }
 -dontwarn com.google.zxing.**
 -keep class com.journeyapps.barcodescanner.** { *; }
 -dontwarn com.journeyapps.barcodescanner.**
 
-# WorkManager
+# ─── WorkManager & Background Tasks ──────────────────────────────────────────
 -keep class androidx.work.** { *; }
+-dontwarn androidx.work.**
+
+# ─── Paging 3 ────────────────────────────────────────────────────────────────
+-keep class androidx.paging.** { *; }
+-dontwarn androidx.paging.**

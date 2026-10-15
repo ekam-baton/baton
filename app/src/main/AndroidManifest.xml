@@ -39,7 +39,7 @@
         <!-- nosemgrep -->
         <activity
             android:name=".MainActivity"
-            android:theme="@style/Theme.Baton"
+            android:theme="@style/Theme.Baton.Splash"
             android:exported="true"
             android:windowSoftInputMode="adjustResize"
             android:screenOrientation="portrait">

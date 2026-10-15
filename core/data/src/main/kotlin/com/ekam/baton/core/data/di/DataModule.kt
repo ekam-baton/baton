@@ -332,6 +332,16 @@ val dataModule = module {
         }
     }
 
+    single<com.ekam.baton.core.data.db.DatabasePrewarmer> {
+        object : com.ekam.baton.core.data.db.DatabasePrewarmer {
+            override fun prewarm() {
+                try {
+                    get<BatonDatabase>()
+                } catch (_: Exception) {}
+            }
+        }
+    }
+
     single<AgentDao> { get<BatonDatabase>().agentDao() }
     single<ConversationDao> { get<BatonDatabase>().conversationDao() }
     single<MessageDao> { get<BatonDatabase>().messageDao() }

@@ -10,9 +10,13 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.ekam.baton.core.data.di.dataModule
 import com.ekam.baton.core.network.di.networkModule
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
 import org.koin.core.context.startKoin
+import org.koin.core.logger.Level
 import java.util.concurrent.TimeUnit
 
 class BatonApplication : Application(), Configuration.Provider {
@@ -25,19 +29,32 @@ class BatonApplication : Application(), Configuration.Provider {
     override fun onCreate() {
         super.onCreate()
 
+        // 1. Initialize Dependency Injection with minimal reflection overhead in release
         startKoin {
-            androidLogger()
+            androidLogger(if (BuildConfig.DEBUG) Level.INFO else Level.ERROR)
             androidContext(this@BatonApplication)
             modules(com.ekam.baton.di.appModule, networkModule, dataModule)
         }
 
-        createNotificationChannel()
-        createComplianceNotificationChannel()
-        scheduleTunnelMonitor()
-        scheduleComplianceReminder()
-
+        // 2. Register lifecycle observers immediately
         androidx.lifecycle.ProcessLifecycleOwner.get().lifecycle.addObserver(appLockObserver)
         registerActivityLifecycleCallbacks(appLockObserver)
+
+        // 3. Offload I/O, WorkManager database scheduling, and SQLCipher pre-warming to background
+        CoroutineScope(Dispatchers.IO).launch {
+            createNotificationChannel()
+            createComplianceNotificationChannel()
+            scheduleTunnelMonitor()
+            scheduleComplianceReminder()
+
+            // Pre-warm SQLCipher database connection pool in background
+            try {
+                val prewarmer = org.koin.java.KoinJavaComponent.getKoin().getOrNull<com.ekam.baton.core.data.db.DatabasePrewarmer>()
+                prewarmer?.prewarm()
+            } catch (_: Exception) {
+                // Non-fatal if DB not yet initialized; standard queries will initialize
+            }
+        }
     }
 
     private fun createNotificationChannel() {
