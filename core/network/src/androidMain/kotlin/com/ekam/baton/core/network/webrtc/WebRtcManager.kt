@@ -28,9 +28,12 @@ class WebRtcManager(private val context: Context) {
     val audioAmplitude: kotlinx.coroutines.flow.StateFlow<Float> = _audioAmplitude
 
     private var amplitudeJob: Job? = null
-    private val scope = CoroutineScope(Dispatchers.IO + Job())
+    private var scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     fun initialize() {
+        if (!scope.isActive) {
+            scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+        }
         eglBase = EglBase.create()
         
         PeerConnectionFactory.initialize(
@@ -197,13 +200,17 @@ class WebRtcManager(private val context: Context) {
         _isCallActive.value = false
         _audioAmplitude.value = 0f
         amplitudeJob?.cancel()
+        amplitudeJob = null
+        scope.cancel()
         localAudioTrack?.dispose()
+        localAudioTrack = null
         peerConnection?.close()
         peerConnection?.dispose()
         peerConnection = null
         peerConnectionFactory?.dispose()
         peerConnectionFactory = null
         eglBase?.release()
+        eglBase = null
     }
 }
 

@@ -200,8 +200,7 @@ class McpWebSocketTransport constructor(
                     val payloadStr = String(android.util.Base64.decode(payloadB64, android.util.Base64.NO_WRAP))
                     
                     if (securityMode != "standard" && sharedSecret != null) {
-                        val scope = kotlinx.coroutines.CoroutineScope(Dispatchers.IO + kotlinx.coroutines.SupervisorJob())
-                        scope.launch {
+                        transportScope.launch {
                             val mutex = agentMutexes.getOrPut(agentId) { Mutex() }
                             mutex.withLock {
                                 val payloadJson = JSONObject(payloadStr)
