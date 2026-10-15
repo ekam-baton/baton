@@ -154,6 +154,7 @@ class McpWebSocketTransport constructor(
                             
                             val envelope = JSONObject().apply {
                                 put("receiver_id", agentId) // Outer envelope contains ONLY destination, preventing metadata leakage
+                                put("depth", 0) // Root client invocation
                                 val b64Payload = android.util.Base64.encodeToString(payloadJson.toString().toByteArray(), android.util.Base64.NO_WRAP)
                                 put("payload", b64Payload)
                             }
@@ -166,6 +167,7 @@ class McpWebSocketTransport constructor(
                         val envelope = JSONObject().apply {
                             put("sender_id", clientId)
                             put("receiver_id", agentId)
+                            put("depth", 0) // Root client invocation
                             val b64Payload = android.util.Base64.encodeToString(rawPlaintext.toByteArray(), android.util.Base64.NO_WRAP)
                             put("payload", b64Payload)
                         }
@@ -177,6 +179,11 @@ class McpWebSocketTransport constructor(
             override fun onMessage(webSocket: WebSocket, text: String) {
                 try {
                     val envelope = JSONObject(text)
+                    val depth = envelope.optInt("depth", 0)
+                    if (depth >= 3) {
+                        android.util.Log.w("McpWebSocketTransport", "Incoming message exceeded maximum recursion depth ($depth >= 3). Dropping to protect against infinite loops and runaway token costs.")
+                        return
+                    }
                     val senderId = if (envelope.has("sender_id") && envelope.getString("sender_id").isNotEmpty()) {
                         envelope.getString("sender_id")
                     } else {
