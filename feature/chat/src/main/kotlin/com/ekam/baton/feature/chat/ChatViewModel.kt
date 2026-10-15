@@ -37,6 +37,7 @@ import kotlinx.coroutines.flow.first
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 
 import com.ekam.baton.core.data.db.dao.SwarmDao
 import com.ekam.baton.core.data.db.entity.SwarmEntity
@@ -557,7 +558,8 @@ class ChatViewModel(
         }
     }
 
-    private val cleanupScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val cleanupJob = SupervisorJob()
+    private val cleanupScope = CoroutineScope(cleanupJob + Dispatchers.IO)
 
     override fun onCleared() {
         super.onCleared()
@@ -567,6 +569,8 @@ class ChatViewModel(
                 chatRepository.clearStreamingStates()
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to clear streaming states on exit", e)
+            } finally {
+                cleanupJob.cancel()
             }
         }
     }

@@ -17,6 +17,7 @@ import com.ekam.baton.core.network.service.SwarmForegroundService
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancel
 import org.json.JSONArray
 import java.util.UUID
 
@@ -203,6 +204,22 @@ class SwarmChatViewModel(
                 SwarmForegroundService.stop(ctx)
             }
             onDisbanded()
+        }
+    }
+
+    private val cleanupJob = kotlinx.coroutines.SupervisorJob()
+    private val cleanupScope = kotlinx.coroutines.CoroutineScope(cleanupJob + kotlinx.coroutines.Dispatchers.IO)
+
+    override fun onCleared() {
+        super.onCleared()
+        cleanupScope.launch {
+            try {
+                messageDao.clearStreamingStates()
+            } catch (e: Exception) {
+                android.util.Log.e("SwarmChatViewModel", "Failed to clear streaming states", e)
+            } finally {
+                cleanupJob.cancel()
+            }
         }
     }
 }
