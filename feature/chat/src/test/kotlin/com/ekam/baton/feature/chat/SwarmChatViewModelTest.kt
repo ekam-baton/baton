@@ -124,6 +124,9 @@ class SwarmChatViewModelTest {
         override suspend fun getLastNMessages(conversationId: String, n: Int): List<MessageEntity> =
             messages.filter { it.conversationId == conversationId }.takeLast(n)
         override suspend fun deleteMessage(id: String) { messages.removeAll { it.id == id } }
+        override suspend fun deleteMessagesForConversation(conversationId: String) {
+            messages.removeAll { it.conversationId == conversationId }
+        }
         override suspend fun clearStreamingStates() {}
     }
 
