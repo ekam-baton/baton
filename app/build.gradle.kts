@@ -1,3 +1,6 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -16,7 +19,7 @@ android {
         minSdk = 26
         targetSdk = 36
         versionCode = 1
-        versionName = "1.0.0"
+        versionName = "1.0.0-rc1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -24,23 +27,33 @@ android {
         }
     }
 
-    val keystoreFilePath = (project.findProperty("BATON_KEYSTORE_FILE") as String?)
+    val keystorePropsFile = rootProject.file("keystore.properties")
+    val keystoreProps = Properties()
+    if (keystorePropsFile.exists()) {
+        try {
+            FileInputStream(keystorePropsFile).use { keystoreProps.load(it) }
+        } catch (_: Exception) {}
+    }
+
+    val keystoreFilePath: String? = (project.findProperty("BATON_KEYSTORE_FILE") as String?)
         ?: System.getenv("BATON_KEYSTORE_FILE")
-    val hasReleaseKeystore = keystoreFilePath != null && file(keystoreFilePath).exists()
+        ?: keystoreProps.getProperty("storeFile")
+    val resolvedKeystoreFile = keystoreFilePath?.let { file(it) }?.takeIf { it.exists() }
+    val hasReleaseKeystore = resolvedKeystoreFile != null
 
     signingConfigs {
-        if (hasReleaseKeystore) {
+        if (hasReleaseKeystore && resolvedKeystoreFile != null) {
             create("release") {
-                storeFile = file(keystoreFilePath!!)
+                storeFile = resolvedKeystoreFile
                 storePassword = (project.findProperty("BATON_KEYSTORE_PASSWORD") as String?)
                     ?: System.getenv("BATON_KEYSTORE_PASSWORD")
-                    ?: ""
+                    ?: (keystoreProps.getProperty("storePassword") ?: "")
                 keyAlias = (project.findProperty("BATON_KEY_ALIAS") as String?)
                     ?: System.getenv("BATON_KEY_ALIAS")
-                    ?: "baton"
+                    ?: (keystoreProps.getProperty("keyAlias") ?: "baton")
                 keyPassword = (project.findProperty("BATON_KEY_PASSWORD") as String?)
                     ?: System.getenv("BATON_KEY_PASSWORD")
-                    ?: ""
+                    ?: (keystoreProps.getProperty("keyPassword") ?: "")
             }
         }
     }
