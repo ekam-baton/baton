@@ -60,9 +60,12 @@ class TunnelSetupViewModel(
             _isValidating.value = true
             val host = try { URL(url).host } catch (e: Exception) { null }
             if (host != null) localNetworkPolicyProvider.allowDuringPairing(host)
-            _validationResult.value = endpointValidator.validateEndpoint(url)
-            if (host != null) localNetworkPolicyProvider.removePairingHost(host)
-            _isValidating.value = false
+            try {
+                _validationResult.value = endpointValidator.validateEndpoint(url)
+            } finally {
+                if (host != null) localNetworkPolicyProvider.removePairingHost(host)
+                _isValidating.value = false
+            }
         }
     }
 
@@ -71,54 +74,61 @@ class TunnelSetupViewModel(
             val host = try { URL(url).host } catch (e: Exception) { null }
             if (host != null) localNetworkPolicyProvider.allowDuringPairing(host)
 
-            val startTime = System.currentTimeMillis()
-            val result = endpointValidator.validateEndpoint(url)
-            val latency = System.currentTimeMillis() - startTime
+            try {
+                val startTime = System.currentTimeMillis()
+                val result = endpointValidator.validateEndpoint(url)
+                val latency = System.currentTimeMillis() - startTime
 
-            if (host != null) localNetworkPolicyProvider.removePairingHost(host)
-
-            val health = TunnelHealth(
-                agentId = agentId,
-                endpointUrl = url,
-                status = result.status,
-                latencyMs = latency,
-                serverName = result.serverName,
-                error = result.error
-            )
-            _tunnelHealthMap.value = _tunnelHealthMap.value + (agentId to health)
+                val health = TunnelHealth(
+                    agentId = agentId,
+                    endpointUrl = url,
+                    status = result.status,
+                    latencyMs = latency,
+                    serverName = result.serverName,
+                    error = result.error
+                )
+                _tunnelHealthMap.value = _tunnelHealthMap.value + (agentId to health)
+            } finally {
+                if (host != null) localNetworkPolicyProvider.removePairingHost(host)
+            }
         }
     }
 
     fun probeAllTunnelEndpoints() {
         viewModelScope.launch {
             _isProbingAll.value = true
-            val currentAgents = agents.value
-            val newMap = _tunnelHealthMap.value.toMutableMap()
+            try {
+                val currentAgents = agents.value
+                val newMap = _tunnelHealthMap.value.toMutableMap()
 
-            for (agent in currentAgents) {
-                if (agent.mcpEndpointUrl.isNotBlank()) {
-                    val host = try { URL(agent.mcpEndpointUrl).host } catch (e: Exception) { null }
-                    if (host != null) localNetworkPolicyProvider.allowDuringPairing(host)
+                for (agent in currentAgents) {
+                    if (agent.mcpEndpointUrl.isNotBlank()) {
+                        val host = try { URL(agent.mcpEndpointUrl).host } catch (e: Exception) { null }
+                        if (host != null) localNetworkPolicyProvider.allowDuringPairing(host)
 
-                    val startTime = System.currentTimeMillis()
-                    val result = endpointValidator.validateEndpoint(agent.mcpEndpointUrl)
-                    val latency = System.currentTimeMillis() - startTime
+                        try {
+                            val startTime = System.currentTimeMillis()
+                            val result = endpointValidator.validateEndpoint(agent.mcpEndpointUrl)
+                            val latency = System.currentTimeMillis() - startTime
 
-                    if (host != null) localNetworkPolicyProvider.removePairingHost(host)
-
-                    newMap[agent.id] = TunnelHealth(
-                        agentId = agent.id,
-                        endpointUrl = agent.mcpEndpointUrl,
-                        status = result.status,
-                        latencyMs = latency,
-                        serverName = result.serverName,
-                        error = result.error
-                    )
+                            newMap[agent.id] = TunnelHealth(
+                                agentId = agent.id,
+                                endpointUrl = agent.mcpEndpointUrl,
+                                status = result.status,
+                                latencyMs = latency,
+                                serverName = result.serverName,
+                                error = result.error
+                            )
+                        } finally {
+                            if (host != null) localNetworkPolicyProvider.removePairingHost(host)
+                        }
+                    }
                 }
-            }
 
-            _tunnelHealthMap.value = newMap
-            _isProbingAll.value = false
+                _tunnelHealthMap.value = newMap
+            } finally {
+                _isProbingAll.value = false
+            }
         }
     }
 }

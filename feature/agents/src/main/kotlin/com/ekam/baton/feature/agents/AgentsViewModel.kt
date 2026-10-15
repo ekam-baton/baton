@@ -125,9 +125,11 @@ class AgentsViewModel(
         suspend fun validateEndpoint(urlString: String): com.ekam.baton.core.network.tunnel.TunnelValidationResult {
         val host = try { java.net.URL(urlString).host } catch (e: Exception) { null }
         if (host != null) localNetworkPolicyProvider.allowDuringPairing(host)
-        val result = tunnelValidator.validateEndpoint(urlString)
-        if (host != null) localNetworkPolicyProvider.removePairingHost(host)
-        return result
+        return try {
+            tunnelValidator.validateEndpoint(urlString)
+        } finally {
+            if (host != null) localNetworkPolicyProvider.removePairingHost(host)
+        }
     }
 
     fun addAgent(agent: Agent) {

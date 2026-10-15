@@ -202,7 +202,7 @@ open class A2ASession(
 
     open suspend fun createOffer(): String? = suspendCancellableCoroutine { cont ->
         if (peerConnection == null) {
-            cont.resume("ERROR: PeerConnection is null. Did initialization fail?")
+            if (cont.isActive) cont.resume("ERROR: PeerConnection is null. Did initialization fail?")
             return@suspendCancellableCoroutine
         }
 
@@ -219,22 +219,22 @@ open class A2ASession(
                             withTimeoutOrNull(5000) {
                                 _iceGatheringComplete.first { it }
                             }
-                            cont.resume(peerConnection?.localDescription?.description)
+                            if (cont.isActive) cont.resume(peerConnection?.localDescription?.description)
                         }
                     }
-                    override fun onCreateFailure(p0: String?) { cont.resume("ERROR: Failed to set local description: $p0") }
-                    override fun onSetFailure(p0: String?) { cont.resume("ERROR: Failed to set local description: $p0") }
+                    override fun onCreateFailure(p0: String?) { if (cont.isActive) cont.resume("ERROR: Failed to set local description: $p0") }
+                    override fun onSetFailure(p0: String?) { if (cont.isActive) cont.resume("ERROR: Failed to set local description: $p0") }
                 }, sdp)
             }
             override fun onSetSuccess() {}
-            override fun onCreateFailure(p0: String?) { cont.resume("ERROR: Failed to create offer: $p0") }
+            override fun onCreateFailure(p0: String?) { if (cont.isActive) cont.resume("ERROR: Failed to create offer: $p0") }
             override fun onSetFailure(p0: String?) {}
         }, mediaConstraints)
     }
 
     open suspend fun handleOfferAndCreateAnswer(offerSdp: String): String? = suspendCancellableCoroutine { cont ->
         if (peerConnection == null) {
-            cont.resume("ERROR: PeerConnection is null.")
+            if (cont.isActive) cont.resume("ERROR: PeerConnection is null.")
             return@suspendCancellableCoroutine
         }
 
@@ -254,34 +254,34 @@ open class A2ASession(
                                     withTimeoutOrNull(5000) {
                                         _iceGatheringComplete.first { it }
                                     }
-                                    cont.resume(peerConnection?.localDescription?.description)
+                                    if (cont.isActive) cont.resume(peerConnection?.localDescription?.description)
                                 }
                             }
-                            override fun onCreateFailure(p0: String?) { cont.resume("ERROR: Failed to set local desc for answer: $p0") }
-                            override fun onSetFailure(p0: String?) { cont.resume("ERROR: Failed to set local desc for answer: $p0") }
+                            override fun onCreateFailure(p0: String?) { if (cont.isActive) cont.resume("ERROR: Failed to set local desc for answer: $p0") }
+                            override fun onSetFailure(p0: String?) { if (cont.isActive) cont.resume("ERROR: Failed to set local desc for answer: $p0") }
                         }, sdp)
                     }
                     override fun onSetSuccess() {}
-                    override fun onCreateFailure(p0: String?) { cont.resume("ERROR: Failed to create answer: $p0") }
+                    override fun onCreateFailure(p0: String?) { if (cont.isActive) cont.resume("ERROR: Failed to create answer: $p0") }
                     override fun onSetFailure(p0: String?) {}
                 }, mediaConstraints)
             }
-            override fun onCreateFailure(p0: String?) { cont.resume("ERROR: Failed to set remote desc: $p0") }
-            override fun onSetFailure(p0: String?) { cont.resume("ERROR: Failed to set remote desc: $p0") }
+            override fun onCreateFailure(p0: String?) { if (cont.isActive) cont.resume("ERROR: Failed to set remote desc: $p0") }
+            override fun onSetFailure(p0: String?) { if (cont.isActive) cont.resume("ERROR: Failed to set remote desc: $p0") }
         }, sessionDescription)
     }
 
     open suspend fun handleAnswer(answerSdp: String) = suspendCancellableCoroutine<Boolean> { cont ->
         if (peerConnection == null) {
-            cont.resume(false)
+            if (cont.isActive) cont.resume(false)
             return@suspendCancellableCoroutine
         }
         val sessionDescription = SessionDescription(SessionDescription.Type.ANSWER, answerSdp)
         peerConnection?.setRemoteDescription(object : SdpObserver {
             override fun onCreateSuccess(p0: SessionDescription?) {}
-            override fun onSetSuccess() { cont.resume(true) }
-            override fun onCreateFailure(p0: String?) { cont.resume(false) }
-            override fun onSetFailure(p0: String?) { cont.resume(false) }
+            override fun onSetSuccess() { if (cont.isActive) cont.resume(true) }
+            override fun onCreateFailure(p0: String?) { if (cont.isActive) cont.resume(false) }
+            override fun onSetFailure(p0: String?) { if (cont.isActive) cont.resume(false) }
         }, sessionDescription)
     }
 
