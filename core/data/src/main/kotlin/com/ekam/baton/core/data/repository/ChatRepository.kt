@@ -91,6 +91,7 @@ class ChatRepository constructor(
     }
 
     suspend fun deleteConversation(id: String) {
+        messageDao.deleteMessagesForConversation(id)
         conversationDao.deleteConversation(id)
     }
 

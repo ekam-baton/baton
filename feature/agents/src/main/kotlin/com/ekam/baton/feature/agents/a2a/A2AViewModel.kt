@@ -131,7 +131,7 @@ class A2AViewModel(
     fun receiveOfferAndGenerateAnswer(combinedOffer: String) {
         viewModelScope.launch {
             try {
-                val parts = combinedOffer.split("|||")
+                val parts = combinedOffer.split("|||", limit = 2)
                 if (parts.size == 2) {
                     val remoteCryptoKey = parts[0]
                     val sdpOffer = parts[1]
@@ -156,7 +156,7 @@ class A2AViewModel(
     fun completeHandshake(combinedAnswer: String) {
         viewModelScope.launch {
             try {
-                val parts = combinedAnswer.split("|||")
+                val parts = combinedAnswer.split("|||", limit = 2)
                 if (parts.size == 2) {
                     val remoteCryptoKey = parts[0]
                     val sdpAnswer = parts[1]

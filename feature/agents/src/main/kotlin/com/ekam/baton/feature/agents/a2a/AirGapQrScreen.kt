@@ -49,16 +49,20 @@ fun AirGapQrScreen(
             try {
                 // Compress payload for denser QR Code
                 val deflater = Deflater(Deflater.BEST_COMPRESSION)
-                deflater.setInput(payload.toByteArray(Charsets.UTF_8))
-                deflater.finish()
-                val buffer = ByteArray(1024)
-                val os = ByteArrayOutputStream()
-                while (!deflater.finished()) {
-                    val count = deflater.deflate(buffer)
-                    os.write(buffer, 0, count)
+                val compressedBase64 = try {
+                    deflater.setInput(payload.toByteArray(Charsets.UTF_8))
+                    deflater.finish()
+                    val buffer = ByteArray(1024)
+                    val os = ByteArrayOutputStream()
+                    while (!deflater.finished()) {
+                        val count = deflater.deflate(buffer)
+                        os.write(buffer, 0, count)
+                    }
+                    os.close()
+                    Base64.encodeToString(os.toByteArray(), Base64.NO_WRAP)
+                } finally {
+                    deflater.end()
                 }
-                os.close()
-                val compressedBase64 = Base64.encodeToString(os.toByteArray(), Base64.NO_WRAP)
                 
                 val writer = QRCodeWriter()
                 val bitMatrix = writer.encode(compressedBase64, BarcodeFormat.QR_CODE, 800, 800)

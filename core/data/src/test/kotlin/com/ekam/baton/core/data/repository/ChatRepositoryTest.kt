@@ -26,6 +26,8 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -66,6 +68,7 @@ class FakeMessageDao : MessageDao {
     override suspend fun getLastNMessages(conversationId: String, n: Int): List<MessageEntity> =
         messages.filter { it.conversationId == conversationId }.takeLast(n)
     override suspend fun deleteMessage(id: String) { messages.removeAll { it.id == id } }
+    override suspend fun deleteMessagesForConversation(conversationId: String) { messages.removeAll { it.conversationId == conversationId } }
     override suspend fun clearStreamingStates() {}
 }
 
@@ -217,5 +220,30 @@ class ChatRepositoryTest {
         val conv = conversationDao.getConversationById(convId)
         assertEquals(2, conv?.messageCount) // User + Assistant
         assertEquals("First message here", conv?.title)
+    }
+
+    @Test
+    fun `deleteConversation deletes conversation and associated messages`() = runTest {
+        val convId = "conv-to-delete"
+        conversationDao.upsertConversation(ConversationEntity(
+            id = convId,
+            agentId = "agent-1",
+            title = "Ephemeral Chat",
+            createdAt = 1000L,
+            updatedAt = 1000L,
+            messageCount = 1
+        ))
+        messageDao.insertMessage(MessageEntity(
+            id = "msg-1",
+            conversationId = convId,
+            role = "user",
+            content = "Secret message",
+            timestamp = 1000L
+        ))
+
+        repository.deleteConversation(convId)
+
+        assertNull(conversationDao.getConversationById(convId))
+        assertTrue(messageDao.messages.none { it.conversationId == convId })
     }
 }

@@ -406,16 +406,26 @@ fun AirGapScannerScreen(
                 haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
                 try {
                     val bytes = Base64.decode(scannedPayload, Base64.NO_WRAP)
-                    val inflater = Inflater()
-                    inflater.setInput(bytes)
-                    val os = ByteArrayOutputStream()
-                    val buffer = ByteArray(1024)
-                    while (!inflater.finished()) {
-                        val count = inflater.inflate(buffer)
-                        os.write(buffer, 0, count)
+                    val rawSdp = try {
+                        val inflater = Inflater()
+                        try {
+                            inflater.setInput(bytes)
+                            val os = ByteArrayOutputStream()
+                            val buffer = ByteArray(1024)
+                            while (!inflater.finished()) {
+                                val count = inflater.inflate(buffer)
+                                if (count == 0 && inflater.needsInput()) break
+                                os.write(buffer, 0, count)
+                            }
+                            os.close()
+                            String(os.toByteArray(), Charsets.UTF_8)
+                        } finally {
+                            inflater.end()
+                        }
+                    } catch (_: Exception) {
+                        // Fallback: If payload was not compressed, decode bytes directly
+                        String(bytes, Charsets.UTF_8)
                     }
-                    os.close()
-                    val rawSdp = String(os.toByteArray(), Charsets.UTF_8)
                     
                     if (viewModel.sdpOffer.value != null && viewModel.sdpAnswer.value == null) {
                         viewModel.completeHandshake(rawSdp)
