@@ -163,6 +163,14 @@ class ChatRepository constructor(
         return messageDao.getLastNMessages(conversationId, n)
     }
 
+    suspend fun getFailedMessages(conversationId: String? = null): List<MessageEntity> {
+        return if (conversationId != null) {
+            messageDao.getFailedMessagesForConversation(conversationId)
+        } else {
+            messageDao.getFailedMessages()
+        }
+    }
+
     suspend fun sendMessageWithResponse(
         conversationId: String,
         content: String,

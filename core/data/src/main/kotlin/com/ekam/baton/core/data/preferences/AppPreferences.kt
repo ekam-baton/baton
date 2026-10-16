@@ -54,6 +54,7 @@ open class AppPreferences constructor(
         val LAST_SYNC_TIMESTAMP = longPreferencesKey("last_sync_timestamp")
         val STEALTH_MODE_ENABLED = booleanPreferencesKey("stealth_mode_enabled")
         val DURESS_PIN = stringPreferencesKey("duress_pin")
+        val APP_LOCK_PIN = stringPreferencesKey("app_lock_pin")
     }
 
     private val securePrefs = try {
@@ -462,6 +463,20 @@ open class AppPreferences constructor(
                 preferences.remove(DURESS_PIN)
             } else {
                 preferences[DURESS_PIN] = pin
+            }
+        }
+    }
+
+    open val appLockPin: Flow<String?> get() = if (_context == null) kotlinx.coroutines.flow.flowOf(null) else context.dataStore.data.map { preferences ->
+        preferences[APP_LOCK_PIN]
+    }
+
+    open suspend fun setAppLockPin(pin: String?) {
+        _context?.dataStore?.edit { preferences ->
+            if (pin.isNullOrBlank()) {
+                preferences.remove(APP_LOCK_PIN)
+            } else {
+                preferences[APP_LOCK_PIN] = pin
             }
         }
     }

@@ -65,6 +65,46 @@ fun CallScreen(
 
     DisposableEffect(Unit) {
         val manager = WebRtcManager(context)
+        var focusRequest: Any? = null
+        val focusChangeListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
+            when (focusChange) {
+                AudioManager.AUDIOFOCUS_LOSS_TRANSIENT,
+                AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
+                    manager.setMicrophoneMute(true)
+                }
+                AudioManager.AUDIOFOCUS_GAIN -> {
+                    manager.setMicrophoneMute(isMuted)
+                }
+                AudioManager.AUDIOFOCUS_LOSS -> {
+                    try { manager.endCall() } catch (_: Exception) {}
+                    onEndCall()
+                }
+            }
+        }
+
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val req = android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                    .setAudioAttributes(
+                        android.media.AudioAttributes.Builder()
+                            .setUsage(android.media.AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                            .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
+                            .build()
+                    )
+                    .setOnAudioFocusChangeListener(focusChangeListener)
+                    .build()
+                audioManager?.requestAudioFocus(req)
+                focusRequest = req
+            } else {
+                @Suppress("DEPRECATION")
+                audioManager?.requestAudioFocus(
+                    focusChangeListener,
+                    AudioManager.STREAM_VOICE_CALL,
+                    AudioManager.AUDIOFOCUS_GAIN
+                )
+            }
+        } catch (_: Exception) {}
+
         try {
             manager.initialize()
             manager.startVoiceCall(agentName)
@@ -73,6 +113,16 @@ fun CallScreen(
             // Ignored for UI preview
         }
         onDispose {
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    (focusRequest as? android.media.AudioFocusRequest)?.let {
+                        audioManager?.abandonAudioFocusRequest(it)
+                    }
+                } else {
+                    @Suppress("DEPRECATION")
+                    audioManager?.abandonAudioFocus(focusChangeListener)
+                }
+            } catch (_: Exception) {}
             try {
                 manager.endCall()
             } catch (e: Exception) {

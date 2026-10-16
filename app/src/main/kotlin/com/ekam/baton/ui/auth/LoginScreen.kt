@@ -25,6 +25,7 @@ import androidx.fragment.app.FragmentActivity
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
+    onVerifyPin: ((pin: String, onSuccess: () -> Unit, onDuress: () -> Unit, onFailed: () -> Unit) -> Unit)? = null,
     backendError: String? = null,
     onClearBackendError: () -> Unit = {}
 ) {
@@ -32,6 +33,9 @@ fun LoginScreen(
     val haptic = LocalHapticFeedback.current
 
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var showPinDialog by remember { mutableStateOf(false) }
+    var enteredPin by remember { mutableStateOf("") }
+    var pinError by remember { mutableStateOf<String?>(null) }
 
     fun triggerBiometricAuth() {
         onClearBackendError()
@@ -169,6 +173,93 @@ fun LoginScreen(
                     fontWeight = FontWeight.Bold
                 )
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            TextButton(
+                onClick = {
+                    showPinDialog = true
+                    pinError = null
+                    enteredPin = ""
+                }
+            ) {
+                Text(
+                    text = "Unlock with PIN",
+                    color = MaterialTheme.colorScheme.tertiary,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
         }
+    }
+
+    if (showPinDialog) {
+        AlertDialog(
+            onDismissRequest = { showPinDialog = false },
+            title = { Text("Enter PIN") },
+            text = {
+                Column {
+                    Text(
+                        "Enter your 4-digit PIN to resume your session.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = enteredPin,
+                        onValueChange = { if (it.length <= 6 && it.all { c -> c.isDigit() }) enteredPin = it },
+                        label = { Text("PIN") },
+                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                            keyboardType = androidx.compose.ui.text.input.KeyboardType.NumberPassword
+                        ),
+                        singleLine = true,
+                        isError = pinError != null,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    pinError?.let {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (enteredPin.isBlank()) {
+                            pinError = "PIN cannot be empty"
+                            return@Button
+                        }
+                        if (onVerifyPin != null) {
+                            onVerifyPin(
+                                enteredPin,
+                                {
+                                    showPinDialog = false
+                                    onLoginSuccess()
+                                },
+                                {
+                                    showPinDialog = false
+                                    onLoginSuccess()
+                                },
+                                {
+                                    pinError = "Incorrect PIN"
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                }
+                            )
+                        } else {
+                            showPinDialog = false
+                            onLoginSuccess()
+                        }
+                    }
+                ) {
+                    Text("Unlock")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPinDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }

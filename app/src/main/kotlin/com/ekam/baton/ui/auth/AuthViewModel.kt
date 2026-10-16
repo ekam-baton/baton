@@ -28,7 +28,9 @@ class AuthViewModel(
     private val sessionManager: SessionManager,
     private val appPreferences: AppPreferences,
     private val httpClient: OkHttpClient,
-    private val securityManager: com.ekam.baton.core.network.security.ConnectionSecurityManager
+    private val securityManager: com.ekam.baton.core.network.security.ConnectionSecurityManager,
+    private val wipeDataManager: com.ekam.baton.core.data.repository.WipeDataManager? = null,
+    private val connectionPoolManager: com.ekam.baton.core.network.tunnel.ConnectionPoolManager? = null
 ) : ViewModel() {
 
     val authState: StateFlow<AuthState> = combine(
@@ -178,6 +180,34 @@ class AuthViewModel(
     fun login() {
         sessionManager.setLoggedIn(true)
     }
+
+    fun verifyPin(
+        pin: String,
+        onSuccess: () -> Unit,
+        onDuress: () -> Unit,
+        onFailed: () -> Unit
+    ) {
+        viewModelScope.launch {
+            val duress = appPreferences.duressPin.firstOrNull()
+            if (!duress.isNullOrBlank() && pin == duress) {
+                connectionPoolManager?.disconnectAll()
+                wipeDataManager?.emergencyCryptographicShred()
+                sessionManager.clearRegistration()
+                sessionManager.setLoggedIn(true)
+                onDuress()
+                return@launch
+            }
+
+            val storedPin = appPreferences.appLockPin.firstOrNull()
+            if (storedPin.isNullOrBlank() || pin == storedPin) {
+                sessionManager.setLoggedIn(true)
+                onSuccess()
+            } else {
+                onFailed()
+            }
+        }
+    }
+
     fun clearLoginError() {
         _loginError.value = null
     }

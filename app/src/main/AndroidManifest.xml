@@ -92,6 +92,15 @@
             </intent-filter>
         </receiver>
 
+        <!-- Background FCM Wakeup Receiver -->
+        <receiver
+            android:name=".push.BatonWakeupReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.ekam.baton.ACTION_FCM_WAKEUP" />
+            </intent-filter>
+        </receiver>
+
     </application>
 
 </manifest>

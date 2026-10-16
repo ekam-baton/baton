@@ -215,6 +215,9 @@ internal fun BatonAppShell(
                 onLoginSuccess = {
                     authViewModel.login()
                 },
+                onVerifyPin = { pin, onSuccess, onDuress, onFailed ->
+                    authViewModel.verifyPin(pin, onSuccess, onDuress, onFailed)
+                },
                 backendError = loginError,
                 onClearBackendError = {
                     authViewModel.clearLoginError()

@@ -70,6 +70,8 @@ class FakeMessageDao : MessageDao {
     override suspend fun deleteMessage(id: String) { messages.removeAll { it.id == id } }
     override suspend fun deleteMessagesForConversation(conversationId: String) { messages.removeAll { it.conversationId == conversationId } }
     override suspend fun clearStreamingStates() {}
+    override suspend fun getFailedMessages(): List<MessageEntity> = messages.filter { it.isFailed }.sortedBy { it.timestamp }
+    override suspend fun getFailedMessagesForConversation(conversationId: String): List<MessageEntity> = messages.filter { it.conversationId == conversationId && it.isFailed }.sortedBy { it.timestamp }
 }
 
 class ChatFakeMemoryDao : MemoryDao {

@@ -37,4 +37,10 @@ interface MessageDao {
 
     @Query("DELETE FROM messages WHERE conversation_id = :conversationId")
     suspend fun deleteMessagesForConversation(conversationId: String)
+
+    @Query("SELECT * FROM messages WHERE is_failed = 1 ORDER BY timestamp ASC")
+    suspend fun getFailedMessages(): List<MessageEntity>
+
+    @Query("SELECT * FROM messages WHERE conversation_id = :conversationId AND is_failed = 1 ORDER BY timestamp ASC")
+    suspend fun getFailedMessagesForConversation(conversationId: String): List<MessageEntity>
 }

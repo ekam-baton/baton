@@ -31,13 +31,30 @@ sealed class MarkdownPart {
     data class CodeBlock(val language: String, val content: String) : MarkdownPart()
 }
 
+const val MAX_MARKDOWN_PARSE_LENGTH = 50_000
+const val MAX_INLINE_STYLE_PARSE_LENGTH = 8_000
+
+fun sanitizeChatText(rawText: String): String {
+    if (rawText.isEmpty()) return rawText
+    // Remove dangerous bidirectional overrides and non-printable control characters except \n, \r, \t
+    return rawText
+        .replace(Regex("[\u202A-\u202E\u2066-\u2069]"), "")
+        .replace(Regex("[\u0000-\u0008\u000B\u000C\u000E-\u001F]"), "")
+}
+
 fun parseMarkdownBlocks(text: String): List<MarkdownPart> {
+    val sanitized = sanitizeChatText(text)
+    val safeText = if (sanitized.length > MAX_MARKDOWN_PARSE_LENGTH) {
+        sanitized.take(MAX_MARKDOWN_PARSE_LENGTH) + "\n\n...[Content truncated for performance]..."
+    } else {
+        sanitized
+    }
     val parts = mutableListOf<MarkdownPart>()
     val codeBlockRegex = Regex("```(.*?)\\n(.*?)```", RegexOption.DOT_MATCHES_ALL)
     var currentIndex = 0
 
-    codeBlockRegex.findAll(text).forEach { matchResult ->
-        val textBefore = text.substring(currentIndex, matchResult.range.first)
+    codeBlockRegex.findAll(safeText).forEach { matchResult ->
+        val textBefore = safeText.substring(currentIndex, matchResult.range.first)
         if (textBefore.isNotEmpty()) {
             parts.add(MarkdownPart.Text(textBefore))
         }
@@ -47,8 +64,8 @@ fun parseMarkdownBlocks(text: String): List<MarkdownPart> {
         currentIndex = matchResult.range.last + 1
     }
 
-    if (currentIndex < text.length) {
-        parts.add(MarkdownPart.Text(text.substring(currentIndex)))
+    if (currentIndex < safeText.length) {
+        parts.add(MarkdownPart.Text(safeText.substring(currentIndex)))
     }
 
     return parts
@@ -76,25 +93,29 @@ fun MarkdownRenderer(
         blocks.forEach { part ->
             when (part) {
                 is MarkdownPart.Text -> {
-                    var cleanText = part.content
-                    val inlineStyles = buildAnnotatedString {
-                        append(cleanText)
-                        Regex("\\*\\*(.*?)\\*\\*").findAll(cleanText).forEach { match ->
-                            addStyle(SpanStyle(fontWeight = FontWeight.Bold), match.range.first, match.range.last + 1)
+                    val cleanText = part.content
+                    val inlineStyles = if (cleanText.length <= MAX_INLINE_STYLE_PARSE_LENGTH) {
+                        buildAnnotatedString {
+                            append(cleanText)
+                            Regex("\\*\\*(.*?)\\*\\*").findAll(cleanText).forEach { match ->
+                                addStyle(SpanStyle(fontWeight = FontWeight.Bold), match.range.first, match.range.last + 1)
+                            }
+                            Regex("(?<!\\*)\\*(?!\\*)(.*?)(?<!\\*)\\*(?!\\*)").findAll(cleanText).forEach { match ->
+                                addStyle(SpanStyle(fontStyle = FontStyle.Italic), match.range.first, match.range.last + 1)
+                            }
+                            Regex("`(.*?)`").findAll(cleanText).forEach { match ->
+                                addStyle(
+                                    SpanStyle(
+                                        fontFamily = FontFamily.Monospace,
+                                        background = Color.Gray.copy(alpha = 0.3f)
+                                    ), 
+                                    match.range.first, 
+                                    match.range.last + 1
+                                )
+                            }
                         }
-                        Regex("(?<!\\*)\\*(?!\\*)(.*?)(?<!\\*)\\*(?!\\*)").findAll(cleanText).forEach { match ->
-                            addStyle(SpanStyle(fontStyle = FontStyle.Italic), match.range.first, match.range.last + 1)
-                        }
-                        Regex("`(.*?)`").findAll(cleanText).forEach { match ->
-                            addStyle(
-                                SpanStyle(
-                                    fontFamily = FontFamily.Monospace,
-                                    background = Color.Gray.copy(alpha = 0.3f)
-                                ), 
-                                match.range.first, 
-                                match.range.last + 1
-                            )
-                        }
+                    } else {
+                        buildAnnotatedString { append(cleanText) }
                     }
                     Text(
                         text = inlineStyles,

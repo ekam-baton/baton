@@ -10,6 +10,7 @@ import androidx.lifecycle.viewModelScope
 import com.ekam.baton.core.data.model.Agent
 import com.ekam.baton.core.data.model.Conversation
 import com.ekam.baton.core.data.model.Message
+import com.ekam.baton.core.data.model.toDomainModel
 import com.ekam.baton.core.data.repository.ChatRepository
 import com.ekam.baton.core.data.repository.MemoryRepository
 import com.ekam.baton.core.network.mcp.AttachmentDto
@@ -62,18 +63,34 @@ class ChatViewModel(
     private val swarmDao: SwarmDao,
     savedStateHandle: SavedStateHandle,
     private val appStateTracker: com.ekam.baton.core.data.notification.BatonAppStateTracker? = null,
-    private val ugcManager: UgcManager? = null
+    private val ugcManager: UgcManager? = null,
+    private val connectivityMonitor: com.ekam.baton.core.network.connectivity.NetworkConnectivityMonitor? = null
 ) : ViewModel() {
 
     init {
         val cid: String? = savedStateHandle["conversationId"]
         cid?.let { appStateTracker?.setActiveConversationId(it) }
+
+        connectivityMonitor?.let { monitor ->
+            viewModelScope.launch {
+                var wasOffline = false
+                monitor.isConnected.collect { online ->
+                    if (!online) {
+                        wasOffline = true
+                    } else if (wasOffline) {
+                        wasOffline = false
+                        flushFailedMessagesOnReconnect()
+                    }
+                }
+            }
+        }
     }
 
     companion object {
         const val MIME_TYPE_OCTET_STREAM = "application/octet-stream"
         const val DEFAULT_NEW_CHAT_TITLE = "New Chat"
         const val EPISODIC_MEMORY_INTERVAL = 10
+        const val MAX_ATTACHMENT_SIZE_BYTES = 25 * 1024 * 1024L // 25 MB limit
     }
 
     val keyboardShortcuts: StateFlow<List<com.ekam.baton.core.data.preferences.KeyboardShortcut>> = appPreferences.keyboardShortcuts
@@ -318,6 +335,12 @@ class ChatViewModel(
                                 size = if (sizeIndex != -1 && !cursor.isNull(sizeIndex)) cursor.getLong(sizeIndex) else null
                             }
                         }
+                        if (size != null && size > MAX_ATTACHMENT_SIZE_BYTES) {
+                            withContext(Dispatchers.Main) {
+                                _uiError.value = "File '${name ?: "attachment"}' exceeds the 25 MB limit."
+                            }
+                            return@mapNotNull null
+                        }
                         AttachmentDto(
                             mimeType = mimeType,
                             dataBase64 = null,
@@ -555,6 +578,20 @@ class ChatViewModel(
                 _isStreaming.value = false
                 _agentActivityStatus.value = null
             }
+        }
+    }
+
+    fun flushFailedMessagesOnReconnect() {
+        val cid = conversationId ?: return
+        if (_isStreaming.value) return
+        viewModelScope.launch {
+            try {
+                val failed = chatRepository.getFailedMessages(cid)
+                if (failed.isNotEmpty()) {
+                    val lastFailed = failed.last()
+                    retryMessage(lastFailed.toDomainModel())
+                }
+            } catch (_: Exception) {}
         }
     }
 

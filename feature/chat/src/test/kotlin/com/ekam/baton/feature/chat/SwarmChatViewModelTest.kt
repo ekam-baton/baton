@@ -128,6 +128,8 @@ class SwarmChatViewModelTest {
             messages.removeAll { it.conversationId == conversationId }
         }
         override suspend fun clearStreamingStates() {}
+        override suspend fun getFailedMessages(): List<MessageEntity> = messages.filter { it.isFailed }.sortedBy { it.timestamp }
+        override suspend fun getFailedMessagesForConversation(conversationId: String): List<MessageEntity> = messages.filter { it.conversationId == conversationId && it.isFailed }.sortedBy { it.timestamp }
     }
 
     private lateinit var swarmDao: FakeSwarmDao
