@@ -30,6 +30,7 @@ class AuthViewModelTest {
         val duressFlow = MutableStateFlow<String?>("9999")
         val appLockPinFlow = MutableStateFlow<String?>("1234")
         val isRegisteredFlow = MutableStateFlow(true)
+        var securityPurged = false
 
         override val duressPin: Flow<String?> get() = duressFlow
         override val appLockPin: Flow<String?> get() = appLockPinFlow
@@ -37,6 +38,13 @@ class AuthViewModelTest {
 
         override suspend fun clearRegistration() {
             isRegisteredFlow.value = false
+        }
+
+        override suspend fun purgeAllSecurityPreferences() {
+            securityPurged = true
+            isRegisteredFlow.value = false
+            duressFlow.value = null
+            appLockPinFlow.value = null
         }
     }
 
@@ -140,6 +148,7 @@ class AuthViewModelTest {
         assertTrue("Duress callback must be invoked", duressCalled)
         assertTrue("Active network connections must be terminated", conn.disconnected)
         assertTrue("Cryptographic shred must be invoked", wipeDataManager.shredCalled)
+        assertTrue("Security preferences must be purged", appPreferences.securityPurged)
         assertFalse("Registration must be cleared", appPreferences.isRegisteredFlow.value)
     }
 }

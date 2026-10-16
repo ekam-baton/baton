@@ -480,4 +480,14 @@ open class AppPreferences constructor(
             }
         }
     }
+
+    open suspend fun purgeAllSecurityPreferences() {
+        setJwtSecret("")
+        setRefreshToken("")
+        setAppLockPin(null)
+        setDuressPin(null)
+        setAppLockEnabled(false)
+        qtspPassword = null
+        clearRegistration()
+    }
 }

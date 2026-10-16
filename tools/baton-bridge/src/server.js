@@ -416,7 +416,8 @@ class McpBridgeServer {
           // 1.5 System status and web companion metadata
           if (pathname === '/status' && req.method === 'GET') {
             const remoteIp = req.socket.remoteAddress || '';
-            const isLoopback = remoteIp === '127.0.0.1' || remoteIp === '::1' || remoteIp === '::ffff:127.0.0.1';
+            const hasForwardedHeader = Boolean(req.headers['x-forwarded-for'] || req.headers['cf-connecting-ip'] || req.headers['x-real-ip']);
+            const isLoopback = !hasForwardedHeader && (remoteIp === '127.0.0.1' || remoteIp === '::1' || remoteIp === '::ffff:127.0.0.1');
             const isAuth = isLoopback || this.isAuthorized(req);
 
             const pairingUrl = isAuth ? `baton://connect?url=${encodeURIComponent(this.tunnelUrl)}&token=${encodeURIComponent(this.authToken)}&name=${encodeURIComponent('Antigravity Desktop')}&model=antigravity-bridge` : undefined;
@@ -453,6 +454,13 @@ class McpBridgeServer {
           }
 
           if ((pathname === '/qr' || pathname === '/') && req.method === 'GET') {
+            const remoteIp = req.socket.remoteAddress || '';
+            const hasForwardedHeader = Boolean(req.headers['x-forwarded-for'] || req.headers['cf-connecting-ip'] || req.headers['x-real-ip']);
+            const isLoopback = !hasForwardedHeader && (remoteIp === '127.0.0.1' || remoteIp === '::1' || remoteIp === '::ffff:127.0.0.1');
+            if (!isLoopback && !this.isAuthorized(req)) {
+              this.sendJson(res, 401, { error: 'Unauthorized: Pairing QR page is only accessible from localhost on the host machine.' });
+              return;
+            }
             this.handleBrowserQrPage(res);
             return;
           }

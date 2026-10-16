@@ -192,6 +192,7 @@ class AuthViewModel(
             if (!duress.isNullOrBlank() && pin == duress) {
                 connectionPoolManager?.disconnectAll()
                 wipeDataManager?.emergencyCryptographicShred()
+                appPreferences.purgeAllSecurityPreferences()
                 sessionManager.clearRegistration()
                 sessionManager.setLoggedIn(true)
                 onDuress()
