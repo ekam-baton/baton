@@ -74,4 +74,19 @@ class ConnectionPoolManagerTest {
         assertTrue(idleConn.disconnected)
         assertFalse(activeConn.disconnected)
     }
+
+    @Test
+    fun `disconnectAll evicts all connections and disconnects each`() = runTest {
+        val conn1 = DummyConnection("conn-1")
+        val conn2 = DummyConnection("conn-2")
+        manager.registerConnection(conn1)
+        manager.registerConnection(conn2)
+        assertEquals(2, manager.getActiveConnectionCount())
+
+        manager.disconnectAll()
+
+        assertEquals(0, manager.getActiveConnectionCount())
+        assertTrue(conn1.disconnected)
+        assertTrue(conn2.disconnected)
+    }
 }

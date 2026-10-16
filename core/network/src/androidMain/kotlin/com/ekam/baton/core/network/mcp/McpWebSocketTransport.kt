@@ -216,6 +216,11 @@ class McpWebSocketTransport constructor(
                                     val hpn = payloadJson.getInt("header_pn")
                                     val ct = payloadJson.getString("ciphertext")
                                     
+                                    // Guard against Signal-style skipped-key memory exhaustion attacks
+                                    if (hn < 0 || hn > 2000 || hpn < 0 || hpn > 2000) {
+                                        throw SecurityException("Invalid ratchet message counter (n=$hn, pn=$hpn). Exceeds security bounds.")
+                                    }
+                                    
                                     val details = configProvider.getSecurityConfig(agentId)
                                     val ratchetStateJson = details?.ratchetStateBase64?.let {
                                         String(android.util.Base64.decode(it, android.util.Base64.NO_WRAP))

@@ -64,7 +64,7 @@ fun SettingsScreen(
     val userEmail by viewModel.userEmail.collectAsStateWithLifecycle()
     val userPhone by viewModel.userPhone.collectAsStateWithLifecycle()
     
-    val products by viewModel.billingManager.products.collectAsStateWithLifecycle()
+    val products by (viewModel.billingManager?.products ?: remember { kotlinx.coroutines.flow.MutableStateFlow(emptyList()) }).collectAsStateWithLifecycle()
 
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
@@ -188,7 +188,7 @@ fun SettingsScreen(
                                     if (activity != null) {
                                         val product = products.firstOrNull()
                                         if (product != null) {
-                                            viewModel.billingManager.launchBillingFlow(activity, product)
+                                            viewModel.billingManager?.launchBillingFlow(activity, product)
                                         }
                                     }
                                 },

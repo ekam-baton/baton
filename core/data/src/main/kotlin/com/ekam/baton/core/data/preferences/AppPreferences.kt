@@ -52,11 +52,13 @@ open class AppPreferences constructor(
         val CLOUD_SYNC_MEMORIES = booleanPreferencesKey("cloud_sync_memories")
         val CLOUD_SYNC_KEYS = booleanPreferencesKey("cloud_sync_keys")
         val LAST_SYNC_TIMESTAMP = longPreferencesKey("last_sync_timestamp")
+        val STEALTH_MODE_ENABLED = booleanPreferencesKey("stealth_mode_enabled")
+        val DURESS_PIN = stringPreferencesKey("duress_pin")
     }
 
     private val securePrefs = try {
         if (_context == null) null else {
-            val masterKey = MasterKey.Builder(_context)
+            val masterKey = MasterKey.Builder(_context, "baton_app_prefs_master_key")
                 .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
                 .build()
             EncryptedSharedPreferences.create(
@@ -84,11 +86,11 @@ open class AppPreferences constructor(
 
             try {
                 val keyStore = java.security.KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
-                keyStore.deleteEntry(MasterKey.DEFAULT_MASTER_KEY_ALIAS)
+                keyStore.deleteEntry("baton_app_prefs_master_key")
             } catch (ignored: Exception) {}
 
             try {
-                val freshMasterKey = MasterKey.Builder(_context)
+                val freshMasterKey = MasterKey.Builder(_context, "baton_app_prefs_master_key")
                     .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
                     .build()
                 EncryptedSharedPreferences.create(
@@ -131,29 +133,29 @@ open class AppPreferences constructor(
 
     val userPhone: Flow<String> = _userPhoneFlow
 
-    val isRegistered: Flow<Boolean> get() = context.dataStore.data.map { preferences ->
+    open val isRegistered: Flow<Boolean> get() = if (_context == null) kotlinx.coroutines.flow.flowOf(false) else context.dataStore.data.map { preferences ->
         preferences[IS_REGISTERED] ?: false
     }
 
-    val trialStartTime: Flow<Long> get() = context.dataStore.data.map { preferences ->
+    open val trialStartTime: Flow<Long> get() = if (_context == null) kotlinx.coroutines.flow.flowOf(0L) else context.dataStore.data.map { preferences ->
         preferences[TRIAL_START_TIME] ?: 0L
     }
 
-    val isPremiumUnlocked: Flow<Boolean> = _isPremiumUnlockedFlow
+    open val isPremiumUnlocked: Flow<Boolean> = _isPremiumUnlockedFlow
 
-    val themeMode: Flow<String> get() = context.dataStore.data.map { preferences ->
+    open val themeMode: Flow<String> get() = if (_context == null) kotlinx.coroutines.flow.flowOf("dark") else context.dataStore.data.map { preferences ->
         preferences[THEME_MODE] ?: "dark"
     }
 
-    val defaultTokenLimit: Flow<Int> get() = context.dataStore.data.map { preferences ->
+    open val defaultTokenLimit: Flow<Int> get() = if (_context == null) kotlinx.coroutines.flow.flowOf(4096) else context.dataStore.data.map { preferences ->
         preferences[DEFAULT_TOKEN_LIMIT] ?: 4096
     }
 
-    val enableHapticFeedback: Flow<Boolean> get() = context.dataStore.data.map { preferences ->
+    open val enableHapticFeedback: Flow<Boolean> get() = if (_context == null) kotlinx.coroutines.flow.flowOf(true) else context.dataStore.data.map { preferences ->
         preferences[ENABLE_HAPTIC_FEEDBACK] ?: true
     }
 
-    val tunnelStatusMap: Flow<Map<String, String>> get() = context.dataStore.data.map { preferences ->
+    open val tunnelStatusMap: Flow<Map<String, String>> get() = if (_context == null) kotlinx.coroutines.flow.flowOf(emptyMap()) else context.dataStore.data.map { preferences ->
         val jsonString = preferences[TUNNEL_STATUS_MAP] ?: "{}"
         try {
             kotlinx.serialization.json.Json.decodeFromString<Map<String, String>>(jsonString)
@@ -162,27 +164,27 @@ open class AppPreferences constructor(
         }
     }
 
-    val accentColor: Flow<Long> get() = context.dataStore.data.map { preferences ->
+    open val accentColor: Flow<Long> get() = if (_context == null) kotlinx.coroutines.flow.flowOf(0xFFECEFF4) else context.dataStore.data.map { preferences ->
         preferences[ACCENT_COLOR] ?: 0xFFECEFF4 // Default tertiary color (Cool White)
     }
 
-    val fontSize: Flow<String> get() = context.dataStore.data.map { preferences ->
+    open val fontSize: Flow<String> get() = if (_context == null) kotlinx.coroutines.flow.flowOf("medium") else context.dataStore.data.map { preferences ->
         preferences[FONT_SIZE] ?: "medium"
     }
 
-    val appLockEnabled: Flow<Boolean> get() = context.dataStore.data.map { preferences ->
+    open val appLockEnabled: Flow<Boolean> get() = if (_context == null) kotlinx.coroutines.flow.flowOf(false) else context.dataStore.data.map { preferences ->
         preferences[APP_LOCK_ENABLED] ?: false
     }
 
-    val autoExtractFacts: Flow<Boolean> get() = context.dataStore.data.map { preferences ->
+    open val autoExtractFacts: Flow<Boolean> get() = if (_context == null) kotlinx.coroutines.flow.flowOf(true) else context.dataStore.data.map { preferences ->
         preferences[AUTO_EXTRACT_FACTS] ?: true
     }
 
-    val autoGenerateEpisodes: Flow<Boolean> get() = context.dataStore.data.map { preferences ->
+    open val autoGenerateEpisodes: Flow<Boolean> get() = if (_context == null) kotlinx.coroutines.flow.flowOf(true) else context.dataStore.data.map { preferences ->
         preferences[AUTO_GENERATE_EPISODES] ?: true
     }
 
-    val memoryRetentionDays: Flow<Int> get() = context.dataStore.data.map { preferences ->
+    open val memoryRetentionDays: Flow<Int> get() = if (_context == null) kotlinx.coroutines.flow.flowOf(30) else context.dataStore.data.map { preferences ->
         preferences[MEMORY_RETENTION_DAYS] ?: 30
     }
 
@@ -220,120 +222,120 @@ open class AppPreferences constructor(
             }
         }
 
-    val allowLocalNetworkAgents: Flow<Boolean> get() = context.dataStore.data.map { preferences ->
+    open val allowLocalNetworkAgents: Flow<Boolean> get() = if (_context == null) kotlinx.coroutines.flow.flowOf(false) else context.dataStore.data.map { preferences ->
         preferences[ALLOW_LOCAL_NETWORK_AGENTS] ?: false
     }
 
-    val pipelineMode: Flow<String> get() = context.dataStore.data.map { preferences ->
+    open val pipelineMode: Flow<String> get() = if (_context == null) kotlinx.coroutines.flow.flowOf("MANAGED") else context.dataStore.data.map { preferences ->
         preferences[PIPELINE_MODE] ?: "MANAGED"
     }
 
-    val clientId: Flow<String> get() = context.dataStore.data.map { preferences ->
+    open val clientId: Flow<String> get() = if (_context == null) kotlinx.coroutines.flow.flowOf("") else context.dataStore.data.map { preferences ->
         preferences[CLIENT_ID] ?: ""
     }
 
-    val consentTimestamp: Flow<Long> get() = context.dataStore.data.map { preferences ->
+    open val consentTimestamp: Flow<Long> get() = if (_context == null) kotlinx.coroutines.flow.flowOf(0L) else context.dataStore.data.map { preferences ->
         preferences[CONSENT_TIMESTAMP] ?: 0L
     }
 
-    val policyVersion: Flow<String> get() = context.dataStore.data.map { preferences ->
+    open val policyVersion: Flow<String> get() = if (_context == null) kotlinx.coroutines.flow.flowOf("") else context.dataStore.data.map { preferences ->
         preferences[POLICY_VERSION] ?: ""
     }
 
-    val hasSeenWalkthrough: Flow<Boolean> get() = context.dataStore.data.map { preferences ->
+    open val hasSeenWalkthrough: Flow<Boolean> get() = if (_context == null) kotlinx.coroutines.flow.flowOf(false) else context.dataStore.data.map { preferences ->
         preferences[HAS_SEEN_WALKTHROUGH] ?: false
     }
 
-    val region: Flow<String> get() = context.dataStore.data.map { preferences ->
+    open val region: Flow<String> get() = if (_context == null) kotlinx.coroutines.flow.flowOf("Global") else context.dataStore.data.map { preferences ->
         preferences[REGION] ?: "Global"
     }
 
-    suspend fun setHasSeenWalkthrough(seen: Boolean) {
-        context.dataStore.edit { preferences -> preferences[HAS_SEEN_WALKTHROUGH] = seen }
+    open suspend fun setHasSeenWalkthrough(seen: Boolean) {
+        _context?.dataStore?.edit { preferences -> preferences[HAS_SEEN_WALKTHROUGH] = seen }
     }
 
-    suspend fun setClientId(id: String) {
-        context.dataStore.edit { preferences -> preferences[CLIENT_ID] = id }
+    open suspend fun setClientId(id: String) {
+        _context?.dataStore?.edit { preferences -> preferences[CLIENT_ID] = id }
     }
 
-    suspend fun setThemeMode(mode: String) {
-        context.dataStore.edit { preferences -> preferences[THEME_MODE] = mode }
+    open suspend fun setThemeMode(mode: String) {
+        _context?.dataStore?.edit { preferences -> preferences[THEME_MODE] = mode }
     }
 
-    suspend fun setAccentColor(color: Long) {
-        context.dataStore.edit { preferences -> preferences[ACCENT_COLOR] = color }
+    open suspend fun setAccentColor(color: Long) {
+        _context?.dataStore?.edit { preferences -> preferences[ACCENT_COLOR] = color }
     }
 
-    suspend fun setFontSize(size: String) {
-        context.dataStore.edit { preferences -> preferences[FONT_SIZE] = size }
+    open suspend fun setFontSize(size: String) {
+        _context?.dataStore?.edit { preferences -> preferences[FONT_SIZE] = size }
     }
 
-    suspend fun setAppLockEnabled(enabled: Boolean) {
-        context.dataStore.edit { preferences -> preferences[APP_LOCK_ENABLED] = enabled }
+    open suspend fun setAppLockEnabled(enabled: Boolean) {
+        _context?.dataStore?.edit { preferences -> preferences[APP_LOCK_ENABLED] = enabled }
     }
 
-    suspend fun setAutoExtractFacts(enabled: Boolean) {
-        context.dataStore.edit { preferences -> preferences[AUTO_EXTRACT_FACTS] = enabled }
+    open suspend fun setAutoExtractFacts(enabled: Boolean) {
+        _context?.dataStore?.edit { preferences -> preferences[AUTO_EXTRACT_FACTS] = enabled }
     }
 
-    suspend fun setAutoGenerateEpisodes(enabled: Boolean) {
-        context.dataStore.edit { preferences -> preferences[AUTO_GENERATE_EPISODES] = enabled }
+    open suspend fun setAutoGenerateEpisodes(enabled: Boolean) {
+        _context?.dataStore?.edit { preferences -> preferences[AUTO_GENERATE_EPISODES] = enabled }
     }
 
-    suspend fun setMemoryRetentionDays(days: Int) {
-        context.dataStore.edit { preferences -> preferences[MEMORY_RETENTION_DAYS] = days }
+    open suspend fun setMemoryRetentionDays(days: Int) {
+        _context?.dataStore?.edit { preferences -> preferences[MEMORY_RETENTION_DAYS] = days }
     }
 
-    suspend fun setDefaultTokenLimit(limit: Int) {
-        context.dataStore.edit { preferences -> preferences[DEFAULT_TOKEN_LIMIT] = limit }
+    open suspend fun setDefaultTokenLimit(limit: Int) {
+        _context?.dataStore?.edit { preferences -> preferences[DEFAULT_TOKEN_LIMIT] = limit }
     }
 
-    suspend fun setEnableHapticFeedback(enable: Boolean) {
-        context.dataStore.edit { preferences -> preferences[ENABLE_HAPTIC_FEEDBACK] = enable }
+    open suspend fun setEnableHapticFeedback(enable: Boolean) {
+        _context?.dataStore?.edit { preferences -> preferences[ENABLE_HAPTIC_FEEDBACK] = enable }
     }
 
-    suspend fun setTunnelStatusMap(statusMap: Map<String, String>) {
+    open suspend fun setTunnelStatusMap(statusMap: Map<String, String>) {
         val jsonString = kotlinx.serialization.json.Json.encodeToString(statusMap)
-        context.dataStore.edit { preferences -> preferences[TUNNEL_STATUS_MAP] = jsonString }
+        _context?.dataStore?.edit { preferences -> preferences[TUNNEL_STATUS_MAP] = jsonString }
     }
 
-    suspend fun setTrialStartTime(time: Long) {
-        context.dataStore.edit { preferences -> preferences[TRIAL_START_TIME] = time }
+    open suspend fun setTrialStartTime(time: Long) {
+        _context?.dataStore?.edit { preferences -> preferences[TRIAL_START_TIME] = time }
     }
 
-    suspend fun setJwtSecret(secret: String) {
+    open suspend fun setJwtSecret(secret: String) {
         securePrefs?.edit()?.putString("jwt_secret", secret)?.commit()
         _jwtSecretFlow.value = secret
         // Clear from plaintext datastore if it was previously stored there
-        context?.dataStore?.edit { preferences -> preferences.remove(JWT_SECRET) }
+        _context?.dataStore?.edit { preferences -> preferences.remove(JWT_SECRET) }
     }
 
-    suspend fun setRefreshToken(token: String) {
+    open suspend fun setRefreshToken(token: String) {
         securePrefs?.edit()?.putString("refresh_token", token)?.commit()
         _refreshTokenFlow.value = token
-        context?.dataStore?.edit { preferences -> preferences.remove(REFRESH_TOKEN) }
+        _context?.dataStore?.edit { preferences -> preferences.remove(REFRESH_TOKEN) }
     }
 
-    suspend fun setPremiumUnlocked(unlocked: Boolean) {
+    open suspend fun setPremiumUnlocked(unlocked: Boolean) {
         securePrefs?.edit()?.putBoolean("is_premium_unlocked", unlocked)?.commit()
         _isPremiumUnlockedFlow.value = unlocked
         // Clear from plaintext datastore if it was previously stored there
-        context?.dataStore?.edit { preferences -> preferences.remove(IS_PREMIUM_UNLOCKED) }
+        _context?.dataStore?.edit { preferences -> preferences.remove(IS_PREMIUM_UNLOCKED) }
     }
 
-    suspend fun setBackendUrl(url: String) {
-        context.dataStore.edit { preferences -> preferences[BACKEND_URL] = url }
+    open suspend fun setBackendUrl(url: String) {
+        _context?.dataStore?.edit { preferences -> preferences[BACKEND_URL] = url }
     }
 
-    suspend fun setAllowLocalNetworkAgents(allow: Boolean) {
-        context.dataStore.edit { preferences -> preferences[ALLOW_LOCAL_NETWORK_AGENTS] = allow }
+    open suspend fun setAllowLocalNetworkAgents(allow: Boolean) {
+        _context?.dataStore?.edit { preferences -> preferences[ALLOW_LOCAL_NETWORK_AGENTS] = allow }
     }
 
-    suspend fun setPipelineMode(mode: String) {
-        context.dataStore.edit { preferences -> preferences[PIPELINE_MODE] = mode }
+    open suspend fun setPipelineMode(mode: String) {
+        _context?.dataStore?.edit { preferences -> preferences[PIPELINE_MODE] = mode }
     }
 
-    val keyboardShortcuts: Flow<List<KeyboardShortcut>> get() = context.dataStore.data.map { preferences ->
+    open val keyboardShortcuts: Flow<List<KeyboardShortcut>> get() = if (_context == null) kotlinx.coroutines.flow.flowOf(defaultShortcuts()) else context.dataStore.data.map { preferences ->
         val jsonString = preferences[KEYBOARD_SHORTCUTS]
         if (jsonString.isNullOrBlank()) {
             defaultShortcuts()
@@ -353,9 +355,9 @@ open class AppPreferences constructor(
         KeyboardShortcut(label = "Help", textToInsert = "/help", isImmediate = true)
     )
 
-    suspend fun setKeyboardShortcuts(shortcuts: List<KeyboardShortcut>) {
+    open suspend fun setKeyboardShortcuts(shortcuts: List<KeyboardShortcut>) {
         val jsonString = kotlinx.serialization.json.Json.encodeToString(shortcuts)
-        context.dataStore.edit { preferences ->
+        _context?.dataStore?.edit { preferences ->
             preferences[KEYBOARD_SHORTCUTS] = jsonString
         }
     }
@@ -382,7 +384,7 @@ open class AppPreferences constructor(
         setPremiumUnlocked(false)
     }
 
-    suspend fun clearRegistration() {
+    open suspend fun clearRegistration() {
         securePrefs?.edit()
             ?.remove("user_email")
             ?.remove("user_phone")
@@ -390,7 +392,7 @@ open class AppPreferences constructor(
         _userEmailFlow.value = ""
         _userPhoneFlow.value = ""
 
-        context?.dataStore?.edit { preferences ->
+        _context?.dataStore?.edit { preferences ->
             preferences.remove(USER_EMAIL)
             preferences.remove(USER_PHONE)
             preferences[IS_REGISTERED] = false
@@ -437,6 +439,30 @@ open class AppPreferences constructor(
     open suspend fun setLastSyncTimestamp(timestamp: Long) {
         _context?.dataStore?.edit { preferences ->
             preferences[LAST_SYNC_TIMESTAMP] = timestamp
+        }
+    }
+
+    open val stealthModeEnabled: Flow<Boolean> get() = if (_context == null) kotlinx.coroutines.flow.flowOf(false) else context.dataStore.data.map { preferences ->
+        preferences[STEALTH_MODE_ENABLED] ?: false
+    }
+
+    open suspend fun setStealthModeEnabled(enabled: Boolean) {
+        _context?.dataStore?.edit { preferences ->
+            preferences[STEALTH_MODE_ENABLED] = enabled
+        }
+    }
+
+    open val duressPin: Flow<String?> get() = if (_context == null) kotlinx.coroutines.flow.flowOf(null) else context.dataStore.data.map { preferences ->
+        preferences[DURESS_PIN]
+    }
+
+    open suspend fun setDuressPin(pin: String?) {
+        _context?.dataStore?.edit { preferences ->
+            if (pin.isNullOrBlank()) {
+                preferences.remove(DURESS_PIN)
+            } else {
+                preferences[DURESS_PIN] = pin
+            }
         }
     }
 }

@@ -42,6 +42,19 @@ class ConnectionPoolManager constructor() {
         conn?.disconnect()
     }
     
+    suspend fun disconnectAll() {
+        val toDisconnect = mutex.withLock {
+            val list = activeConnections.values.toList()
+            activeConnections.clear()
+            list
+        }
+        toDisconnect.forEach { conn ->
+            try {
+                conn.disconnect()
+            } catch (_: Exception) {}
+        }
+    }
+    
     fun getActiveConnectionCount(): Int = activeConnections.size
 
     private fun findLruConnectionLocked(): PoolableConnection? {

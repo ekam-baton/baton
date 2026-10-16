@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.ekam.baton.core.data.preferences.AppPreferences
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -26,8 +27,9 @@ class SettingsViewModel(
     private val sessionManager: SessionManager,
     private val subscriptionManager: SubscriptionManager,
     private val auditDao: AuditDao,
-    val billingManager: BillingManager,
-    private val ugcManager: com.ekam.baton.core.data.ugc.UgcManager? = null
+    val billingManager: BillingManager? = null,
+    private val ugcManager: com.ekam.baton.core.data.ugc.UgcManager? = null,
+    private val connectionPoolManager: com.ekam.baton.core.network.tunnel.ConnectionPoolManager? = null
 ) : ViewModel() {
 
     val agents: StateFlow<List<Agent>> = agentRepository.getAllAgents()
@@ -235,5 +237,39 @@ class SettingsViewModel(
         } catch (e: Exception) {
             android.widget.Toast.makeText(appContext, "Export failed: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
         }
+    }
+
+    val stealthModeActive: StateFlow<Boolean> = appPreferences.stealthModeEnabled
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = false
+        )
+
+    fun toggleStealthMode() = viewModelScope.launch {
+        val current = appPreferences.stealthModeEnabled.firstOrNull() ?: false
+        val next = !current
+        appPreferences.setStealthModeEnabled(next)
+        if (next) {
+            connectionPoolManager?.disconnectAll()
+        }
+    }
+
+    val duressPin: StateFlow<String?> = appPreferences.duressPin
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = null
+        )
+
+    fun setDuressPin(pin: String?) = viewModelScope.launch {
+        appPreferences.setDuressPin(pin)
+    }
+
+    fun emergencyCryptographicWipe(onComplete: () -> Unit) = viewModelScope.launch {
+        connectionPoolManager?.disconnectAll()
+        wipeDataManager.emergencyCryptographicShred()
+        sessionManager.clearRegistration()
+        onComplete()
     }
 }
