@@ -53,6 +53,7 @@ class McpWebSocketTransport constructor(
                 webSocket.close(1000, "Ping complete")
             }
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                response?.close()
                 deferred.complete(false)
             }
         })
@@ -111,67 +112,72 @@ class McpWebSocketTransport constructor(
 
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 transportScope.launch {
-                    val details = configProvider.getSecurityConfig(agentId)
-                    if (details != null && details.securityMode != "standard") {
-                        securityMode = details.securityMode
-                        val privKeyBase64 = details.clientPrivateKeyBase64
-                        val privKeyIvBase64 = details.clientPrivateKeyIvBase64
-                        val peerPubKeyHex = details.peerPublicKeyHex
-                        
-                        if (privKeyBase64 != null && privKeyIvBase64 != null && peerPubKeyHex != null) {
-                            privateKey = securityManager.decryptPrivateKey(privKeyBase64, privKeyIvBase64)
-                            sharedSecret = securityManager.deriveSharedSecret(privateKey!!, peerPubKeyHex)
+                    try {
+                        val details = configProvider.getSecurityConfig(agentId)
+                        if (details != null && details.securityMode != "standard") {
+                            securityMode = details.securityMode
+                            val privKeyBase64 = details.clientPrivateKeyBase64
+                            val privKeyIvBase64 = details.clientPrivateKeyIvBase64
+                            val peerPubKeyHex = details.peerPublicKeyHex
                             
-                            var ratchetStateJson = details.ratchetStateBase64?.let {
-                                String(android.util.Base64.decode(it, android.util.Base64.NO_WRAP))
-                            }
-                            if (ratchetStateJson == null) {
-                                ratchetStateJson = ConnectionSecurityManager.ratchetInitAliceRust(
-                                    sharedSecret!!,
-                                    securityManager.fromHex(peerPubKeyHex)
+                            if (privKeyBase64 != null && privKeyIvBase64 != null && peerPubKeyHex != null) {
+                                privateKey = securityManager.decryptPrivateKey(privKeyBase64, privKeyIvBase64)
+                                sharedSecret = securityManager.deriveSharedSecret(privateKey!!, peerPubKeyHex)
+                                
+                                var ratchetStateJson = details.ratchetStateBase64?.let {
+                                    String(android.util.Base64.decode(it, android.util.Base64.NO_WRAP))
+                                }
+                                if (ratchetStateJson == null) {
+                                    ratchetStateJson = ConnectionSecurityManager.ratchetInitAliceRust(
+                                        sharedSecret!!,
+                                        securityManager.fromHex(peerPubKeyHex)
+                                    )
+                                }
+                                
+                                val ratchetOutputStr = ConnectionSecurityManager.ratchetEncryptRust(
+                                    ratchetStateJson,
+                                    rawPlaintext.toByteArray(Charsets.UTF_8)
                                 )
+                                val ratchetOutput = JSONObject(ratchetOutputStr)
+                                val newStateJson = ratchetOutput.getString("state")
+                                
+                                configProvider.saveRatchetState(
+                                    agentId, 
+                                    android.util.Base64.encodeToString(newStateJson.toByteArray(), android.util.Base64.NO_WRAP)
+                                )
+                                
+                                val payloadJson = JSONObject().apply {
+                                    put("header_pub", ratchetOutput.getString("header_pub"))
+                                    put("header_n", ratchetOutput.getInt("header_n"))
+                                    put("header_pn", ratchetOutput.getInt("header_pn"))
+                                    put("ciphertext", ratchetOutput.getString("ciphertext"))
+                                    put("sender_id", clientId) // Sealed Sender: Encrypt sender identity inside payload
+                                }
+                                
+                                val envelope = JSONObject().apply {
+                                    put("receiver_id", agentId) // Outer envelope contains ONLY destination, preventing metadata leakage
+                                    put("depth", 0) // Root client invocation
+                                    val b64Payload = android.util.Base64.encodeToString(payloadJson.toString().toByteArray(), android.util.Base64.NO_WRAP)
+                                    put("payload", b64Payload)
+                                }
+                                
+                                webSocket.send(envelope.toString())
+                            } else {
+                                close(Exception("Security keys not configured"))
                             }
-                            
-                            val ratchetOutputStr = ConnectionSecurityManager.ratchetEncryptRust(
-                                ratchetStateJson,
-                                rawPlaintext.toByteArray(Charsets.UTF_8)
-                            )
-                            val ratchetOutput = JSONObject(ratchetOutputStr)
-                            val newStateJson = ratchetOutput.getString("state")
-                            
-                            configProvider.saveRatchetState(
-                                agentId, 
-                                android.util.Base64.encodeToString(newStateJson.toByteArray(), android.util.Base64.NO_WRAP)
-                            )
-                            
-                            val payloadJson = JSONObject().apply {
-                                put("header_pub", ratchetOutput.getString("header_pub"))
-                                put("header_n", ratchetOutput.getInt("header_n"))
-                                put("header_pn", ratchetOutput.getInt("header_pn"))
-                                put("ciphertext", ratchetOutput.getString("ciphertext"))
-                                put("sender_id", clientId) // Sealed Sender: Encrypt sender identity inside payload
-                            }
-                            
+                        } else {
                             val envelope = JSONObject().apply {
-                                put("receiver_id", agentId) // Outer envelope contains ONLY destination, preventing metadata leakage
+                                put("sender_id", clientId)
+                                put("receiver_id", agentId)
                                 put("depth", 0) // Root client invocation
-                                val b64Payload = android.util.Base64.encodeToString(payloadJson.toString().toByteArray(), android.util.Base64.NO_WRAP)
+                                val b64Payload = android.util.Base64.encodeToString(rawPlaintext.toByteArray(), android.util.Base64.NO_WRAP)
                                 put("payload", b64Payload)
                             }
-                            
                             webSocket.send(envelope.toString())
-                        } else {
-                            close(Exception("Security keys not configured"))
                         }
-                    } else {
-                        val envelope = JSONObject().apply {
-                            put("sender_id", clientId)
-                            put("receiver_id", agentId)
-                            put("depth", 0) // Root client invocation
-                            val b64Payload = android.util.Base64.encodeToString(rawPlaintext.toByteArray(), android.util.Base64.NO_WRAP)
-                            put("payload", b64Payload)
-                        }
-                        webSocket.send(envelope.toString())
+                    } catch (e: Throwable) {
+                        close(e)
+                        webSocket.close(1002, "Error: ${e.message}")
                     }
                 }
             }
@@ -201,42 +207,47 @@ class McpWebSocketTransport constructor(
                     
                     if (securityMode != "standard" && sharedSecret != null) {
                         transportScope.launch {
-                            val mutex = agentMutexes.getOrPut(agentId) { Mutex() }
-                            mutex.withLock {
-                                val payloadJson = JSONObject(payloadStr)
-                                val hpub = payloadJson.getString("header_pub")
-                                val hn = payloadJson.getInt("header_n")
-                                val hpn = payloadJson.getInt("header_pn")
-                                val ct = payloadJson.getString("ciphertext")
-                                
-                                val details = configProvider.getSecurityConfig(agentId)
-                                val ratchetStateJson = details?.ratchetStateBase64?.let {
-                                    String(android.util.Base64.decode(it, android.util.Base64.NO_WRAP))
+                            try {
+                                val mutex = agentMutexes.getOrPut(agentId) { Mutex() }
+                                mutex.withLock {
+                                    val payloadJson = JSONObject(payloadStr)
+                                    val hpub = payloadJson.getString("header_pub")
+                                    val hn = payloadJson.getInt("header_n")
+                                    val hpn = payloadJson.getInt("header_pn")
+                                    val ct = payloadJson.getString("ciphertext")
+                                    
+                                    val details = configProvider.getSecurityConfig(agentId)
+                                    val ratchetStateJson = details?.ratchetStateBase64?.let {
+                                        String(android.util.Base64.decode(it, android.util.Base64.NO_WRAP))
+                                    }
+                                    if (ratchetStateJson == null) {
+                                        webSocket.close(1001, "No ratchet state")
+                                        return@withLock
+                                    }
+                                    
+                                    val decryptOutputStr = ConnectionSecurityManager.ratchetDecryptRust(
+                                        ratchetStateJson,
+                                        hpub,
+                                        hn,
+                                        hpn,
+                                        ct
+                                    )
+                                    val decryptOutput = JSONObject(decryptOutputStr)
+                                    val newStateJson = decryptOutput.getString("state")
+                                    val decryptedB64 = decryptOutput.getString("plaintext")
+                                    val decrypted = String(android.util.Base64.decode(decryptedB64, android.util.Base64.NO_WRAP), Charsets.UTF_8)
+                                    
+                                    configProvider.saveRatchetState(
+                                        agentId,
+                                        android.util.Base64.encodeToString(newStateJson.toByteArray(), android.util.Base64.NO_WRAP)
+                                    )
+                                    
+                                    trySend(decrypted)
+                                    webSocket.close(1000, "Done")
                                 }
-                                if (ratchetStateJson == null) {
-                                    webSocket.close(1001, "No ratchet state")
-                                    return@withLock
-                                }
-                                
-                                val decryptOutputStr = ConnectionSecurityManager.ratchetDecryptRust(
-                                    ratchetStateJson,
-                                    hpub,
-                                    hn,
-                                    hpn,
-                                    ct
-                                )
-                                val decryptOutput = JSONObject(decryptOutputStr)
-                                val newStateJson = decryptOutput.getString("state")
-                                val decryptedB64 = decryptOutput.getString("plaintext")
-                                val decrypted = String(android.util.Base64.decode(decryptedB64, android.util.Base64.NO_WRAP), Charsets.UTF_8)
-                                
-                                configProvider.saveRatchetState(
-                                    agentId,
-                                    android.util.Base64.encodeToString(newStateJson.toByteArray(), android.util.Base64.NO_WRAP)
-                                )
-                                
-                                trySend(decrypted)
-                                webSocket.close(1000, "Done")
+                            } catch (e: Throwable) {
+                                close(e)
+                                webSocket.close(1002, "Error: ${e.message}")
                             }
                         }
                     } else {
@@ -253,7 +264,12 @@ class McpWebSocketTransport constructor(
                 close()
             }
 
+            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                close()
+            }
+
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                response?.close()
                 close(t)
             }
         })

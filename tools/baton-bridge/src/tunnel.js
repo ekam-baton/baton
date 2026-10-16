@@ -68,7 +68,6 @@ function getDownloadUrl() {
 function downloadBinary(url, destPath, onProgress) {
   return new Promise((resolve, reject) => {
     fs.mkdirSync(path.dirname(destPath), { recursive: true });
-    const file = fs.createWriteStream(destPath);
 
     function fetch(currentUrl) {
       https.get(currentUrl, (response) => {
@@ -83,6 +82,7 @@ function downloadBinary(url, destPath, onProgress) {
           return;
         }
 
+        const file = fs.createWriteStream(destPath);
         const totalBytes = parseInt(response.headers['content-length'] || '0', 10);
         let downloadedBytes = 0;
 
@@ -104,6 +104,12 @@ function downloadBinary(url, destPath, onProgress) {
             }
             resolve(destPath);
           });
+        });
+
+        file.on('error', (err) => {
+          try { file.destroy(); } catch (_) {}
+          fs.unlink(destPath, () => {});
+          reject(err);
         });
       }).on('error', (err) => {
         fs.unlink(destPath, () => {});
@@ -177,7 +183,9 @@ async function startTunnel(port, options = {}) {
 
       function checkChunk(chunk) {
         const text = chunk.toString();
-        stderrOutput += text;
+        if (stderrOutput.length < 8192) {
+          stderrOutput += text;
+        }
 
         // Match *.trycloudflare.com
         const match = text.match(/https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/);
@@ -208,19 +216,25 @@ async function startTunnel(port, options = {}) {
           reject(new Error(`cloudflared exited with code ${code}.\n${stderrOutput}`));
         } else if (!isClosed) {
           // Process exited after initial success — schedule supervisor reconnect
-          reconnectAttempt++;
-          const delayMs = Math.min(1000 * Math.pow(2, reconnectAttempt - 1), 30000);
-          onStatus?.(`Tunnel process disconnected (code ${code}). Reconnecting in ${delayMs / 1000}s...`);
-          reconnectTimer = setTimeout(async () => {
+          function scheduleReconnect() {
             if (isClosed) return;
-            try {
-              const result = await launchProcess();
-              onStatus?.(`Tunnel reconnected: ${result.tunnelUrl}`);
-              onReconnect?.(result.tunnelUrl);
-            } catch (reconnectErr) {
-              onStatus?.(`Tunnel reconnect failed: ${reconnectErr.message}. Retrying...`);
-            }
-          }, delayMs);
+            reconnectAttempt++;
+            const delayMs = Math.min(1000 * Math.pow(2, reconnectAttempt - 1), 30000);
+            onStatus?.(`Tunnel process disconnected (code ${code}). Reconnecting in ${delayMs / 1000}s (attempt ${reconnectAttempt})...`);
+            reconnectTimer = setTimeout(async () => {
+              if (isClosed) return;
+              try {
+                const result = await launchProcess();
+                currentTunnelUrl = result.tunnelUrl;
+                onStatus?.(`Tunnel reconnected: ${result.tunnelUrl}`);
+                onReconnect?.(result.tunnelUrl);
+              } catch (reconnectErr) {
+                onStatus?.(`Tunnel reconnect failed: ${reconnectErr.message}. Retrying...`);
+                scheduleReconnect();
+              }
+            }, delayMs);
+          }
+          scheduleReconnect();
         }
       });
     });
@@ -228,9 +242,10 @@ async function startTunnel(port, options = {}) {
 
   // Initial connection
   const initial = await launchProcess();
+  let currentTunnelUrl = initial.tunnelUrl;
 
   const handle = {
-    tunnelUrl: initial.tunnelUrl,
+    get tunnelUrl() { return currentTunnelUrl; },
     isLocal: false,
     get process() { return activeProc; },
     close: () => {

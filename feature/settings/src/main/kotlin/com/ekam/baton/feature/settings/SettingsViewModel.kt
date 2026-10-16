@@ -6,7 +6,9 @@ import com.ekam.baton.core.data.preferences.AppPreferences
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 import com.ekam.baton.core.data.repository.AgentRepository
 import com.ekam.baton.core.data.model.Agent
@@ -217,17 +219,21 @@ class SettingsViewModel(
     }
 
     fun exportAuditLogs(context: android.content.Context) = viewModelScope.launch {
-        val logs = auditDao.getAllAuditLogsSync()
+        val appContext = context.applicationContext
         try {
-            val file = java.io.File(context.cacheDir, "baton_audit_ledger.json")
-            val jsonList = logs.map { 
-                """{"id":"${it.id}","entity":"${it.entityName}","action":"${it.action}","timestamp":${it.timestamp},"payload":${it.payloadJson},"prevHash":"${it.previousHash}","hash":"${it.hash}"}""" 
-            }.joinToString(",\n", "[\n", "\n]")
-            
-            file.writeText(jsonList)
-            android.widget.Toast.makeText(context, "Audit Ledger exported to ${file.absolutePath}", android.widget.Toast.LENGTH_LONG).show()
+            val (file, count) = withContext(Dispatchers.IO) {
+                val logs = auditDao.getAllAuditLogsSync()
+                val file = java.io.File(appContext.cacheDir, "baton_audit_ledger.json")
+                val jsonList = logs.map { 
+                    """{"id":"${it.id}","entity":"${it.entityName}","action":"${it.action}","timestamp":${it.timestamp},"payload":${it.payloadJson},"prevHash":"${it.previousHash}","hash":"${it.hash}"}""" 
+                }.joinToString(",\n", "[\n", "\n]")
+                
+                file.writeText(jsonList)
+                Pair(file, logs.size)
+            }
+            android.widget.Toast.makeText(appContext, "Audit Ledger ($count entries) exported to ${file.absolutePath}", android.widget.Toast.LENGTH_LONG).show()
         } catch (e: Exception) {
-            android.widget.Toast.makeText(context, "Export failed: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+            android.widget.Toast.makeText(appContext, "Export failed: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
         }
     }
 }

@@ -30,14 +30,17 @@ class McpBridgeServer {
     const authHeader = req.headers['authorization'] || '';
     if (!authHeader.startsWith('Bearer ')) return false;
     const clientToken = authHeader.substring(7).trim();
-    if (clientToken.length !== this.authToken.length) return false;
-    return crypto.timingSafeEqual(Buffer.from(clientToken), Buffer.from(this.authToken));
+    const clientBuf = Buffer.from(clientToken, 'utf-8');
+    const authBuf = Buffer.from(this.authToken, 'utf-8');
+    if (clientBuf.byteLength !== authBuf.byteLength) return false;
+    return crypto.timingSafeEqual(clientBuf, authBuf);
   }
 
   resolveSafePath(userPath) {
     const resolved = path.resolve(this.workspaceDir, userPath || '.');
-    // Ensure path remains inside workspace directory
-    if (!resolved.startsWith(this.workspaceDir)) {
+    const rel = path.relative(this.workspaceDir, resolved);
+    // Ensure path remains strictly inside workspace directory
+    if (rel.startsWith('..') || path.isAbsolute(rel)) {
       this.telemetry.logSecurityIncident(
         'PATH_TRAVERSAL_ATTEMPT',
         { attempted_path: userPath, resolved_target: resolved },
@@ -412,14 +415,18 @@ class McpBridgeServer {
 
           // 1.5 System status and web companion metadata
           if (pathname === '/status' && req.method === 'GET') {
-            const pairingUrl = `baton://connect?url=${encodeURIComponent(this.tunnelUrl)}&token=${encodeURIComponent(this.authToken)}&name=${encodeURIComponent('Antigravity Desktop')}&model=antigravity-bridge`;
-            const svg = this.qrMatrix ? renderSvgQr(this.qrMatrix, 10) : '';
+            const remoteIp = req.socket.remoteAddress || '';
+            const isLoopback = remoteIp === '127.0.0.1' || remoteIp === '::1' || remoteIp === '::ffff:127.0.0.1';
+            const isAuth = isLoopback || this.isAuthorized(req);
+
+            const pairingUrl = isAuth ? `baton://connect?url=${encodeURIComponent(this.tunnelUrl)}&token=${encodeURIComponent(this.authToken)}&name=${encodeURIComponent('Antigravity Desktop')}&model=antigravity-bridge` : undefined;
+            const svg = (isAuth && this.qrMatrix) ? renderSvgQr(this.qrMatrix, 10) : undefined;
             this.sendJson(res, 200, {
               status: 'ok',
               workspace: this.workspaceDir,
               tunnelUrl: this.tunnelUrl,
               pairingUrl,
-              token: this.authToken,
+              token: isAuth ? this.authToken : undefined,
               svgQr: svg
             });
             return;
@@ -649,6 +656,9 @@ class McpBridgeServer {
   stop() {
     return new Promise((resolve) => {
       if (this.server) {
+        if (typeof this.server.closeAllConnections === 'function') {
+          this.server.closeAllConnections();
+        }
         this.server.close(() => resolve());
       } else {
         resolve();

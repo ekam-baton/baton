@@ -192,7 +192,8 @@ class KeyBackupViewModelTest {
             connectionSecurityManager = connectionSecurityManager,
             appPreferences = appPreferences,
             memoryRepository = memoryRepository,
-            auditDao = auditDao
+            auditDao = auditDao,
+            defaultDispatcher = testDispatcher
         )
     }
 

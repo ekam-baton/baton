@@ -24,24 +24,27 @@ class ConnectionPoolManager constructor() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     suspend fun registerConnection(connection: PoolableConnection) {
-        mutex.withLock {
-            if (activeConnections.size >= MAX_ACTIVE_CONNECTIONS && !activeConnections.containsKey(connection.id)) {
-                evictLruConnection()
-            }
+        val evicted = mutex.withLock {
+            val toEvict = if (activeConnections.size >= MAX_ACTIVE_CONNECTIONS && !activeConnections.containsKey(connection.id)) {
+                findLruConnectionLocked()
+            } else null
+            toEvict?.let { activeConnections.remove(it.id) }
             activeConnections[connection.id] = connection
+            toEvict
         }
+        evicted?.disconnect()
     }
 
     suspend fun unregisterConnection(id: String) {
-        mutex.withLock {
-            val conn = activeConnections.remove(id)
-            conn?.disconnect()
+        val conn = mutex.withLock {
+            activeConnections.remove(id)
         }
+        conn?.disconnect()
     }
     
     fun getActiveConnectionCount(): Int = activeConnections.size
 
-    private suspend fun evictLruConnection() {
+    private fun findLruConnectionLocked(): PoolableConnection? {
         var oldestConn: PoolableConnection? = null
         var oldestTime = Long.MAX_VALUE
 
@@ -51,20 +54,22 @@ class ConnectionPoolManager constructor() {
                 oldestConn = conn
             }
         }
-
-        oldestConn?.let {
-            activeConnections.remove(it.id)
-            it.disconnect()
-        }
+        return oldestConn
     }
     
     suspend fun evictIdleConnections(maxIdleTimeMs: Long) {
-        mutex.withLock {
+        val toDisconnect = mutex.withLock {
             val now = System.currentTimeMillis()
             val toEvict = activeConnections.values.filter { (now - it.lastAccessedAt) > maxIdleTimeMs }
             toEvict.forEach { conn ->
                 activeConnections.remove(conn.id)
+            }
+            toEvict
+        }
+        toDisconnect.forEach { conn ->
+            try {
                 conn.disconnect()
+            } catch (e: Exception) {
             }
         }
     }

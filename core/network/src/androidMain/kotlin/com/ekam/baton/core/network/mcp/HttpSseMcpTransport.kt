@@ -1,4 +1,4 @@
-﻿package com.ekam.baton.core.network.mcp
+package com.ekam.baton.core.network.mcp
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
@@ -157,6 +157,7 @@ class HttpSseMcpTransport constructor(
             override fun onClosed(eventSource: EventSource) { close() }
 
             override fun onFailure(eventSource: EventSource, t: Throwable?, response: Response?) {
+                response?.close()
                 close(t ?: IOException("SSE Failure with code ${response?.code}"))
             }
         }

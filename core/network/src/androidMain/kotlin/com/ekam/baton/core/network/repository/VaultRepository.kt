@@ -32,11 +32,12 @@ open class VaultRepository constructor(
             val requestBuilder = Request.Builder().url(url).post(requestBody)
             authHeader?.let { requestBuilder.addHeader("Authorization", it) }
 
-            val response = client.newCall(requestBuilder.build()).execute()
-            if (response.isSuccessful) {
-                Result.success(Unit)
-            } else {
-                Result.failure(Exception("Failed to upload vault: ${response.code}"))
+            client.newCall(requestBuilder.build()).execute().use { response ->
+                if (response.isSuccessful) {
+                    Result.success(Unit)
+                } else {
+                    Result.failure(Exception("Failed to upload vault: ${response.code}"))
+                }
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -54,19 +55,20 @@ open class VaultRepository constructor(
             val requestBuilder = Request.Builder().url(url).get()
             authHeader?.let { requestBuilder.addHeader("Authorization", it) }
 
-            val response = client.newCall(requestBuilder.build()).execute()
-            if (response.isSuccessful) {
-                val bodyStr = response.body?.string()
-                if (bodyStr != null) {
-                    val json = JSONObject(bodyStr)
-                    Result.success(json.getString("vault_data"))
+            client.newCall(requestBuilder.build()).execute().use { response ->
+                if (response.isSuccessful) {
+                    val bodyStr = response.body?.string()
+                    if (bodyStr != null) {
+                        val json = JSONObject(bodyStr)
+                        Result.success(json.getString("vault_data"))
+                    } else {
+                        Result.failure(Exception("Empty response body"))
+                    }
+                } else if (response.code == 404) {
+                    Result.failure(Exception("No vault found for this client"))
                 } else {
-                    Result.failure(Exception("Empty response body"))
+                    Result.failure(Exception("Failed to download vault: ${response.code}"))
                 }
-            } else if (response.code == 404) {
-                Result.failure(Exception("No vault found for this client"))
-            } else {
-                Result.failure(Exception("Failed to download vault: ${response.code}"))
             }
         } catch (e: Exception) {
             Result.failure(e)

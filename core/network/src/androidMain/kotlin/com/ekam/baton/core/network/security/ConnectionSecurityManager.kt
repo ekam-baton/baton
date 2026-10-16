@@ -73,24 +73,23 @@ open class ConnectionSecurityManager constructor(
                 }
             }
         } catch (e: Exception) {
-            // Fallback for JVM unit tests
-            val keyBytes = ByteArray(32)
-            SecureRandom().nextBytes(keyBytes)
-            softwareMasterKey = SecretKeySpec(keyBytes, "AES")
+            // Fallback for JVM unit tests where AndroidKeyStore is unavailable
+            if (softwareMasterKey == null) {
+                val keyBytes = ByteArray(32)
+                SecureRandom().nextBytes(keyBytes)
+                softwareMasterKey = SecretKeySpec(keyBytes, "AES")
+            }
         }
     }
 
     private fun getMasterKey(): SecretKey {
         return try {
             val ks = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
-            ks.getKey(keyStoreAlias, null) as SecretKey
+            (ks.getKey(keyStoreAlias, null) as? SecretKey)
+                ?: softwareMasterKey
+                ?: throw SecurityException("Master key not found in AndroidKeyStore for alias: $keyStoreAlias")
         } catch (e: Exception) {
-            if (softwareMasterKey == null) {
-                val keyBytes = ByteArray(32)
-                SecureRandom().nextBytes(keyBytes)
-                softwareMasterKey = SecretKeySpec(keyBytes, "AES")
-            }
-            softwareMasterKey!!
+            softwareMasterKey ?: throw SecurityException("Master key unavailable", e)
         }
     }
 
@@ -100,9 +99,7 @@ open class ConnectionSecurityManager constructor(
     open fun encryptPrivateKey(privateKey: ByteArray): Pair<String, String> {
         try {
             val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-            val iv = ByteArray(12)
-            SecureRandom().nextBytes(iv)
-            cipher.init(Cipher.ENCRYPT_MODE, getMasterKey(), GCMParameterSpec(128, iv))
+            cipher.init(Cipher.ENCRYPT_MODE, getMasterKey())
             val ciphertext = cipher.doFinal(privateKey)
             return Base64.getEncoder().encodeToString(ciphertext) to Base64.getEncoder().encodeToString(cipher.iv)
         } catch (e: Exception) {

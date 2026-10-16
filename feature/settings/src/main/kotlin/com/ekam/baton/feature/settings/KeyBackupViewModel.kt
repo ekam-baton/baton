@@ -13,12 +13,15 @@ import com.ekam.baton.core.data.util.AuditCryptoUtils
 import com.ekam.baton.core.network.repository.VaultRepository
 import com.ekam.baton.core.network.security.ConnectionSecurityManager
 import com.ekam.baton.core.network.security.IdentityKeyManager
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -28,7 +31,8 @@ class KeyBackupViewModel(
     private val connectionSecurityManager: ConnectionSecurityManager,
     private val appPreferences: AppPreferences,
     private val memoryRepository: MemoryRepository,
-    private val auditDao: AuditDao
+    private val auditDao: AuditDao,
+    private val defaultDispatcher: CoroutineDispatcher = Dispatchers.Default
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<BackupUiState>(BackupUiState.Idle)
@@ -136,7 +140,9 @@ class KeyBackupViewModel(
                 }
 
                 val payloadBytes = rootEnvelope.toString().toByteArray(Charsets.UTF_8)
-                val vaultDataString = connectionSecurityManager.encryptForBackup(payloadBytes, password.toCharArray())
+                val vaultDataString = withContext(defaultDispatcher) {
+                    connectionSecurityManager.encryptForBackup(payloadBytes, password.toCharArray())
+                }
 
                 val endpointUrl = appPreferences.backendUrl.first()
                 val secret = appPreferences.jwtSecret.first()
@@ -188,7 +194,9 @@ class KeyBackupViewModel(
                 val result = vaultRepository.downloadVault(endpointUrl, authHeader, clientId)
                 if (result.isSuccess) {
                     val vaultDataString = result.getOrNull()!!
-                    val decryptedBytes = connectionSecurityManager.decryptFromBackup(vaultDataString, password.toCharArray())
+                    val decryptedBytes = withContext(defaultDispatcher) {
+                        connectionSecurityManager.decryptFromBackup(vaultDataString, password.toCharArray())
+                    }
                     val rawDecrypted = String(decryptedBytes, Charsets.UTF_8)
 
                     var restoredAgentCount = 0

@@ -10,10 +10,15 @@ import com.ekam.baton.core.data.db.dao.AuditDao
 import com.ekam.baton.core.data.db.entity.AuditLogEntity
 import com.ekam.baton.core.data.util.AuditCryptoUtils
 
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+
 open class MemoryRepository constructor(
     private val memoryDao: MemoryDao,
     private val auditDao: AuditDao
 ) {
+    private val auditMutex = Mutex()
+
     open fun getAllMemories(): Flow<List<Memory>> = memoryDao.getAllMemories().map { list -> list.map { it.toDomainModel() } }
 
     open fun getMemoriesByLayer(layer: String): Flow<List<Memory>> = memoryDao.getMemoriesByLayer(layer).map { list -> list.map { it.toDomainModel() } }
@@ -22,7 +27,7 @@ open class MemoryRepository constructor(
 
     open fun searchMemories(query: String): Flow<List<Memory>> = memoryDao.searchMemories(query).map { list -> list.map { it.toDomainModel() } }
 
-    open suspend fun upsertMemory(memory: Memory) {
+    open suspend fun upsertMemory(memory: Memory) = auditMutex.withLock {
         val entity = memory.toEntity()
         val lastAudit = auditDao.getLastAuditLog()
         val prevHash = lastAudit?.hash ?: ""
@@ -43,7 +48,7 @@ open class MemoryRepository constructor(
         ))
     }
 
-    open suspend fun deleteMemory(id: String) {
+    open suspend fun deleteMemory(id: String) = auditMutex.withLock {
         val lastAudit = auditDao.getLastAuditLog()
         val prevHash = lastAudit?.hash ?: ""
         val payload = """{"id":"$id","deleted":true}"""
@@ -62,7 +67,7 @@ open class MemoryRepository constructor(
         ))
     }
 
-    open suspend fun toggleMemoryActive(id: String, isActive: Boolean) {
+    open suspend fun toggleMemoryActive(id: String, isActive: Boolean) = auditMutex.withLock {
         val lastAudit = auditDao.getLastAuditLog()
         val prevHash = lastAudit?.hash ?: ""
         val payload = """{"id":"$id","isActive":$isActive}"""
