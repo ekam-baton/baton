@@ -300,6 +300,7 @@ class ChatViewModel(
 
     fun sendMessage(content: String, attachments: List<Uri> = emptyList()) {
         val cid = conversationId ?: return
+        if (content.isBlank() && attachments.isEmpty()) return
         // Prevent sending to blocked agent
         if (_isAgentBlocked.value) {
             _uiError.value = "Cannot send message: This agent is blocked."
@@ -353,6 +354,12 @@ class ChatViewModel(
                         null
                     }
                 }
+            }
+
+            if (attachmentDtos.isEmpty() && content.isBlank()) {
+                _isStreaming.value = false
+                _agentActivityStatus.value = null
+                return@launch
             }
 
             _agentActivityStatus.value = "Authenticating..."
@@ -567,12 +574,19 @@ class ChatViewModel(
         _agentActivityStatus.value = "Retrying..."
         viewModelScope.launch {
             try {
-                chatRepository.deleteMessage(message.id)
-                val history = chatRepository.getLastNMessages(cid, 2)
-                val lastUserMsg = history.find { it.role == "user" }
-                if (lastUserMsg != null) {
+                val targetUserMsg: com.ekam.baton.core.data.db.entity.MessageEntity? = if (message.role == "user") {
+                    chatRepository.getMessageById(message.id)
+                } else {
+                    chatRepository.deleteMessage(message.id)
+                    val history = chatRepository.getLastNMessages(cid, 5)
+                    history.findLast { it.role == "user" }
+                }
+
+                if (targetUserMsg != null) {
                     val authHeader = fetchJwtToken()
-                    chatRepository.retryMessageWithResponse(cid, lastUserMsg, authHeader).collect {}
+                    chatRepository.retryMessageWithResponse(cid, targetUserMsg, authHeader).collect {}
+                } else {
+                    _uiError.value = "No original message found to retry."
                 }
             } catch (e: Exception) {
                 _uiError.value = "Failed to retry: ${e.message}"
