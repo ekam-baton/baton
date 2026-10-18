@@ -316,9 +316,9 @@ class ChatViewModel(
         }
         // Prevent double-submission while a response is already streaming
         if (_isStreaming.value) return
+        _isStreaming.value = true
+        _agentActivityStatus.value = if (attachments.isNotEmpty()) "Preparing media attachments..." else "Injecting working memory..."
         viewModelScope.launch {
-            _isStreaming.value = true
-            _agentActivityStatus.value = if (attachments.isNotEmpty()) "Preparing media attachments..." else "Injecting working memory..."
 
             // Process attachments on IO dispatcher
             val attachmentDtos = withContext(Dispatchers.IO) {
@@ -544,9 +544,10 @@ class ChatViewModel(
 
     fun executeTool(toolName: String, arguments: kotlinx.serialization.json.JsonObject) {
         val cid = conversationId ?: return
+        if (_isStreaming.value) return
+        _isStreaming.value = true
+        _agentActivityStatus.value = "Executing tool $toolName..."
         viewModelScope.launch {
-            _isStreaming.value = true
-            _agentActivityStatus.value = "Executing tool $toolName..."
             try {
                 chatRepository.executeToolManual(cid, toolName, arguments).collect {}
             } catch (e: Exception) {
@@ -561,14 +562,14 @@ class ChatViewModel(
     fun retryMessage(message: Message) {
         val cid = conversationId ?: return
         if (_isStreaming.value) return
+        _isStreaming.value = true
+        _agentActivityStatus.value = "Retrying..."
         viewModelScope.launch {
             try {
                 chatRepository.deleteMessage(message.id)
                 val history = chatRepository.getLastNMessages(cid, 2)
                 val lastUserMsg = history.find { it.role == "user" }
                 if (lastUserMsg != null) {
-                    _isStreaming.value = true
-                    _agentActivityStatus.value = "Retrying..."
                     val authHeader = fetchJwtToken()
                     chatRepository.retryMessageWithResponse(cid, lastUserMsg, authHeader).collect {}
                 }
@@ -581,17 +582,24 @@ class ChatViewModel(
         }
     }
 
+    private val isFlushingFailedMessages = java.util.concurrent.atomic.AtomicBoolean(false)
+
     fun flushFailedMessagesOnReconnect() {
         val cid = conversationId ?: return
         if (_isStreaming.value) return
+        if (!isFlushingFailedMessages.compareAndSet(false, true)) return
         viewModelScope.launch {
             try {
+                if (_isStreaming.value) return@launch
                 val failed = chatRepository.getFailedMessages(cid)
                 if (failed.isNotEmpty()) {
                     val lastFailed = failed.last()
                     retryMessage(lastFailed.toDomainModel())
                 }
-            } catch (_: Exception) {}
+            } catch (_: Exception) {
+            } finally {
+                isFlushingFailedMessages.set(false)
+            }
         }
     }
 
