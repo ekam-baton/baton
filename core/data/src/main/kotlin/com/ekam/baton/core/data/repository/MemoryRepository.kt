@@ -86,9 +86,24 @@ open class MemoryRepository constructor(
         ))
     }
 
-    suspend fun cleanupOldMemories(retentionDays: Int) {
-        if (retentionDays == -1) return // Keep forever
+    open suspend fun cleanupOldMemories(retentionDays: Int) = auditMutex.withLock {
+        if (retentionDays == -1) return@withLock // Keep forever
         val cutoffTime = System.currentTimeMillis() - (retentionDays * 24L * 60L * 60L * 1000L)
+        val lastAudit = auditDao.getLastAuditLog()
+        val prevHash = lastAudit?.hash ?: ""
+        val payload = """{"action":"CLEANUP_RETENTION","retentionDays":$retentionDays,"cutoffTime":$cutoffTime}"""
+        val newHash = AuditCryptoUtils.generateHash(payload, prevHash)
+
         memoryDao.deleteMemoriesOlderThan(cutoffTime)
+
+        auditDao.insertAuditLog(AuditLogEntity(
+            entityName = "MemoryEntity",
+            entityId = "retention_cleanup",
+            action = "RETENTION_CLEANUP",
+            deviceId = "local_device",
+            payloadJson = payload,
+            previousHash = prevHash,
+            hash = newHash
+        ))
     }
 }

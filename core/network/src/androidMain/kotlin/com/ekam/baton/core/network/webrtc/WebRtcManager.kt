@@ -12,6 +12,7 @@ class WebRtcManager(private val context: Context) {
     private var peerConnectionFactory: PeerConnectionFactory? = null
     private var peerConnection: PeerConnection? = null
     private var localAudioTrack: AudioTrack? = null
+    private var audioSource: AudioSource? = null
     private var eglBase: EglBase? = null
     
     // Signaling flow to emit messages that should be sent to the peer
@@ -108,8 +109,10 @@ class WebRtcManager(private val context: Context) {
         })
 
         // Create local audio track
-        val audioSource = peerConnectionFactory?.createAudioSource(MediaConstraints())
-        localAudioTrack = peerConnectionFactory?.createAudioTrack("ARDAMSa0", audioSource)
+        audioSource?.dispose()
+        val source = peerConnectionFactory?.createAudioSource(MediaConstraints())
+        audioSource = source
+        localAudioTrack = peerConnectionFactory?.createAudioTrack("ARDAMSa0", source)
         peerConnection?.addTrack(localAudioTrack, listOf("ARDAMS"))
 
         peerConnection?.createOffer(object : SdpObserver {
@@ -204,6 +207,8 @@ class WebRtcManager(private val context: Context) {
         scope.cancel()
         localAudioTrack?.dispose()
         localAudioTrack = null
+        audioSource?.dispose()
+        audioSource = null
         peerConnection?.close()
         peerConnection?.dispose()
         peerConnection = null

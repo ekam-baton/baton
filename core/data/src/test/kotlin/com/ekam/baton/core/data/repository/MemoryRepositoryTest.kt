@@ -118,10 +118,13 @@ class FakeMemoryDao : MemoryDao {
 }
 
 class FakeAuditDao : com.ekam.baton.core.data.db.dao.AuditDao {
-    override suspend fun insertAuditLog(log: com.ekam.baton.core.data.db.entity.AuditLogEntity) {}
-    override fun getAllAuditLogs(): Flow<List<com.ekam.baton.core.data.db.entity.AuditLogEntity>> = kotlinx.coroutines.flow.flowOf(emptyList())
-    override suspend fun getLastAuditLog(): com.ekam.baton.core.data.db.entity.AuditLogEntity? = null
-    override suspend fun getAllAuditLogsSync(): List<com.ekam.baton.core.data.db.entity.AuditLogEntity> = emptyList()
+    val insertedLogs = mutableListOf<com.ekam.baton.core.data.db.entity.AuditLogEntity>()
+    override suspend fun insertAuditLog(log: com.ekam.baton.core.data.db.entity.AuditLogEntity) {
+        insertedLogs.add(log)
+    }
+    override fun getAllAuditLogs(): Flow<List<com.ekam.baton.core.data.db.entity.AuditLogEntity>> = kotlinx.coroutines.flow.flowOf(insertedLogs)
+    override suspend fun getLastAuditLog(): com.ekam.baton.core.data.db.entity.AuditLogEntity? = insertedLogs.lastOrNull()
+    override suspend fun getAllAuditLogsSync(): List<com.ekam.baton.core.data.db.entity.AuditLogEntity> = insertedLogs
     override suspend fun pruneOldLogs(keepLastN: Int) {}
 }
 
@@ -322,5 +325,40 @@ class MemoryRepositoryTest {
 
         val result = repository.getAllMemories().first().first { it.id == "t-2" }
         assertTrue(result.isActive)
+    }
+
+    // ── cleanupOldMemories ───────────────────────────────────────
+
+    @Test
+    fun `cleanupOldMemories with minus one keeps all memories and logs nothing`() = runTest {
+        repository.upsertMemory(memory(id = "old-1", createdAt = 100L).toDomainModel())
+        fakeAuditDao.insertedLogs.clear()
+
+        repository.cleanupOldMemories(retentionDays = -1)
+
+        assertEquals(1, repository.getAllMemories().first().size)
+        assertTrue(fakeAuditDao.insertedLogs.isEmpty())
+    }
+
+    @Test
+    fun `cleanupOldMemories deletes memories older than retention and writes audit log`() = runTest {
+        val now = System.currentTimeMillis()
+        val oldTime = now - (10 * 24L * 60L * 60L * 1000L) // 10 days ago
+        val recentTime = now - (2 * 24L * 60L * 60L * 1000L) // 2 days ago
+
+        repository.upsertMemory(memory(id = "old-1", createdAt = oldTime).toDomainModel())
+        repository.upsertMemory(memory(id = "recent-1", createdAt = recentTime).toDomainModel())
+        fakeAuditDao.insertedLogs.clear()
+
+        repository.cleanupOldMemories(retentionDays = 7)
+
+        val remaining = repository.getAllMemories().first()
+        assertEquals(1, remaining.size)
+        assertEquals("recent-1", remaining.first().id)
+
+        val cleanupLog = fakeAuditDao.insertedLogs.firstOrNull { it.action == "RETENTION_CLEANUP" }
+        assertNotNull(cleanupLog)
+        assertEquals("MemoryEntity", cleanupLog?.entityName)
+        assertEquals("retention_cleanup", cleanupLog?.entityId)
     }
 }
