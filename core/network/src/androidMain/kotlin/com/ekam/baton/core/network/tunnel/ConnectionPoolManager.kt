@@ -43,6 +43,8 @@ class ConnectionPoolManager constructor() {
     }
     
     suspend fun disconnectAll() {
+        monitorJob?.cancel()
+        monitorJob = null
         val toDisconnect = mutex.withLock {
             val list = activeConnections.values.toList()
             activeConnections.clear()
@@ -87,21 +89,21 @@ class ConnectionPoolManager constructor() {
         }
     }
 
+    private var monitorJob: kotlinx.coroutines.Job? = null
+
     /**
      * Starts a background monitor that periodically checks connection health.
      * This handles network state recovery by evicting dead/failed connections
      * so that the UI layer is forced to request a fresh connection.
      */
     fun startResilienceMonitor(intervalMs: Long = 30000L) {
-        scope.launch {
+        monitorJob?.cancel()
+        monitorJob = scope.launch {
             while (isActive) {
                 kotlinx.coroutines.delay(intervalMs)
                 try {
                     evictIdleConnections(60000 * 5) // 5 minutes idle
-                    // Note: Actual reconnect logic is typically driven by the consumer 
-                    // requesting a new session when the old one is evicted or closed.
-                    // This monitor ensures dead resources are aggressively purged.
-                } catch (e: Exception) {
+                } catch (_: Exception) {
                 }
             }
         }

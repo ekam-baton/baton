@@ -86,7 +86,9 @@ open class TunnelEndpointValidator constructor(
         return true
     }
 
-    open suspend fun validateEndpoint(urlString: String): TunnelValidationResult = withContext(Dispatchers.IO) {
+    open suspend fun validateEndpoint(urlString: String): TunnelValidationResult = validateEndpoint(urlString, null)
+
+    open suspend fun validateEndpoint(urlString: String, authToken: String?): TunnelValidationResult = withContext(Dispatchers.IO) {
         // a. Scheme check — only http/https
         if (!urlString.startsWith("https://") && !urlString.startsWith("http://")) {
             return@withContext TunnelValidationResult(Status.INVALID_URL, null, null, "URL must start with http:// or https://")
@@ -157,10 +159,15 @@ open class TunnelEndpointValidator constructor(
         }
 
         val requestBody = initializePayload.toString().toRequestBody("application/json".toMediaType())
-        val postRequest = Request.Builder()
+        val postRequestBuilder = Request.Builder()
             .url(baseUrl)
             .post(requestBody)
-            .build()
+
+        if (!authToken.isNullOrBlank()) {
+            val authHeader = if (authToken.startsWith("Bearer ", ignoreCase = true)) authToken else "Bearer $authToken"
+            postRequestBuilder.header("Authorization", authHeader)
+        }
+        val postRequest = postRequestBuilder.build()
 
         try {
             probeClient.newCall(postRequest).execute().use { response ->
@@ -176,6 +183,11 @@ open class TunnelEndpointValidator constructor(
                     } catch (e: Exception) {
                         // Not JSON-RPC — fall through
                     }
+                } else if (response.code == 401 || response.code == 403) {
+                    return@withContext TunnelValidationResult(
+                        Status.REACHABLE_NO_MCP, null, null,
+                        "Endpoint is protected by authentication (HTTP ${response.code}). Provide a valid bearer token."
+                    )
                 }
             }
         } catch (e: Exception) {
