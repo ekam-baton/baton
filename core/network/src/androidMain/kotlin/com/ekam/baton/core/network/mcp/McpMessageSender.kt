@@ -184,19 +184,21 @@ open class McpMessageSender constructor(
                 httpClient.newCall(request).execute()
             }
             
-            if (response.isSuccessful) {
-                val body = response.body?.string() ?: ""
-                val pairResponse = jsonParser.decodeFromString(PairResponse.serializer(), body)
-                Result.success(PairResult(
-                    relayUrl = pairResponse.relay_url,
-                    relayToken = pairResponse.relay_token,
-                    ownerId = pairResponse.agent_owner_id,
-                    ownerName = pairResponse.agent_owner_name,
-                    x25519PublicKey = pairResponse.x25519_public_key,
-                    ed25519PublicKey = pairResponse.ed25519_public_key
-                ))
-            } else {
-                Result.failure(Exception("Pairing failed with status: ${response.code}"))
+            response.use { resp ->
+                if (resp.isSuccessful) {
+                    val body = resp.body?.string() ?: ""
+                    val pairResponse = jsonParser.decodeFromString(PairResponse.serializer(), body)
+                    Result.success(PairResult(
+                        relayUrl = pairResponse.relay_url,
+                        relayToken = pairResponse.relay_token,
+                        ownerId = pairResponse.agent_owner_id,
+                        ownerName = pairResponse.agent_owner_name,
+                        x25519PublicKey = pairResponse.x25519_public_key,
+                        ed25519PublicKey = pairResponse.ed25519_public_key
+                    ))
+                } else {
+                    Result.failure(Exception("Pairing failed with status: ${resp.code}"))
+                }
             }
         } catch (e: Exception) {
             Result.failure(e)
