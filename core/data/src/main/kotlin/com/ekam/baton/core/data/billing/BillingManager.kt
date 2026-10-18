@@ -240,11 +240,12 @@ class BillingManager(
 
             val body = jsonInput.toRequestBody("application/json".toMediaTypeOrNull())
             val request = Request.Builder().url(loginUrl).post(body).build()
-            val response = httpClient.newCall(request).execute()
-            if (response.isSuccessful) {
-                val responseBody = response.body?.string() ?: ""
-                JSONObject(responseBody).optString("token", "")
-            } else ""
+            httpClient.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    val responseBody = response.body?.string() ?: ""
+                    JSONObject(responseBody).optString("token", "")
+                } else ""
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Auth token fetch failed", e)
             ""

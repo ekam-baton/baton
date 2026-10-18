@@ -421,13 +421,14 @@ class ChatViewModel(
                     .post(body)
                     .build()
 
-                val response = httpClient.newCall(request).execute()
-                if (response.isSuccessful) {
-                    val responseBody = response.body?.string() ?: ""
-                    val json = JSONObject(responseBody)
-                    "Bearer ${json.getString("token")}"
-                } else {
-                    null
+                httpClient.newCall(request).execute().use { response ->
+                    if (response.isSuccessful) {
+                        val responseBody = response.body?.string() ?: ""
+                        val json = JSONObject(responseBody)
+                        "Bearer ${json.getString("token")}"
+                    } else {
+                        null
+                    }
                 }
             } catch (e: Exception) {
                 // LOW-1: Use structured logging — never e.printStackTrace() in production
