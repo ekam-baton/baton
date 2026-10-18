@@ -25,4 +25,11 @@ class NetworkConnectivityMonitorTest {
         monitor.setConnectedForTesting(true)
         assertTrue(monitor.isConnected.first())
     }
+
+    @Test
+    fun testUnregisterDoesNotThrow() {
+        val monitor = NetworkConnectivityMonitor(context = null)
+        monitor.unregister()
+        monitor.unregister()
+    }
 }

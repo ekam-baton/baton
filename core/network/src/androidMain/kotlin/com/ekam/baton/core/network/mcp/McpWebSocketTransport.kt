@@ -96,8 +96,10 @@ class McpWebSocketTransport constructor(
         val agentId = agentId ?: uri.getQueryParameter("agent") ?: "unknown"
         val clientId = uri.lastPathSegment ?: "unknown"
 
-        val secureUrl = if (endpointUrl.startsWith("ws://")) {
-            android.util.Log.w("McpWebSocketTransport", "Upgrading insecure ws:// to wss://. Local/BYOS relays without TLS will fail to connect.")
+        val host = uri.host ?: ""
+        val isLocal = isLocalOrLoopbackHost(host)
+        val secureUrl = if (endpointUrl.startsWith("ws://") && !isLocal) {
+            android.util.Log.w("McpWebSocketTransport", "Upgrading public insecure ws:// to wss://.")
             endpointUrl.replaceFirst("ws://", "wss://")
         } else {
             endpointUrl
@@ -282,6 +284,23 @@ class McpWebSocketTransport constructor(
         awaitClose {
             webSocket.cancel()
         }
+    }
+
+    private fun isLocalOrLoopbackHost(host: String): Boolean {
+        if (host.equals("localhost", ignoreCase = true) || host == "127.0.0.1" || host == "10.0.2.2") {
+            return true
+        }
+        if (host.startsWith("192.168.") || host.startsWith("10.") || host.startsWith("169.254.")) {
+            return true
+        }
+        if (host.startsWith("172.")) {
+            val parts = host.split(".")
+            if (parts.size >= 2) {
+                val second = parts[1].toIntOrNull()
+                if (second != null && second in 16..31) return true
+            }
+        }
+        return false
     }
 }
 

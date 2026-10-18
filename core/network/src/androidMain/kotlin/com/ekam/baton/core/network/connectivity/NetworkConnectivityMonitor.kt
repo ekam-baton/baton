@@ -15,6 +15,7 @@ open class NetworkConnectivityMonitor constructor(
     private val _isConnected = MutableStateFlow(true)
     open val isConnected: StateFlow<Boolean> = _isConnected.asStateFlow()
 
+    private var connectivityManager: ConnectivityManager? = null
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
 
     init {
@@ -22,6 +23,7 @@ open class NetworkConnectivityMonitor constructor(
             try {
                 val cm = ctx.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
                 if (cm != null) {
+                    connectivityManager = cm
                     val activeNetwork = cm.activeNetwork
                     val caps = cm.getNetworkCapabilities(activeNetwork)
                     val online = caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
@@ -36,8 +38,20 @@ open class NetworkConnectivityMonitor constructor(
                             _isConnected.value = true
                         }
 
+                        override fun onCapabilitiesChanged(
+                            network: Network,
+                            networkCapabilities: NetworkCapabilities
+                        ) {
+                            val hasInternet = networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                            _isConnected.value = hasInternet
+                        }
+
                         override fun onLost(network: Network) {
-                            _isConnected.value = false
+                            // Do not blindly mark offline if an alternative active network (e.g. Cellular during Wi-Fi drop) is connected
+                            val activeNet = cm.activeNetwork
+                            val activeCaps = cm.getNetworkCapabilities(activeNet)
+                            val stillOnline = activeCaps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+                            _isConnected.value = stillOnline
                         }
 
                         override fun onUnavailable() {
@@ -50,6 +64,17 @@ open class NetworkConnectivityMonitor constructor(
             } catch (_: Exception) {
                 _isConnected.value = true
             }
+        }
+    }
+
+    open fun unregister() {
+        try {
+            networkCallback?.let { cb ->
+                connectivityManager?.unregisterNetworkCallback(cb)
+            }
+        } catch (_: Exception) {
+        } finally {
+            networkCallback = null
         }
     }
 
