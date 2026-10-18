@@ -97,6 +97,9 @@ class KeyBackupViewModelTest {
         override suspend fun deleteMemoriesOlderThan(cutoffTime: Long) {
             memories.removeAll { it.createdAt < cutoffTime }
         }
+        override suspend fun deleteMemoriesForAgent(agentId: String) {
+            memories.removeAll { it.agentId == agentId }
+        }
     }
 
     private class FakeVaultRepository : VaultRepository() {

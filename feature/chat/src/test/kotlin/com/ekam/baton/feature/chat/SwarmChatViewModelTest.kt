@@ -218,4 +218,25 @@ class SwarmChatViewModelTest {
         assertFalse(swarm!!.isActive)
         assertNotNull(swarm.disbandedAt)
     }
+
+    @Test
+    fun `test sendMessage when memberAgents is empty sets uiError`() = runTest(testDispatcher) {
+        val emptyAgentDao = FakeTestAgentDao(emptyList())
+        val emptyViewModel = SwarmChatViewModel(
+            swarmDao = swarmDao,
+            tokenLedgerDao = tokenLedgerDao,
+            agentDao = emptyAgentDao,
+            messageDao = messageDao,
+            savedStateHandle = SavedStateHandle(mapOf("swarmId" to fakeSwarm.id))
+        )
+        testScheduler.advanceUntilIdle()
+
+        assertTrue(emptyViewModel.memberAgents.value.isEmpty())
+
+        emptyViewModel.sendMessage("Hello empty swarm")
+        testScheduler.advanceUntilIdle()
+
+        assertEquals("No active agents available in this swarm topology.", emptyViewModel.uiError.value)
+        assertFalse(emptyViewModel.isDispatching.value)
+    }
 }

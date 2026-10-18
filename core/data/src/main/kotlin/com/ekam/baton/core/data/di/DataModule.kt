@@ -383,7 +383,7 @@ val dataModule = module {
         )
     }
 
-    single { com.ekam.baton.core.data.repository.AgentRepository(get()) }
+    single { com.ekam.baton.core.data.repository.AgentRepository(get(), get(), get(), get()) }
     single { com.ekam.baton.core.data.repository.MemoryRepository(get(), get()) }
     single { com.ekam.baton.core.data.notification.BatonAppStateTracker() }
     single { 

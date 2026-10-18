@@ -13,7 +13,8 @@ import kotlin.math.min
 open class A2ASession(
     override val id: String = "",
     private val peerConnectionFactory: PeerConnectionFactory? = null,
-    private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default)
+    private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default),
+    private val customIceServers: List<PeerConnection.IceServer>? = null
 ) : PoolableConnection {
 
     private var peerConnection: PeerConnection? = null
@@ -53,12 +54,9 @@ open class A2ASession(
     }
 
     private fun createPeerConnection() {
-        val iceServers = listOf(
+        val iceServers = customIceServers ?: listOf(
             PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer(),
-            PeerConnection.IceServer.builder("turn:router.baton.com:3478")
-                .setUsername("baton")
-                .setPassword("baton_turn_secret")
-                .createIceServer()
+            PeerConnection.IceServer.builder("stun:stun1.l.google.com:19302").createIceServer()
         )
         val rtcConfig = PeerConnection.RTCConfiguration(iceServers).apply {
             iceTransportsType = PeerConnection.IceTransportsType.ALL

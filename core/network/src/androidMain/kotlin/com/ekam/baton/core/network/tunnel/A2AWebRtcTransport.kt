@@ -32,14 +32,21 @@ open class A2AWebRtcTransport constructor(
     }
     
     open suspend fun createSession(sessionId: String): A2ASession {
+        return createSession(sessionId, null)
+    }
+
+    open suspend fun createSession(
+        sessionId: String,
+        customIceServers: List<PeerConnection.IceServer>?
+    ): A2ASession {
         if (peerConnectionFactory == null && context != null) {
             initializeWebRtc()
         }
         val factory = peerConnectionFactory
         val session = if (factory != null) {
-            A2ASession(sessionId, factory, scope)
+            A2ASession(sessionId, factory, scope, customIceServers)
         } else {
-            A2ASession(sessionId, scope = scope)
+            A2ASession(sessionId, scope = scope, customIceServers = customIceServers)
         }
         poolManager?.registerConnection(session)
         return session

@@ -27,6 +27,9 @@ interface MemoryDao {
     @Query("DELETE FROM memories WHERE id = :id")
     suspend fun deleteMemory(id: String)
 
+    @Query("DELETE FROM memories WHERE agentId = :agentId")
+    suspend fun deleteMemoriesForAgent(agentId: String)
+
     @Query("UPDATE memories SET isActive = :isActive WHERE id = :id")
     suspend fun toggleMemoryActive(id: String, isActive: Boolean)
     @Query("SELECT * FROM memories WHERE layer = 'semantic' AND (agentId = :agentId OR agentId IS NULL) AND isActive = 1 ORDER BY relevanceScore DESC LIMIT 5")

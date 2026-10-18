@@ -186,6 +186,8 @@ class SwarmChatViewModel(
                             )
                         )
                     }
+                } else {
+                    _uiError.value = "No active agents available in this swarm topology."
                 }
             } catch (e: Exception) {
                 android.util.Log.e("SwarmChatViewModel", "Swarm execution failed", e)

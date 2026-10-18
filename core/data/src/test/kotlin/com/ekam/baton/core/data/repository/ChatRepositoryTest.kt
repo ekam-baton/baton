@@ -89,6 +89,7 @@ class ChatFakeMemoryDao : MemoryDao {
     override suspend fun clearWorkingMemoriesForConversation(conversationId: String) {}
     override suspend fun clearAllMemories() {}
     override suspend fun deleteMemoriesOlderThan(cutoffTime: Long) {}
+    override suspend fun deleteMemoriesForAgent(agentId: String) {}
 }
 
 class FakeMcpTransport : McpTransport {

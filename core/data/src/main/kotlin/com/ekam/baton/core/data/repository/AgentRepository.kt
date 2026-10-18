@@ -1,6 +1,9 @@
 package com.ekam.baton.core.data.repository
 
 import com.ekam.baton.core.data.db.dao.AgentDao
+import com.ekam.baton.core.data.db.dao.ConversationDao
+import com.ekam.baton.core.data.db.dao.MessageDao
+import com.ekam.baton.core.data.db.dao.MemoryDao
 import com.ekam.baton.core.data.model.Agent
 import com.ekam.baton.core.data.model.toDomainModel
 import com.ekam.baton.core.data.model.toEntity
@@ -8,7 +11,10 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 open class AgentRepository constructor(
-    private val agentDao: AgentDao
+    private val agentDao: AgentDao,
+    private val conversationDao: ConversationDao? = null,
+    private val messageDao: MessageDao? = null,
+    private val memoryDao: MemoryDao? = null
 ) {
     open fun getAllAgents(): Flow<List<Agent>> {
         return agentDao.getAllAgents().map { list -> list.map { it.toDomainModel() } }
@@ -23,6 +29,12 @@ open class AgentRepository constructor(
     }
 
     open suspend fun deleteAgent(id: String) {
+        val conv = conversationDao?.getConversationByAgentId(id)
+        if (conv != null) {
+            messageDao?.deleteMessagesForConversation(conv.id)
+            conversationDao.deleteConversation(conv.id)
+        }
+        memoryDao?.deleteMemoriesForAgent(id)
         agentDao.deleteAgent(id)
     }
 

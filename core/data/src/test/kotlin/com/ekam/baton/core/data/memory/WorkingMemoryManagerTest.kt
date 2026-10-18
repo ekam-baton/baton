@@ -85,6 +85,12 @@ private class WorkingMemoryFakeDao : MemoryDao {
         memories.removeAll(toDelete)
         if (toDelete.isNotEmpty()) emit()
     }
+
+    override suspend fun deleteMemoriesForAgent(agentId: String) {
+        val toDelete = memories.filter { it.agentId == agentId }
+        memories.removeAll(toDelete)
+        if (toDelete.isNotEmpty()) emit()
+    }
 }
 
 class WorkingMemoryManagerTest {

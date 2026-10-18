@@ -138,6 +138,10 @@ class MemoryViewModelTest {
             memories.removeAll { it.createdAt < cutoffTime }
             emit()
         }
+        override suspend fun deleteMemoriesForAgent(agentId: String) {
+            memories.removeAll { it.agentId == agentId }
+            emit()
+        }
     }
 
     private class FakeAuditDao : AuditDao {
