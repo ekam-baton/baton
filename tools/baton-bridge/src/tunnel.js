@@ -160,6 +160,19 @@ async function startTunnel(port, options = {}) {
   let reconnectAttempt = 0;
   let reconnectTimer = null;
 
+  function killProcess(proc) {
+    if (!proc) return;
+    try {
+      if (process.platform === 'win32' && proc.pid) {
+        execSync(`taskkill /pid ${proc.pid} /T /F`, { stdio: 'ignore' });
+      } else {
+        proc.kill('SIGTERM');
+      }
+    } catch (_) {
+      try { proc.kill(); } catch (_) {}
+    }
+  }
+
   function launchProcess() {
     return new Promise((resolve, reject) => {
       const tunnelArgs = ['tunnel', '--url', `http://127.0.0.1:${port}`];
@@ -176,7 +189,7 @@ async function startTunnel(port, options = {}) {
       const timeout = setTimeout(() => {
         if (!resolved) {
           resolved = true;
-          try { proc.kill(); } catch (_) {}
+          killProcess(proc);
           reject(new Error('Tunnel handshake timed out after 30 seconds.\nOutput: ' + stderrOutput));
         }
       }, 30000);
@@ -224,6 +237,7 @@ async function startTunnel(port, options = {}) {
             reconnectTimer = setTimeout(async () => {
               if (isClosed) return;
               try {
+                killProcess(activeProc);
                 const result = await launchProcess();
                 currentTunnelUrl = result.tunnelUrl;
                 onStatus?.(`Tunnel reconnected: ${result.tunnelUrl}`);
@@ -250,12 +264,27 @@ async function startTunnel(port, options = {}) {
     get process() { return activeProc; },
     close: () => {
       isClosed = true;
-      if (reconnectTimer) clearTimeout(reconnectTimer);
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
       if (activeProc) {
-        try { activeProc.kill('SIGTERM'); } catch (_) {}
+        killProcess(activeProc);
+        activeProc = null;
       }
     }
   };
+
+  const cleanupSignals = ['SIGINT', 'SIGTERM', 'SIGHUP'];
+  const onSignal = () => {
+    handle.close();
+    process.exit(0);
+  };
+  cleanupSignals.forEach(sig => {
+    try {
+      process.once(sig, onSignal);
+    } catch (_) {}
+  });
 
   process.on('exit', () => {
     handle.close();
