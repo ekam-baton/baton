@@ -267,62 +267,88 @@ open class McpMessageSender constructor(
         }
 
         kotlinx.coroutines.coroutineScope {
-            val deferredResult = kotlinx.coroutines.CompletableDeferred<Flow<String>>()
-            
+            val outputChannel = kotlinx.coroutines.channels.Channel<String>(kotlinx.coroutines.channels.Channel.BUFFERED)
+            val won = java.util.concurrent.atomic.AtomicBoolean(false)
+            val localFailed = kotlinx.coroutines.CompletableDeferred<Unit>()
+
+            var relayJob: kotlinx.coroutines.Job? = null
+
             val localJob = launch {
                 try {
                     val transport = connectionManager.getTransportForUrl(localUrl)
-                    val f = transport.callTool(localUrl, localAuth, toolName, arguments, agentId)
-                    
-                    val channel = kotlinx.coroutines.channels.Channel<String>(kotlinx.coroutines.channels.Channel.UNLIMITED)
-                    f.collect { channel.send(it) }
-                    channel.close()
-                    
-                    deferredResult.complete(flow {
-                        for (item in channel) emit(item)
-                    })
-                } catch (e: Exception) {
-                    if (!deferredResult.isCompleted) {
-                        try {
-                            val transport = connectionManager.getTransportForUrl(relayUrl)
-                            val f = transport.callTool(relayUrl, relayAuthHeader, toolName, arguments, agentId)
-                            deferredResult.complete(f)
-                        } catch (re: Exception) {
-                            deferredResult.completeExceptionally(e)
+                    val localFlow = transport.callTool(localUrl, localAuth, toolName, arguments, agentId)
+                    var firstEmitted = false
+                    localFlow.collect { token ->
+                        if (!firstEmitted) {
+                            if (won.compareAndSet(false, true)) {
+                                firstEmitted = true
+                                relayJob?.cancel()
+                            } else {
+                                return@collect
+                            }
                         }
+                        outputChannel.send(token)
+                    }
+                    if (won.compareAndSet(false, true)) {
+                        relayJob?.cancel()
+                    }
+                    outputChannel.close()
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    localFailed.complete(Unit)
+                    if (won.get() || (relayJob?.isCompleted == true && !won.get())) {
+                        outputChannel.close(e)
                     }
                 }
             }
 
-            val relayJob = launch {
-                delay(800)
-                if (!deferredResult.isCompleted) {
-                    try {
-                        val transport = connectionManager.getTransportForUrl(relayUrl)
-                        val f = transport.callTool(relayUrl, relayAuthHeader, toolName, arguments, agentId)
-                        
-                        val channel = kotlinx.coroutines.channels.Channel<String>(kotlinx.coroutines.channels.Channel.UNLIMITED)
-                        f.collect { channel.send(it) }
-                        channel.close()
-                        
-                        deferredResult.complete(flow {
-                            for (item in channel) emit(item)
-                        })
-                    } catch (e: Exception) {
-                        // ignore or handle
+            relayJob = launch {
+                kotlinx.coroutines.withTimeoutOrNull(800) {
+                    localFailed.await()
+                }
+                if (won.get()) return@launch
+
+                try {
+                    val transport = connectionManager.getTransportForUrl(relayUrl)
+                    val relayFlow = transport.callTool(relayUrl, relayAuthHeader, toolName, arguments, agentId)
+                    var firstEmitted = false
+                    relayFlow.collect { token ->
+                        if (!firstEmitted) {
+                            if (won.compareAndSet(false, true)) {
+                                firstEmitted = true
+                                localJob.cancel()
+                            } else {
+                                return@collect
+                            }
+                        }
+                        outputChannel.send(token)
+                    }
+                    if (won.compareAndSet(false, true)) {
+                        localJob.cancel()
+                    }
+                    outputChannel.close()
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    if (!won.get()) {
+                        if (localFailed.isCompleted) {
+                            outputChannel.close(java.io.IOException("Both local and relay endpoints failed: ${e.message}", e))
+                        }
+                    } else {
+                        outputChannel.close(e)
                     }
                 }
             }
 
-            val winner = try {
-                deferredResult.await()
-            } catch (e: Exception) {
-                throw e
+            try {
+                for (token in outputChannel) {
+                    emit(token)
+                }
             } finally {
                 localJob.cancel()
                 relayJob.cancel()
             }
-            winner.collect { emit(it) }
         }
     }
 
