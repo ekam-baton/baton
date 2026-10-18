@@ -53,6 +53,7 @@ class McpBridgeServer {
   }
 
   sendJson(res, statusCode, data) {
+    if (res.writableEnded || res.destroyed) return;
     const payload = JSON.stringify(data);
     res.writeHead(statusCode, {
       'Content-Type': 'application/json; charset=utf-8',
@@ -66,20 +67,30 @@ class McpBridgeServer {
   async readBody(req) {
     return new Promise((resolve, reject) => {
       let body = '';
+      let finished = false;
       req.on('data', (chunk) => {
+        if (finished) return;
         body += chunk;
         if (body.length > 10 * 1024 * 1024) { // 10MB safety limit
+          finished = true;
+          req.destroy(new Error('Payload too large'));
           reject(new Error('Payload too large'));
         }
       });
       req.on('end', () => {
+        if (finished) return;
+        finished = true;
         try {
           resolve(body ? JSON.parse(body) : {});
         } catch (e) {
           reject(new Error('Invalid JSON payload'));
         }
       });
-      req.on('error', reject);
+      req.on('error', (err) => {
+        if (finished) return;
+        finished = true;
+        reject(err);
+      });
     });
   }
 
@@ -603,18 +614,24 @@ class McpBridgeServer {
                   jsonrpc: '2.0',
                   result: { content: [{ type: 'text', text: JSON.stringify(result) }] }
                 });
-                res.write(`data: ${chunkPayload}\n\n`);
-                res.write('data: [DONE]\n\n');
+                if (!res.writableEnded && !res.destroyed) {
+                  res.write(`data: ${chunkPayload}\n\n`);
+                  res.write('data: [DONE]\n\n');
+                }
               } catch (toolErr) {
                 const errPayload = JSON.stringify({
                   id: requestId,
                   jsonrpc: '2.0',
                   error: { code: -32603, message: toolErr.message }
                 });
-                res.write(`data: ${errPayload}\n\n`);
-                res.write('data: [DONE]\n\n');
+                if (!res.writableEnded && !res.destroyed) {
+                  res.write(`data: ${errPayload}\n\n`);
+                  res.write('data: [DONE]\n\n');
+                }
               }
-              res.end();
+              if (!res.writableEnded && !res.destroyed) {
+                res.end();
+              }
             } else {
               try {
                 const result = await this.executeTool(toolName, toolArgs);
@@ -644,7 +661,11 @@ class McpBridgeServer {
       this.server.on('error', (err) => {
         if (err.code === 'EADDRINUSE') {
           // Retry on incremented port
+          const oldPort = this.port;
           this.port++;
+          if (this.tunnelUrl === `http://127.0.0.1:${oldPort}` || this.tunnelUrl === `http://localhost:${oldPort}`) {
+            this.tunnelUrl = `http://127.0.0.1:${this.port}`;
+          }
           this.server.listen(this.port, '127.0.0.1');
         } else {
           reject(err);
@@ -655,7 +676,8 @@ class McpBridgeServer {
         resolve({
           port: this.port,
           workspace: this.workspaceDir,
-          token: this.authToken
+          token: this.authToken,
+          tunnelUrl: this.tunnelUrl
         });
       });
     });

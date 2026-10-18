@@ -292,6 +292,19 @@ async function runTests() {
       assert.strictEqual(res.json.authorized, false);
     });
 
+    // 18. Port conflict retry synchronizes tunnelUrl
+    await test('Server increments port and synchronizes tunnelUrl on EADDRINUSE', async () => {
+      const secondServer = new McpBridgeServer({
+        port: server.port,
+        workspace: TEST_WORKSPACE
+      });
+      const info = await secondServer.start();
+      assert.strictEqual(info.port, server.port + 1);
+      assert.strictEqual(info.tunnelUrl, `http://127.0.0.1:${server.port + 1}`);
+      assert.strictEqual(secondServer.tunnelUrl, `http://127.0.0.1:${server.port + 1}`);
+      await secondServer.stop();
+    });
+
   } finally {
     await server.stop();
     try { fs.rmSync(TEST_WORKSPACE, { recursive: true, force: true }); } catch (_) {}
