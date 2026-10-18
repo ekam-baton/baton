@@ -122,64 +122,72 @@ class AgentTaskSyncWorker(
                     requestBuilder.addHeader("Authorization", "Bearer $token")
                 }
 
-                val response = httpClient.newCall(requestBuilder.build()).execute()
-                if (response.isSuccessful) {
-                    val bodyString = response.body?.string() ?: ""
-                    val json = JSONObject(bodyString)
-                    val status = json.optString("status", "running")
+                val isDone = httpClient.newCall(requestBuilder.build()).execute().use { response ->
+                    if (response.isSuccessful) {
+                        val bodyString = response.body?.string() ?: ""
+                        val json = JSONObject(bodyString)
+                        val status = json.optString("status", "running")
 
-                    when (status) {
-                        "completed" -> {
-                            val stdout = json.optString("stdout", "").trim()
-                            val durationMs = json.optLong("durationMs", 0L)
-                            val summary = if (stdout.isNotBlank()) {
-                                if (stdout.length > 300) stdout.take(300) + "..." else stdout
-                            } else {
-                                "Task completed successfully (${durationMs}ms)."
+                        when (status) {
+                            "completed" -> {
+                                val stdout = json.optString("stdout", "").trim()
+                                val durationMs = json.optLong("durationMs", 0L)
+                                val summary = if (stdout.isNotBlank()) {
+                                    if (stdout.length > 300) stdout.take(300) + "..." else stdout
+                                } else {
+                                    "Task completed successfully (${durationMs}ms)."
+                                }
+
+                                notificationDispatcher.postAgentTaskCompletedNotification(
+                                    agentId = agentId,
+                                    agentName = agentName,
+                                    conversationId = conversationId,
+                                    taskTitle = taskTitle,
+                                    resultSummary = summary,
+                                    isSuccess = true
+                                )
+                                Result.success()
                             }
 
-                            notificationDispatcher.postAgentTaskCompletedNotification(
-                                agentId = agentId,
-                                agentName = agentName,
-                                conversationId = conversationId,
-                                taskTitle = taskTitle,
-                                resultSummary = summary,
-                                isSuccess = true
-                            )
-                            return Result.success()
-                        }
+                            "failed" -> {
+                                val stderr = json.optString("stderr", "").trim()
+                                val errMessage = json.optString("error", stderr)
+                                val summary = if (errMessage.isNotBlank()) {
+                                    if (errMessage.length > 300) errMessage.take(300) + "..." else errMessage
+                                } else {
+                                    "Task failed with non-zero exit code."
+                                }
 
-                        "failed" -> {
-                            val stderr = json.optString("stderr", "").trim()
-                            val errMessage = json.optString("error", stderr)
-                            val summary = if (errMessage.isNotBlank()) {
-                                if (errMessage.length > 300) errMessage.take(300) + "..." else errMessage
-                            } else {
-                                "Task failed with non-zero exit code."
+                                notificationDispatcher.postAgentTaskCompletedNotification(
+                                    agentId = agentId,
+                                    agentName = agentName,
+                                    conversationId = conversationId,
+                                    taskTitle = taskTitle,
+                                    resultSummary = summary,
+                                    isSuccess = false
+                                )
+                                Result.failure()
                             }
 
-                            notificationDispatcher.postAgentTaskCompletedNotification(
-                                agentId = agentId,
-                                agentName = agentName,
-                                conversationId = conversationId,
-                                taskTitle = taskTitle,
-                                resultSummary = summary,
-                                isSuccess = false
-                            )
-                            return Result.failure()
+                            else -> {
+                                // Still running -> update progress
+                                val percent = if (json.has("progress")) json.optInt("progress") else null
+                                notificationDispatcher.postAgentTaskProgressNotification(
+                                    agentId = agentId,
+                                    agentName = agentName,
+                                    taskTitle = taskTitle,
+                                    progressPercent = percent
+                                )
+                                null
+                            }
                         }
-
-                        else -> {
-                            // Still running -> update progress
-                            val percent = if (json.has("progress")) json.optInt("progress") else null
-                            notificationDispatcher.postAgentTaskProgressNotification(
-                                agentId = agentId,
-                                agentName = agentName,
-                                taskTitle = taskTitle,
-                                progressPercent = percent
-                            )
-                        }
+                    } else {
+                        null
                     }
+                }
+
+                if (isDone != null) {
+                    return isDone
                 }
             } catch (e: java.io.IOException) {
                 android.util.Log.w("AgentTaskSyncWorker", "Transient network glitch polling task $taskId: ${e.message}")

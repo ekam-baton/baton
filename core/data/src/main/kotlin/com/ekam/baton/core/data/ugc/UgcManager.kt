@@ -128,7 +128,7 @@ class UgcManagerImpl(
                     reqBuilder.addHeader("Authorization", "Bearer $token")
                 }
                 try {
-                    httpClient.newCall(reqBuilder.build()).execute().close()
+                    httpClient.newCall(reqBuilder.build()).execute().use { /* auto-closed */ }
                 } catch (netEx: Exception) {
                     Log.w(TAG, "Backend report dispatch failed (cached locally): ${netEx.message}")
                 }
@@ -227,7 +227,7 @@ class UgcManagerImpl(
                     .addHeader("Authorization", "Bearer $token")
                     .build()
                 try {
-                    httpClient.newCall(request).execute().close()
+                    httpClient.newCall(request).execute().use { /* auto-closed */ }
                     Log.i(TAG, "Backend account deletion successful")
                 } catch (netEx: Exception) {
                     Log.w(TAG, "Backend account deletion call failed (continuing local purge): ${netEx.message}")

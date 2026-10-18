@@ -83,34 +83,34 @@ class AuthViewModel(
                     .post(body)
                     .build()
 
-                val response = withContext(Dispatchers.IO) {
-                    httpClient.newCall(request).execute()
-                }
+                withContext(Dispatchers.IO) {
+                    httpClient.newCall(request).execute().use { response ->
+                        if (response.isSuccessful) {
+                            val responseBody = response.body?.string() ?: ""
+                            val jsonResponse = JSONObject(responseBody)
+                            val token = jsonResponse.optString("token", "")
+                            val refreshToken = jsonResponse.optString("refresh_token", "")
 
-                if (response.isSuccessful) {
-                    val responseBody = response.body?.string() ?: ""
-                    val jsonResponse = JSONObject(responseBody)
-                    val token = jsonResponse.optString("token", "")
-                    val refreshToken = jsonResponse.optString("refresh_token", "")
+                            if (token.isNotBlank()) {
+                                appPreferences.setJwtSecret(token)
+                            }
+                            if (refreshToken.isNotBlank()) {
+                                appPreferences.setRefreshToken(refreshToken)
+                            }
 
-                    if (token.isNotBlank()) {
-                        appPreferences.setJwtSecret(token)
+                            val subscriptionStatus = jsonResponse.optString("subscription_status", "free")
+                            viewModelScope.launch {
+                                appPreferences.setPremiumUnlocked(subscriptionStatus == "premium")
+                            }
+
+                            sessionManager.register(email, phone, consentTimestamp, policyVersion, region)
+                            sessionManager.setLoggedIn(true)
+                        } else {
+                            val errorBody = response.body?.string() ?: ""
+                            Log.e(TAG, "Registration failed with status ${response.code}: $errorBody")
+                            _loginError.value = "Registration failed. Server error."
+                        }
                     }
-                    if (refreshToken.isNotBlank()) {
-                        appPreferences.setRefreshToken(refreshToken)
-                    }
-
-                    val subscriptionStatus = jsonResponse.optString("subscription_status", "free")
-                    viewModelScope.launch {
-                        appPreferences.setPremiumUnlocked(subscriptionStatus == "premium")
-                    }
-
-                    sessionManager.register(email, phone, consentTimestamp, policyVersion, region)
-                    sessionManager.setLoggedIn(true)
-                } else {
-                    val errorBody = response.body?.string() ?: ""
-                    Log.e(TAG, "Registration failed with status ${response.code}: $errorBody")
-                    _loginError.value = "Registration failed. Server error."
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Registration exception", e)
@@ -140,35 +140,35 @@ class AuthViewModel(
                     .post(body)
                     .build()
 
-                val response = withContext(Dispatchers.IO) {
-                    httpClient.newCall(request).execute()
-                }
+                withContext(Dispatchers.IO) {
+                    httpClient.newCall(request).execute().use { response ->
+                        if (response.isSuccessful) {
+                            val responseBody = response.body?.string() ?: ""
+                            val jsonResponse = JSONObject(responseBody)
+                            val token = jsonResponse.optString("token", "")
+                            val refreshToken = jsonResponse.optString("refresh_token", "")
 
-                if (response.isSuccessful) {
-                    val responseBody = response.body?.string() ?: ""
-                    val jsonResponse = JSONObject(responseBody)
-                    val token = jsonResponse.optString("token", "")
-                    val refreshToken = jsonResponse.optString("refresh_token", "")
+                            if (token.isNotBlank()) {
+                                appPreferences.setJwtSecret(token)
+                            }
+                            if (refreshToken.isNotBlank()) {
+                                appPreferences.setRefreshToken(refreshToken)
+                            }
 
-                    if (token.isNotBlank()) {
-                        appPreferences.setJwtSecret(token)
+                            val subscriptionStatus = jsonResponse.optString("subscription_status", "free")
+                            viewModelScope.launch {
+                                appPreferences.setPremiumUnlocked(subscriptionStatus == "premium")
+                            }
+
+                            // Note: Region and Consent are not returned by login, so we use defaults or skip
+                            sessionManager.register(email, "", 0L, "", "Global")
+                            sessionManager.setLoggedIn(true)
+                        } else {
+                            val errorBody = response.body?.string() ?: ""
+                            Log.e(TAG, "Login failed with status ${response.code}: $errorBody")
+                            _loginError.value = "Login failed. Check your credentials."
+                        }
                     }
-                    if (refreshToken.isNotBlank()) {
-                        appPreferences.setRefreshToken(refreshToken)
-                    }
-
-                    val subscriptionStatus = jsonResponse.optString("subscription_status", "free")
-                    viewModelScope.launch {
-                        appPreferences.setPremiumUnlocked(subscriptionStatus == "premium")
-                    }
-
-                    // Note: Region and Consent are not returned by login, so we use defaults or skip
-                    sessionManager.register(email, "", 0L, "", "Global")
-                    sessionManager.setLoggedIn(true)
-                } else {
-                    val errorBody = response.body?.string() ?: ""
-                    Log.e(TAG, "Login failed with status ${response.code}: $errorBody")
-                    _loginError.value = "Login failed. Check your credentials."
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Login exception", e)

@@ -165,13 +165,14 @@ class BillingManager(
                     .post(body)
                     .build()
                     
-                val response = httpClient.newCall(request).execute()
-                if (response.isSuccessful) {
-                    val responseBody = response.body?.string() ?: ""
-                    val jsonResponse = JSONObject(responseBody)
-                    return jsonResponse.optBoolean("valid", false)
+                httpClient.newCall(request).execute().use { response ->
+                    if (response.isSuccessful) {
+                        val responseBody = response.body?.string() ?: ""
+                        val jsonResponse = JSONObject(responseBody)
+                        return jsonResponse.optBoolean("valid", false)
+                    }
+                    return false
                 }
-                return false
             } catch (e: Exception) {
                 Log.e(TAG, "Managed purchase verification failed", e)
                 return false
@@ -206,8 +207,9 @@ class BillingManager(
                 .addHeader("Authorization", "Bearer ${fetchAuthToken(backendUrlStr, jwtSecretStr)}")
                 .build()
 
-            val response = httpClient.newCall(request).execute()
-            response.isSuccessful
+            httpClient.newCall(request).execute().use { response ->
+                response.isSuccessful
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Purchase verification failed", e)
             false
