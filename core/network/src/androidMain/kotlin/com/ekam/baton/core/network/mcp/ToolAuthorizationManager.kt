@@ -15,7 +15,7 @@ data class ToolAuthorizationRequest(
 )
 
 class ToolAuthorizationManager constructor() {
-    private val _authorizationRequests = MutableSharedFlow<ToolAuthorizationRequest>(extraBufferCapacity = 10)
+    private val _authorizationRequests = MutableSharedFlow<ToolAuthorizationRequest>(replay = 1, extraBufferCapacity = 10)
     val authorizationRequests: SharedFlow<ToolAuthorizationRequest> = _authorizationRequests.asSharedFlow()
 
     private val destructiveKeywords = listOf(

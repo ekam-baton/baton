@@ -3,6 +3,7 @@ package com.ekam.baton.core.network.mcp
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
@@ -33,6 +34,7 @@ class McpConnectionManager constructor(
     private val agentMutexes = ConcurrentHashMap<String, Mutex>()
 
     private val MAX_IDLE_TIME_MS = 5 * 60 * 1000L
+    private var evictionJob: Job? = null
 
     private fun mutexFor(agentId: String): Mutex =
         agentMutexes.getOrPut(agentId) { Mutex() }
@@ -50,7 +52,12 @@ class McpConnectionManager constructor(
     fun getTransportForUrl(endpointUrl: String): McpTransport = getTransport(endpointUrl)
 
     init {
-        scope.launch {
+        startEvictionLoop()
+    }
+
+    private fun startEvictionLoop() {
+        evictionJob?.cancel()
+        evictionJob = scope.launch {
             while (true) {
                 delay(60_000)
 
@@ -156,7 +163,7 @@ class McpConnectionManager constructor(
     fun disconnectAll() {
         sessions.clear()
         agentMutexes.clear()
-        // Cancel the background eviction loop
-        scope.cancel()
+        // Reset the background eviction loop cleanly
+        startEvictionLoop()
     }
 }

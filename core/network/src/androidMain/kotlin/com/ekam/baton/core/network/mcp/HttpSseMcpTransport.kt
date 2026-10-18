@@ -196,15 +196,30 @@ class HttpSseMcpTransport constructor(
             val mimeType = context.contentResolver.getType(contentUri) ?: "application/octet-stream"
 
             var filename = "upload.tmp"
+            var fileSize: Long = -1L
             context.contentResolver.query(contentUri, null, null, null, null)?.use { cursor ->
                 val nameIndex = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
-                if (cursor.moveToFirst() && nameIndex != -1) {
-                    filename = cursor.getString(nameIndex) ?: filename
+                val sizeIndex = cursor.getColumnIndex(android.provider.OpenableColumns.SIZE)
+                if (cursor.moveToFirst()) {
+                    if (nameIndex != -1) {
+                        filename = cursor.getString(nameIndex) ?: filename
+                    }
+                    if (sizeIndex != -1 && !cursor.isNull(sizeIndex)) {
+                        fileSize = cursor.getLong(sizeIndex)
+                    }
+                }
+            }
+            if (fileSize < 0) {
+                fileSize = try {
+                    context.contentResolver.openFileDescriptor(contentUri, "r")?.use { it.statSize } ?: -1L
+                } catch (_: Exception) {
+                    -1L
                 }
             }
 
             val requestBody = object : okhttp3.RequestBody() {
                 override fun contentType() = mimeType.toMediaTypeOrNull()
+                override fun contentLength(): Long = fileSize
                 override fun writeTo(sink: okio.BufferedSink) {
                     // FIX: Check for null InputStream and propagate error rather than silently uploading 0 bytes
                     val inputStream = context.contentResolver.openInputStream(contentUri)
