@@ -56,6 +56,9 @@ class WebRtcManager(private val context: Context) {
     }
 
     fun startVoiceCall(targetDesktopId: String, turnUsername: String = "", turnCredential: String = "") {
+        if (!scope.isActive) {
+            scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+        }
         _isCallActive.value = true
         startAmplitudeLoop()
         val iceServers = buildList {
@@ -136,41 +139,48 @@ class WebRtcManager(private val context: Context) {
     }
 
     fun handleSignalingMessage(messageJson: String) {
-        val json = JSONObject(messageJson)
-        when (json.optString("type")) {
-            "offer" -> {
-                val sdpObj = json.getJSONObject("sdp")
-                val sdp = SessionDescription(SessionDescription.Type.OFFER, sdpObj.getString("sdp"))
-                peerConnection?.setRemoteDescription(SimpleSdpObserver(), sdp)
-                peerConnection?.createAnswer(object : SdpObserver {
-                    override fun onCreateSuccess(answer: SessionDescription?) {
-                        peerConnection?.setLocalDescription(SimpleSdpObserver(), answer)
-                        answer?.let {
-                            val answerJson = JSONObject().apply {
-                                put("type", "answer")
-                                put("sdp", JSONObject().apply {
+        if (!scope.isActive) {
+            scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+        }
+        try {
+            val json = JSONObject(messageJson)
+            when (json.optString("type")) {
+                "offer" -> {
+                    val sdpObj = json.optJSONObject("sdp") ?: return
+                    val sdp = SessionDescription(SessionDescription.Type.OFFER, sdpObj.optString("sdp"))
+                    peerConnection?.setRemoteDescription(SimpleSdpObserver(), sdp)
+                    peerConnection?.createAnswer(object : SdpObserver {
+                        override fun onCreateSuccess(answer: SessionDescription?) {
+                            peerConnection?.setLocalDescription(SimpleSdpObserver(), answer)
+                            answer?.let {
+                                val answerJson = JSONObject().apply {
                                     put("type", "answer")
-                                    put("sdp", it.description)
-                                })
+                                    put("sdp", JSONObject().apply {
+                                        put("type", "answer")
+                                        put("sdp", it.description)
+                                    })
+                                }
+                                scope.launch { _signalingFlow.emit(answerJson.toString()) }
                             }
-                            scope.launch { _signalingFlow.emit(answerJson.toString()) }
                         }
-                    }
-                    override fun onSetSuccess() {}
-                    override fun onCreateFailure(error: String?) {}
-                    override fun onSetFailure(error: String?) {}
-                }, MediaConstraints())
+                        override fun onSetSuccess() {}
+                        override fun onCreateFailure(error: String?) { Log.e("WebRtcManager", "Create answer failed: $error") }
+                        override fun onSetFailure(error: String?) { Log.e("WebRtcManager", "Set local desc failed: $error") }
+                    }, MediaConstraints())
+                }
+                "answer" -> {
+                    val sdpObj = json.optJSONObject("sdp") ?: return
+                    val sdp = SessionDescription(SessionDescription.Type.ANSWER, sdpObj.optString("sdp"))
+                    peerConnection?.setRemoteDescription(SimpleSdpObserver(), sdp)
+                }
+                "ice_candidate" -> {
+                    val candObj = json.optJSONObject("candidate") ?: return
+                    val candidate = IceCandidate(candObj.optString("sdpMid"), candObj.optInt("sdpMLineIndex"), candObj.optString("candidate"))
+                    peerConnection?.addIceCandidate(candidate)
+                }
             }
-            "answer" -> {
-                val sdpObj = json.getJSONObject("sdp")
-                val sdp = SessionDescription(SessionDescription.Type.ANSWER, sdpObj.getString("sdp"))
-                peerConnection?.setRemoteDescription(SimpleSdpObserver(), sdp)
-            }
-            "ice_candidate" -> {
-                val candObj = json.getJSONObject("candidate")
-                val candidate = IceCandidate(candObj.getString("sdpMid"), candObj.getInt("sdpMLineIndex"), candObj.getString("candidate"))
-                peerConnection?.addIceCandidate(candidate)
-            }
+        } catch (e: Exception) {
+            Log.e("WebRtcManager", "Failed to parse WebRTC signaling message", e)
         }
     }
 
@@ -204,7 +214,7 @@ class WebRtcManager(private val context: Context) {
         _audioAmplitude.value = 0f
         amplitudeJob?.cancel()
         amplitudeJob = null
-        scope.cancel()
+        scope.coroutineContext.cancelChildren()
         localAudioTrack?.dispose()
         localAudioTrack = null
         audioSource?.dispose()
