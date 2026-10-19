@@ -149,6 +149,9 @@ class HttpSseMcpTransport constructor(
                 if (data == "[DONE]") {
                     eventSource.cancel()
                     close()
+                } else if (type == "error") {
+                    eventSource.cancel()
+                    close(IOException("SSE server error: $data"))
                 } else {
                     trySend(data)
                 }
@@ -157,8 +160,18 @@ class HttpSseMcpTransport constructor(
             override fun onClosed(eventSource: EventSource) { close() }
 
             override fun onFailure(eventSource: EventSource, t: Throwable?, response: Response?) {
+                val errorBody = try {
+                    response?.body?.string()?.takeIf { it.isNotBlank() }
+                } catch (_: Exception) {
+                    null
+                }
                 response?.close()
-                close(t ?: IOException("SSE Failure with code ${response?.code}"))
+                val message = when {
+                    errorBody != null -> "SSE Failure (${response?.code}): $errorBody"
+                    response != null -> "SSE Failure with code ${response.code}"
+                    else -> t?.message ?: "SSE Failure"
+                }
+                close(t ?: IOException(message))
             }
         }
 

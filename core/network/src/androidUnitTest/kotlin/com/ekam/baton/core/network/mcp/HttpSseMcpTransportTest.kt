@@ -72,4 +72,56 @@ class HttpSseMcpTransportTest {
         assertEquals("{\"result\": \"Hello\"}", results[0])
         assertEquals("{\"result\": \" world!\"}", results[1])
     }
+
+    @Test
+    fun `callTool propagates exception when SSE emits error event`() = runBlocking {
+        val sseBody = "event: error\ndata: DLP Policy Violation\n\n"
+
+        server.enqueue(
+            MockResponse()
+                .setHeader("Content-Type", "text/event-stream")
+                .setBody(sseBody)
+        )
+
+        val endpoint = server.url("/mcp").toString()
+        val flow = transport.callTool(
+            endpointUrl = endpoint,
+            authHeader = null,
+            toolName = "chat",
+            arguments = buildJsonObject { put("message", "hi") },
+            agentId = null
+        )
+
+        try {
+            flow.toList()
+            org.junit.Assert.fail("Expected exception when server emits error event")
+        } catch (e: Exception) {
+            assertTrue(e.message?.contains("DLP Policy Violation") == true)
+        }
+    }
+
+    @Test
+    fun `callTool propagates failure when server responds with 422 error code`() = runBlocking {
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(422)
+                .setBody("Unprocessable Entity: DLP Block")
+        )
+
+        val endpoint = server.url("/mcp").toString()
+        val flow = transport.callTool(
+            endpointUrl = endpoint,
+            authHeader = null,
+            toolName = "chat",
+            arguments = buildJsonObject { put("message", "hi") },
+            agentId = null
+        )
+
+        try {
+            flow.toList()
+            org.junit.Assert.fail("Expected exception on HTTP 422")
+        } catch (e: Exception) {
+            assertTrue(e.message?.contains("422") == true)
+        }
+    }
 }
