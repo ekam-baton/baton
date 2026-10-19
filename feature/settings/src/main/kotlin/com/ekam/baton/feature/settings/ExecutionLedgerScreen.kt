@@ -134,9 +134,14 @@ fun ExecutionLedgerScreen(
                     IconButton(
                         onClick = {
                             val report = viewModel.generateExportReport()
+                            val safeReport = if (report.length > 50_000) {
+                                report.take(50_000) + "\n\n...[Truncated: Export exceeds 50KB to protect Android Binder IPC buffer]"
+                            } else {
+                                report
+                            }
                             val sendIntent = Intent().apply {
                                 action = Intent.ACTION_SEND
-                                putExtra(Intent.EXTRA_TEXT, report)
+                                putExtra(Intent.EXTRA_TEXT, safeReport)
                                 type = "text/plain"
                             }
                             context.startActivity(Intent.createChooser(sendIntent, "Export Baton Ledger"))

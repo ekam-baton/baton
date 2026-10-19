@@ -97,11 +97,14 @@ class ExecutionLedgerViewModelTest {
     private class FakeAuditDao(val logs: MutableList<AuditLogEntity>) : AuditDao {
         var pruneCalledWith: Int? = null
 
+        var shouldThrowOnPrune = false
+
         override suspend fun insertAuditLog(log: AuditLogEntity) { logs.add(log) }
         override fun getAllAuditLogs(): Flow<List<AuditLogEntity>> = flowOf(logs.toList())
         override suspend fun getLastAuditLog(): AuditLogEntity? = logs.lastOrNull()
         override suspend fun getAllAuditLogsSync(): List<AuditLogEntity> = logs.toList()
         override suspend fun pruneOldLogs(keepLastN: Int) {
+            if (shouldThrowOnPrune) throw RuntimeException("SQLite disk I/O lock")
             pruneCalledWith = keepLastN
             if (logs.size > keepLastN) {
                 val kept = logs.takeLast(keepLastN)
@@ -113,6 +116,7 @@ class ExecutionLedgerViewModelTest {
 
     private class FakeTokenLedgerDao(val entries: MutableList<TokenLedgerEntity>) : TokenLedgerDao {
         var pruneCalledWith: Int? = null
+        var shouldThrowOnPrune = false
 
         override suspend fun insertLedgerEntry(entry: TokenLedgerEntity) { entries.add(entry) }
         override fun getLedgerForAgent(agentId: String): Flow<List<TokenLedgerEntity>> =
@@ -130,6 +134,7 @@ class ExecutionLedgerViewModelTest {
         override fun getGrandTotalCost(): Flow<Double?> =
             flowOf(if (entries.isEmpty()) null else entries.sumOf { it.estimatedCostUsd })
         override suspend fun pruneOldLedgerEntries(keepCount: Int) {
+            if (shouldThrowOnPrune) throw RuntimeException("SQLite disk I/O lock")
             pruneCalledWith = keepCount
             if (entries.size > keepCount) {
                 val kept = entries.sortedByDescending { it.timestamp }.take(keepCount)
@@ -241,5 +246,16 @@ class ExecutionLedgerViewModelTest {
         assertTrue(report.contains("Swarm Planning"))
         assertTrue(report.contains("IMMUTABLE CRYPTOGRAPHIC AUDIT TRAIL"))
         assertTrue(report.contains("a1b2c3d4e5f6g7h8"))
+    }
+
+    @Test
+    fun `test pruning gracefully handles and survives database failure exceptions`() = runTest {
+        auditDao.shouldThrowOnPrune = true
+        tokenLedgerDao.shouldThrowOnPrune = true
+
+        // Should not throw or crash the coroutine
+        viewModel.triggerRollingGenesisBlock()
+        viewModel.pruneLedgerEntries(500)
+        testDispatcher.scheduler.advanceUntilIdle()
     }
 }

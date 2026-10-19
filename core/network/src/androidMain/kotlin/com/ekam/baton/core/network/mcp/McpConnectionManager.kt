@@ -92,11 +92,9 @@ class McpConnectionManager constructor(
      *
      * KEY FIX: Network I/O (initialize + listTools) is performed OUTSIDE the
      * per-agent mutex. The mutex is only held for the cheap map read/write
-     * operations. This prevents any coroutine from blocking all other agents
-     * for the duration of a network round-trip.
-     *
-     * The double-checked locking pattern below guarantees at most one network
-     * initialisation per agent even under concurrent callers.
+     * Per-agent mutex ensures at most one network initialisation per agent
+     * under concurrent callers, while allowing different agents to initialise
+     * in parallel without blocking each other.
      */
     suspend fun getOrCreateSession(
         agentId: String,
@@ -105,53 +103,38 @@ class McpConnectionManager constructor(
     ): Result<McpSession> {
         val mutex = mutexFor(agentId)
 
-        // --- First check: fast path, no network I/O ---
-        mutex.withLock {
+        return mutex.withLock {
             val existing = sessions[agentId]
             if (existing != null &&
                 existing.endpointUrl == endpointUrl &&
                 existing.authHeader == authHeader
             ) {
                 existing.lastAccessedAt.set(System.currentTimeMillis())
-                return Result.success(existing)
+                return@withLock Result.success(existing)
             }
             if (existing != null) {
                 Log.d("McpConnectionManager", "Endpoint/auth changed for $agentId — will re-initialise")
                 sessions.remove(agentId)
             }
-        }
 
-        // --- Network I/O outside the mutex ---
-        val transport = getTransport(endpointUrl)
-        val initResult = transport.initialize(endpointUrl, authHeader, agentId)
-        if (initResult.isFailure) {
-            return Result.failure(initResult.exceptionOrNull() ?: Exception("MCP init failed for $agentId"))
-        }
-
-        val toolsResult = transport.listTools(endpointUrl, authHeader, agentId)
-        val tools = toolsResult.getOrNull() ?: emptyList()
-
-        // --- Second check + write: still under mutex to avoid double insertion ---
-        return mutex.withLock {
-            // Re-check in case another coroutine beat us here
-            val existing = sessions[agentId]
-            if (existing != null &&
-                existing.endpointUrl == endpointUrl &&
-                existing.authHeader == authHeader
-            ) {
-                existing.lastAccessedAt.set(System.currentTimeMillis())
-                Result.success(existing)
-            } else {
-                val session = McpSession(
-                    agentId = agentId,
-                    endpointUrl = endpointUrl,
-                    authHeader = authHeader,
-                    availableTools = tools,
-                    lastAccessedAt = AtomicLong(System.currentTimeMillis())
-                )
-                sessions[agentId] = session
-                Result.success(session)
+            val transport = getTransport(endpointUrl)
+            val initResult = transport.initialize(endpointUrl, authHeader, agentId)
+            if (initResult.isFailure) {
+                return@withLock Result.failure(initResult.exceptionOrNull() ?: Exception("MCP init failed for $agentId"))
             }
+
+            val toolsResult = transport.listTools(endpointUrl, authHeader, agentId)
+            val tools = toolsResult.getOrNull() ?: emptyList()
+
+            val session = McpSession(
+                agentId = agentId,
+                endpointUrl = endpointUrl,
+                authHeader = authHeader,
+                availableTools = tools,
+                lastAccessedAt = AtomicLong(System.currentTimeMillis())
+            )
+            sessions[agentId] = session
+            Result.success(session)
         }
     }
 

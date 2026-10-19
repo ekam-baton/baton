@@ -89,14 +89,22 @@ class ExecutionLedgerViewModel(
 
     fun triggerRollingGenesisBlock() {
         viewModelScope.launch {
-            // Prune to the last 1000 blocks to prevent massive SQLite bloat
-            auditDao.pruneOldLogs(1000)
+            try {
+                // Prune to the last 1000 blocks to prevent massive SQLite bloat
+                auditDao.pruneOldLogs(1000)
+            } catch (e: Exception) {
+                // Prevent crash on DB lock or disk I/O errors
+            }
         }
     }
 
     fun pruneLedgerEntries(keepCount: Int = 1000) {
         viewModelScope.launch {
-            tokenLedgerDao.pruneOldLedgerEntries(keepCount)
+            try {
+                tokenLedgerDao.pruneOldLedgerEntries(keepCount)
+            } catch (e: Exception) {
+                // Prevent crash on DB lock or disk I/O errors
+            }
         }
     }
 
