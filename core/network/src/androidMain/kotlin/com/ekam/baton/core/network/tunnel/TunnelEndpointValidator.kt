@@ -164,8 +164,11 @@ open class TunnelEndpointValidator constructor(
             .post(requestBody)
 
         if (!authToken.isNullOrBlank()) {
-            val authHeader = if (authToken.startsWith("Bearer ", ignoreCase = true)) authToken else "Bearer $authToken"
-            postRequestBuilder.header("Authorization", authHeader)
+            val cleanToken = authToken.trim().filter { !it.isISOControl() }
+            if (cleanToken.isNotBlank()) {
+                val authHeader = if (cleanToken.startsWith("Bearer ", ignoreCase = true)) cleanToken else "Bearer $cleanToken"
+                postRequestBuilder.header("Authorization", authHeader)
+            }
         }
         val postRequest = postRequestBuilder.build()
 

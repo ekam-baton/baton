@@ -32,14 +32,18 @@ class ConnectionPoolManager constructor() {
             activeConnections[connection.id] = connection
             toEvict
         }
-        evicted?.disconnect()
+        try {
+            evicted?.disconnect()
+        } catch (_: Exception) {}
     }
 
     suspend fun unregisterConnection(id: String) {
         val conn = mutex.withLock {
             activeConnections.remove(id)
         }
-        conn?.disconnect()
+        try {
+            conn?.disconnect()
+        } catch (_: Exception) {}
     }
     
     suspend fun disconnectAll() {

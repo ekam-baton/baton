@@ -89,4 +89,40 @@ class ConnectionPoolManagerTest {
         assertTrue(conn1.disconnected)
         assertTrue(conn2.disconnected)
     }
+
+    class ThrowingConnection(override val id: String) : PoolableConnection {
+        override val lastAccessedAt: Long = 100L
+        override suspend fun disconnect() {
+            throw java.io.IOException("Simulated network failure on disconnect")
+        }
+    }
+
+    @Test
+    fun `registerConnection gracefully survives when evicted connection throws on disconnect`() = runTest {
+        val throwingConn = ThrowingConnection("conn-oldest")
+        manager.registerConnection(throwingConn)
+
+        val connections = (2..15).map {
+            DummyConnection("conn-$it").apply { setLastAccessedAt(1000L * it) }
+        }
+        connections.forEach { manager.registerConnection(it) }
+
+        assertEquals(15, manager.getActiveConnectionCount())
+
+        // 16th connection will evict throwingConn which throws IOException
+        val newConn = DummyConnection("conn-16")
+        manager.registerConnection(newConn)
+
+        assertEquals(15, manager.getActiveConnectionCount())
+    }
+
+    @Test
+    fun `unregisterConnection gracefully survives when connection throws on disconnect`() = runTest {
+        val throwingConn = ThrowingConnection("conn-err")
+        manager.registerConnection(throwingConn)
+
+        // Must not propagate exception
+        manager.unregisterConnection("conn-err")
+        assertEquals(0, manager.getActiveConnectionCount())
+    }
 }
