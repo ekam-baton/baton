@@ -190,6 +190,8 @@ class McpWebSocketTransport constructor(
                     val depth = envelope.optInt("depth", 0)
                     if (depth >= 3) {
                         android.util.Log.w("McpWebSocketTransport", "Incoming message exceeded maximum recursion depth ($depth >= 3). Dropping to protect against infinite loops and runaway token costs.")
+                        close(java.io.IOException("Exceeded maximum recursion depth: $depth"))
+                        webSocket.close(1008, "Policy violation")
                         return
                     }
                     val senderId = if (envelope.has("sender_id") && envelope.getString("sender_id").isNotEmpty()) {
@@ -202,7 +204,10 @@ class McpWebSocketTransport constructor(
                     }
                     // T16: Validate sender_id matches the agent we expect to communicate with
                     if (senderId != agentId) {
-                        throw Exception("Security violation: sender_id mismatch (expected $agentId, got $senderId)")
+                        val err = SecurityException("Security violation: sender_id mismatch (expected $agentId, got $senderId)")
+                        close(err)
+                        webSocket.close(1008, "Policy violation")
+                        return
                     }
                     val payloadB64 = envelope.getString("payload")
                     val payloadStr = String(android.util.Base64.decode(payloadB64, android.util.Base64.NO_WRAP))
@@ -228,6 +233,7 @@ class McpWebSocketTransport constructor(
                                         String(android.util.Base64.decode(it, android.util.Base64.NO_WRAP))
                                     }
                                     if (ratchetStateJson == null) {
+                                        close(java.io.IOException("No ratchet state found for agent: $agentId"))
                                         webSocket.close(1001, "No ratchet state")
                                         return@withLock
                                     }
@@ -251,6 +257,7 @@ class McpWebSocketTransport constructor(
                                     
                                     trySend(decrypted)
                                     webSocket.close(1000, "Done")
+                                    close()
                                 }
                             } catch (e: Throwable) {
                                 close(e)
@@ -260,6 +267,7 @@ class McpWebSocketTransport constructor(
                     } else {
                         trySend(payloadStr)
                         webSocket.close(1000, "Done")
+                        close()
                     }
                 } catch (e: Exception) {
                     close(e)
