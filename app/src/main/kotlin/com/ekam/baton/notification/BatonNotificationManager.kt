@@ -165,9 +165,12 @@ class BatonNotificationManager(
             .setName("You")
             .build()
 
-        // 2. Cache threaded message history
+        // 2. Cache threaded message history (bound display content to 4000 chars to prevent SystemUI lag/IPC issues)
+        val safeDisplayContent = if (content.length > 4000) content.take(4000) + "… [truncated]" else content
+        val safeCopyContent = if (content.length > 50000) content.take(50000) else content
+
         val historyList = conversationHistory.getOrPut(conversationId) { mutableListOf() }
-        val newMessage = NotificationCompat.MessagingStyle.Message(content, timestamp, agentPerson)
+        val newMessage = NotificationCompat.MessagingStyle.Message(safeDisplayContent, timestamp, agentPerson)
         synchronized(historyList) {
             historyList.add(newMessage)
             // Keep last 10 messages max in shade
@@ -228,10 +231,10 @@ class BatonNotificationManager(
             .setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_REPLY)
             .build()
 
-        // 6. Quick Action: Copy Result to Clipboard
+        // 6. Quick Action: Copy Result to Clipboard (bound to 50k chars to prevent Binder TransactionTooLargeException)
         val copyIntent = Intent(context, AgentNotificationActionReceiver::class.java).apply {
             action = ACTION_AGENT_COPY
-            putExtra(EXTRA_TEXT_TO_COPY, content)
+            putExtra(EXTRA_TEXT_TO_COPY, safeCopyContent)
         }
         val copyPendingIntent = PendingIntent.getBroadcast(
             context,
@@ -302,9 +305,12 @@ class BatonNotificationManager(
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        val safeDisplaySummary = if (resultSummary.length > 4000) resultSummary.take(4000) + "… [truncated]" else resultSummary
+        val safeCopySummary = if (resultSummary.length > 50000) resultSummary.take(50000) else resultSummary
+
         val copyIntent = Intent(context, AgentNotificationActionReceiver::class.java).apply {
             action = ACTION_AGENT_COPY
-            putExtra(EXTRA_TEXT_TO_COPY, resultSummary)
+            putExtra(EXTRA_TEXT_TO_COPY, safeCopySummary)
         }
         val copyPendingIntent = PendingIntent.getBroadcast(
             context,
@@ -316,7 +322,7 @@ class BatonNotificationManager(
         val bigTextStyle = NotificationCompat.BigTextStyle()
             .setBigContentTitle(title)
             .setSummaryText(taskTitle)
-            .bigText(resultSummary)
+            .bigText(safeDisplaySummary)
 
         val notification = NotificationCompat.Builder(context, CHANNEL_AGENT_MESSAGES)
             .setSmallIcon(R.drawable.ic_logo)
@@ -385,11 +391,12 @@ class BatonNotificationManager(
         val userPerson = Person.Builder().setName("You").build()
         val agentPerson = Person.Builder().setKey(agentId).setName(agentName).setBot(true).build()
 
+        val safeReplyText = if (userReplyText.length > 4000) userReplyText.take(4000) + "… [truncated]" else userReplyText
         val historyList = conversationHistory.getOrPut(conversationId) { mutableListOf() }
         synchronized(historyList) {
             historyList.add(
                 NotificationCompat.MessagingStyle.Message(
-                    userReplyText,
+                    safeReplyText,
                     System.currentTimeMillis(),
                     userPerson
                 )

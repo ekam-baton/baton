@@ -42,7 +42,7 @@ object SafetyNumberManager {
             val chunk = ByteArray(8)
             System.arraycopy(hash, offset, chunk, 3, 5)
             val v = java.nio.ByteBuffer.wrap(chunk).long
-            val digits = v % 100000
+            val digits = Math.floorMod(v, 100000L)
 
             if (i > 0) sb.append(" ")
             sb.append(String.format(java.util.Locale.US, "%05d", digits))
@@ -64,12 +64,20 @@ object SafetyNumberManager {
     }
 
     private fun hexStringToByteArray(s: String): ByteArray {
-        val len = s.length
+        val clean = s.trim().replace(" ", "").replace("\n", "").replace("\r", "")
+        val len = clean.length
+        if (len == 0 || len % 2 != 0) {
+            return ByteArray(0)
+        }
         val data = ByteArray(len / 2)
         var i = 0
         while (i < len) {
-            data[i / 2] = ((Character.digit(s[i], 16) shl 4)
-                    + Character.digit(s[i + 1], 16)).toByte()
+            val d1 = Character.digit(clean[i], 16)
+            val d2 = Character.digit(clean[i + 1], 16)
+            if (d1 == -1 || d2 == -1) {
+                return ByteArray(0)
+            }
+            data[i / 2] = ((d1 shl 4) or d2).toByte()
             i += 2
         }
         return data
