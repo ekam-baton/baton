@@ -73,11 +73,16 @@ class BatonFirebaseMessagingService : FirebaseMessagingService() {
             try {
                 val appPrefs: com.ekam.baton.core.data.preferences.AppPreferences = getKoin().get()
                 val routerBaseUrl = appPrefs.backendUrl.first()
-                val clientId = appPrefs.clientId.first()
+                val clientId = appPrefs.clientId.first().ifBlank {
+                    com.ekam.baton.core.network.security.IdentityKeyManager.getPublicKeyHex()
+                }
+                val jwtSecret = appPrefs.jwtSecret.first()
+                val authHeader = if (jwtSecret.isNotBlank()) "Bearer $jwtSecret" else null
                 fcmTokenManager.onTokenRefresh(
                     newToken = token,
                     routerBaseUrl = routerBaseUrl,
-                    clientId = clientId
+                    clientId = clientId,
+                    authHeader = authHeader
                 )
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to read preferences for FCM token refresh", e)

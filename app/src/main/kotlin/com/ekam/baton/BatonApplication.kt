@@ -12,6 +12,7 @@ import com.ekam.baton.core.data.di.dataModule
 import com.ekam.baton.core.network.di.networkModule
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
@@ -40,7 +41,7 @@ class BatonApplication : Application(), Configuration.Provider {
         androidx.lifecycle.ProcessLifecycleOwner.get().lifecycle.addObserver(appLockObserver)
         registerActivityLifecycleCallbacks(appLockObserver)
 
-        // 3. Offload I/O, WorkManager database scheduling, and SQLCipher pre-warming to background
+        // 3. Offload I/O, WorkManager database scheduling, SQLCipher pre-warming, and FCM registration to background
         CoroutineScope(Dispatchers.IO).launch {
             createNotificationChannel()
             createComplianceNotificationChannel()
@@ -53,6 +54,23 @@ class BatonApplication : Application(), Configuration.Provider {
                 prewarmer?.prewarm()
             } catch (_: Exception) {
                 // Non-fatal if DB not yet initialized; standard queries will initialize
+            }
+
+            // Register FCM Push Gateway token on startup (Pillar 1 — V2)
+            try {
+                val fcmTokenManager = org.koin.java.KoinJavaComponent.getKoin().getOrNull<com.ekam.baton.push.FcmTokenManager>()
+                val appPrefs = org.koin.java.KoinJavaComponent.getKoin().getOrNull<com.ekam.baton.core.data.preferences.AppPreferences>()
+                if (fcmTokenManager != null && appPrefs != null) {
+                    val routerUrl = appPrefs.backendUrl.first()
+                    val clientId = appPrefs.clientId.first().ifBlank {
+                        com.ekam.baton.core.network.security.IdentityKeyManager.getPublicKeyHex()
+                    }
+                    val jwtSecret = appPrefs.jwtSecret.first()
+                    val authHeader = if (jwtSecret.isNotBlank()) "Bearer $jwtSecret" else null
+                    fcmTokenManager.registerOnStartup(routerUrl, clientId, authHeader)
+                }
+            } catch (_: Exception) {
+                // Non-fatal if Firebase or network is unavailable on startup
             }
         }
     }

@@ -1,12 +1,16 @@
 package com.ekam.baton.core.network.webrtc
 
 import android.content.Context
-import org.webrtc.*
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
+import android.os.Build
+import android.util.Log
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import org.json.JSONObject
-import android.util.Log
+import org.webrtc.*
 
 class WebRtcManager(private val context: Context) {
     private var peerConnectionFactory: PeerConnectionFactory? = null
@@ -15,6 +19,9 @@ class WebRtcManager(private val context: Context) {
     private var audioSource: AudioSource? = null
     private var eglBase: EglBase? = null
     
+    private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+    private var audioFocusRequest: AudioFocusRequest? = null
+
     // Signaling flow to emit messages that should be sent to the peer
     private val _signalingFlow = MutableSharedFlow<String>()
     val signalingFlow = _signalingFlow.asSharedFlow()
@@ -32,6 +39,9 @@ class WebRtcManager(private val context: Context) {
     private var scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     fun initialize() {
+        if (peerConnectionFactory != null) {
+            return
+        }
         if (!scope.isActive) {
             scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
         }
@@ -55,7 +65,62 @@ class WebRtcManager(private val context: Context) {
             .createPeerConnectionFactory()
     }
 
+    private fun requestAudioFocus() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val playbackAttributes = AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build()
+                val focusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+                    .setAudioAttributes(playbackAttributes)
+                    .setAcceptsDelayedFocusGain(false)
+                    .setOnAudioFocusChangeListener { focusChange ->
+                        if (focusChange == AudioManager.AUDIOFOCUS_LOSS ||
+                            focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
+                            setMicrophoneMute(true)
+                        }
+                    }
+                    .build()
+                audioFocusRequest = focusRequest
+                audioManager?.requestAudioFocus(focusRequest)
+            } else {
+                @Suppress("DEPRECATION")
+                audioManager?.requestAudioFocus(
+                    { focusChange ->
+                        if (focusChange == AudioManager.AUDIOFOCUS_LOSS ||
+                            focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
+                            setMicrophoneMute(true)
+                        }
+                    },
+                    AudioManager.STREAM_VOICE_CALL,
+                    AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
+                )
+            }
+        } catch (e: Exception) {
+            Log.w("WebRtcManager", "Failed to request audio focus: ${e.message}")
+        }
+    }
+
+    private fun abandonAudioFocus() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                audioFocusRequest?.let { audioManager?.abandonAudioFocusRequest(it) }
+                audioFocusRequest = null
+            } else {
+                @Suppress("DEPRECATION")
+                audioManager?.abandonAudioFocus(null)
+            }
+        } catch (e: Exception) {
+            Log.w("WebRtcManager", "Failed to abandon audio focus: ${e.message}")
+        }
+    }
+
     fun startVoiceCall(targetDesktopId: String, turnUsername: String = "", turnCredential: String = "") {
+        if (peerConnectionFactory == null) {
+            initialize()
+        }
+        requestAudioFocus()
         if (!scope.isActive) {
             scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
         }
@@ -115,6 +180,7 @@ class WebRtcManager(private val context: Context) {
         audioSource?.dispose()
         val source = peerConnectionFactory?.createAudioSource(MediaConstraints())
         audioSource = source
+        localAudioTrack?.dispose()
         localAudioTrack = peerConnectionFactory?.createAudioTrack("ARDAMSa0", source)
         peerConnection?.addTrack(localAudioTrack, listOf("ARDAMS"))
 
@@ -215,6 +281,7 @@ class WebRtcManager(private val context: Context) {
         amplitudeJob?.cancel()
         amplitudeJob = null
         scope.coroutineContext.cancelChildren()
+        abandonAudioFocus()
         localAudioTrack?.dispose()
         localAudioTrack = null
         audioSource?.dispose()

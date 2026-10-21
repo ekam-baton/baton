@@ -37,12 +37,12 @@ class FcmTokenManager(
      * and registers it with the Cloud Router.
      */
     @Suppress("TooGenericExceptionCaught")
-    fun registerOnStartup(routerBaseUrl: String, clientId: String) {
+    fun registerOnStartup(routerBaseUrl: String, clientId: String, authHeader: String? = null) {
         scope.launch {
             try {
                 val token = FirebaseMessaging.getInstance().token.await()
                 Log.d(TAG, "FCM token obtained. Registering with router.")
-                registerTokenWithRouter(routerBaseUrl, clientId, token)
+                registerTokenWithRouter(routerBaseUrl, clientId, token, authHeader)
             } catch (e: Exception) {
                 // Non-fatal: the app works without push notifications,
                 // messages will just be delivered when the user opens the app.
@@ -55,15 +55,20 @@ class FcmTokenManager(
      * Called by BatonFirebaseMessagingService when the token is refreshed.
      * Re-registers the new token to keep the router in sync.
      */
-    fun onTokenRefresh(newToken: String, routerBaseUrl: String, clientId: String) {
+    fun onTokenRefresh(newToken: String, routerBaseUrl: String, clientId: String, authHeader: String? = null) {
         scope.launch {
             Log.d(TAG, "FCM token refreshed. Re-registering with router.")
-            registerTokenWithRouter(routerBaseUrl, clientId, newToken)
+            registerTokenWithRouter(routerBaseUrl, clientId, newToken, authHeader)
         }
     }
 
     @Suppress("TooGenericExceptionCaught")
-    private fun registerTokenWithRouter(routerBaseUrl: String, clientId: String, fcmToken: String) {
+    private fun registerTokenWithRouter(
+        routerBaseUrl: String,
+        clientId: String,
+        fcmToken: String,
+        authHeader: String? = null
+    ) {
         if (!tunnelEndpointValidator.isUrlSafe(routerBaseUrl)) {
             Log.w(
                 TAG,
@@ -77,10 +82,17 @@ class FcmTokenManager(
                 put("fcm_token", fcmToken)
             }.toString()
 
-            val request = Request.Builder()
-                .url("$routerBaseUrl/register-push")
+            val baseUrl = if (routerBaseUrl.endsWith("/")) routerBaseUrl else "$routerBaseUrl/"
+            val requestBuilder = Request.Builder()
+                .url("${baseUrl}register-push")
                 .post(body.toRequestBody("application/json".toMediaTypeOrNull()))
-                .build()
+
+            if (!authHeader.isNullOrBlank()) {
+                val cleanAuth = authHeader.trim().filter { !it.isISOControl() }
+                requestBuilder.header("Authorization", cleanAuth)
+            }
+
+            val request = requestBuilder.build()
 
             okHttpClient.newCall(request).execute().use { response ->
                 if (response.isSuccessful) {
