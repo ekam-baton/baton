@@ -107,12 +107,17 @@ class A2AViewModel(
     fun generateOffer() {
         viewModelScope.launch {
             val offer = activeSession?.createOffer()
-            if (offer != null) {
+            if (offer != null && !offer.startsWith("ERROR:")) {
                 // Attach our X25519 public key to the SDP offer string so the peer gets both
                 // the WebRTC ICE/DTLS info AND our Baton crypto identity at the same time.
                 val mungedOffer = mungeSdp(offer)
                 val combinedOffer = "${_ephemeralPublicKey.value}|||$mungedOffer"
                 _sdpOffer.value = combinedOffer
+            } else {
+                if (offer != null && offer.startsWith("ERROR:")) {
+                    android.util.Log.e("A2AViewModel", "Failed to generate offer: $offer")
+                }
+                _sdpOffer.value = null
             }
         }
     }
@@ -135,20 +140,31 @@ class A2AViewModel(
                 if (parts.size == 2) {
                     val remoteCryptoKey = parts[0]
                     val sdpOffer = parts[1]
+                    if (sdpOffer.startsWith("ERROR:")) {
+                        android.util.Log.e("A2AViewModel", "Received error in offer SDP: $sdpOffer")
+                        _sdpAnswer.value = null
+                        return@launch
+                    }
                     
                     // 1. Establish Crypto Identity
                     pairAgent(remoteCryptoKey)
                     
                     // 2. Establish WebRTC Tunnel
                     val answer = activeSession?.handleOfferAndCreateAnswer(sdpOffer)
-                    if (answer != null) {
+                    if (answer != null && !answer.startsWith("ERROR:")) {
                         val mungedAnswer = mungeSdp(answer)
                         val combinedAnswer = "${_ephemeralPublicKey.value}|||$mungedAnswer"
                         _sdpAnswer.value = combinedAnswer
+                    } else {
+                        if (answer != null && answer.startsWith("ERROR:")) {
+                            android.util.Log.e("A2AViewModel", "Failed to generate answer: $answer")
+                        }
+                        _sdpAnswer.value = null
                     }
                 }
             } catch (e: Exception) {
                 android.util.Log.e("A2AViewModel", "Error starting server mode", e)
+                _sdpAnswer.value = null
             }
         }
     }
@@ -160,6 +176,10 @@ class A2AViewModel(
                 if (parts.size == 2) {
                     val remoteCryptoKey = parts[0]
                     val sdpAnswer = parts[1]
+                    if (sdpAnswer.startsWith("ERROR:")) {
+                        android.util.Log.e("A2AViewModel", "Received error in answer SDP: $sdpAnswer")
+                        return@launch
+                    }
                     
                     // 1. Establish Crypto Identity
                     pairAgent(remoteCryptoKey)

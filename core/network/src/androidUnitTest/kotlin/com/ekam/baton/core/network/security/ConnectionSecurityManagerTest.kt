@@ -98,4 +98,41 @@ class ConnectionSecurityManagerTest {
         val signatureDiff = securityManager.computeSignature(timestamp, "nonce99999", ciphertext, sharedSecret)
         assertNotEquals(signature, signatureDiff)
     }
+    @Test
+    fun testFromHexValidAndRoundtrip() {
+        val sm = ConnectionSecurityManager(null)
+        val original = byteArrayOf(0x00, 0x01, 0x0a, 0x0f, 0x10, 0x7f, -0x80, -0x01)
+        val hex = sm.toHex(original)
+        val parsed = sm.fromHex(hex)
+        assertEquals(sm.toHex(original), sm.toHex(parsed))
+    }
+
+    @Test
+    fun testFromHexWithWhitespaceAndNewlines() {
+        val sm = ConnectionSecurityManager(null)
+        val hexWithSpaces = " 00 01 0a 0f \n\r 10 7f 80 ff "
+        val parsed = sm.fromHex(hexWithSpaces)
+        assertEquals(8, parsed.size)
+        assertEquals(0x00.toByte(), parsed[0])
+        assertEquals((-1).toByte(), parsed[7])
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun testFromHexOddLengthThrows() {
+        val sm = ConnectionSecurityManager(null)
+        sm.fromHex("abc")
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun testFromHexInvalidCharactersThrows() {
+        val sm = ConnectionSecurityManager(null)
+        sm.fromHex("00zz")
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun testDeriveSharedSecretInvalidKeyLengthThrows() {
+        val sm = ConnectionSecurityManager(null)
+        val dummyPrivKey = ByteArray(32)
+        sm.deriveSharedSecret(dummyPrivKey, "001122") // Only 3 bytes instead of 32
+    }
 }

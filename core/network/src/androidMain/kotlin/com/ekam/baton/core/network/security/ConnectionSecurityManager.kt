@@ -150,8 +150,18 @@ open class ConnectionSecurityManager constructor(
         if (!isNativeLoaded) {
             throw SecurityException("Native cryptographic engine is required for Diffie-Hellman shared secret derivation")
         }
+        val peerPublicKey = try {
+            fromHex(peerPublicKeyHex)
+        } catch (e: Exception) {
+            throw IllegalArgumentException("Malformed peer public key hex: ${e.message}", e)
+        }
+        require(peerPublicKey.size == 32) {
+            "Peer public key must be exactly 32 bytes (64 hex chars), got ${peerPublicKey.size} bytes"
+        }
+        require(privateKey.size == 32) {
+            "Private key must be exactly 32 bytes, got ${privateKey.size} bytes"
+        }
         try {
-            val peerPublicKey = fromHex(peerPublicKeyHex)
             return deriveSharedSecretRust(privateKey, peerPublicKey)
         } catch (e: UnsatisfiedLinkError) {
             throw SecurityException("Native crypto library not loaded", e)
@@ -209,9 +219,19 @@ open class ConnectionSecurityManager constructor(
     }
 
     open fun fromHex(hex: String): ByteArray {
-        val result = ByteArray(hex.length / 2)
+        val cleanHex = hex.trim().replace(" ", "").replace("\n", "").replace("\r", "").replace("\t", "")
+        if (cleanHex.isEmpty()) return ByteArray(0)
+        require(cleanHex.length % 2 == 0) {
+            "Hex string must have an even length, got length ${cleanHex.length}"
+        }
+        val result = ByteArray(cleanHex.length / 2)
         for (i in result.indices) {
-            result[i] = hex.substring(i * 2, i * 2 + 2).toInt(16).toByte()
+            val firstDigit = Character.digit(cleanHex[i * 2], 16)
+            val secondDigit = Character.digit(cleanHex[i * 2 + 1], 16)
+            require(firstDigit >= 0 && secondDigit >= 0) {
+                "Invalid hexadecimal character at index ${i * 2} or ${i * 2 + 1}"
+            }
+            result[i] = ((firstDigit shl 4) or secondDigit).toByte()
         }
         return result
     }
