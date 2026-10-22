@@ -10,6 +10,7 @@ import com.ekam.baton.core.data.repository.MemoryRepository
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.util.UUID
+import org.json.JSONArray
 
 class MemoryViewModel(
     private val memoryRepository: MemoryRepository,
@@ -80,7 +81,7 @@ class MemoryViewModel(
 
     fun addMemory(layer: String, agentId: String?, title: String, content: String, tags: List<String>) {
         viewModelScope.launch {
-            val tagsJson = if (tags.isEmpty()) "[]" else "[\"" + tags.joinToString("\",\"") + "\"]"
+            val tagsJson = JSONArray(tags).toString()
             val memory = Memory(
                 id = UUID.randomUUID().toString(),
                 layer = layer.lowercase(),

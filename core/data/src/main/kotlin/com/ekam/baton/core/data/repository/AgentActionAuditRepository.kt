@@ -4,6 +4,8 @@ import com.ekam.baton.core.data.db.dao.AgentActionLogDao
 import com.ekam.baton.core.data.db.entity.AgentActionLogEntity
 import com.ekam.baton.core.data.util.AuditCryptoUtils
 import kotlinx.coroutines.flow.Flow
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 class AgentActionAuditRepository(
     private val agentActionLogDao: AgentActionLogDao
@@ -18,7 +20,12 @@ class AgentActionAuditRepository(
         val lastLog = agentActionLogDao.getLastAgentActionLog()
         val prevHash = lastLog?.hash ?: ""
 
-        val dataToHash = """{"promptId":"$promptId","agentId":"$agentId","actionType":"$actionType","payload":"$payloadJson"}"""
+        val dataToHash = buildJsonObject {
+            put("promptId", promptId)
+            put("agentId", agentId)
+            put("actionType", actionType)
+            put("payload", payloadJson)
+        }.toString()
         val newHash = AuditCryptoUtils.generateHash(dataToHash, prevHash)
 
         val logEntry = AgentActionLogEntity(

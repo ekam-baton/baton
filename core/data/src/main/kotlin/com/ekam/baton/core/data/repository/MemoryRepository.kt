@@ -12,6 +12,8 @@ import com.ekam.baton.core.data.util.AuditCryptoUtils
 
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 open class MemoryRepository constructor(
     private val memoryDao: MemoryDao,
@@ -31,7 +33,12 @@ open class MemoryRepository constructor(
         val entity = memory.toEntity()
         val lastAudit = auditDao.getLastAuditLog()
         val prevHash = lastAudit?.hash ?: ""
-        val payload = """{"id":"${entity.id}","title":"${entity.title}","content":"${entity.content}","isActive":${entity.isActive}}"""
+        val payload = buildJsonObject {
+            put("id", entity.id)
+            put("title", entity.title)
+            put("content", entity.content)
+            put("isActive", entity.isActive)
+        }.toString()
         val newHash = AuditCryptoUtils.generateHash(payload, prevHash)
 
         val hashedEntity = entity.copy(previousHash = prevHash, hash = newHash)
