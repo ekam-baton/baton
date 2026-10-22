@@ -132,8 +132,13 @@ open class A2ASession(
                     incomingChunks.size >= MAX_PENDING_MESSAGES) return
 
                 val payloadLength = data.size - 48
-                val payload = ByteArray(payloadLength)
-                bb.get(payload)
+                val payload = if (payloadLength > 0) {
+                    val p = ByteArray(payloadLength)
+                    bb.get(p)
+                    p
+                } else {
+                    ByteArray(0)
+                }
 
                 val chunks = incomingChunks.getOrPut(messageId) { arrayOfNulls(totalChunks) }
                 chunks[chunkIndex] = payload
@@ -152,8 +157,10 @@ open class A2ASession(
                     val completePayload = ByteArray(totalSize)
                     var offset = 0
                     chunks.forEach {
-                        System.arraycopy(it!!, 0, completePayload, offset, it.size)
-                        offset += it.size
+                        if (it!!.isNotEmpty()) {
+                            System.arraycopy(it, 0, completePayload, offset, it.size)
+                            offset += it.size
+                        }
                     }
 
                     incomingChunks.remove(messageId)
@@ -170,17 +177,22 @@ open class A2ASession(
         if (dataChannel?.state() != DataChannel.State.OPEN) return
 
         val messageId = UUID.randomUUID().toString()
-        val totalChunks = ceil(payload.size.toDouble() / MAX_PAYLOAD_SIZE).toInt()
+        val totalChunks = maxOf(1, ceil(payload.size.toDouble() / MAX_PAYLOAD_SIZE).toInt())
         val typeInt = if (isBinary) 1 else 0
 
         for (i in 0 until totalChunks) {
+            var waitCount = 0
             while ((dataChannel?.bufferedAmount() ?: 0L) > MAX_BUFFER) {
+                if (dataChannel?.state() != DataChannel.State.OPEN || waitCount++ > 100) {
+                    return // DataChannel closed or buffer saturated for > 5 seconds
+                }
                 delay(50)
             }
+            if (dataChannel?.state() != DataChannel.State.OPEN) return
 
             val offset = i * MAX_PAYLOAD_SIZE
-            val length = min(MAX_PAYLOAD_SIZE, payload.size - offset)
-            val chunkPayload = payload.copyOfRange(offset, offset + length)
+            val length = if (payload.isEmpty()) 0 else min(MAX_PAYLOAD_SIZE, payload.size - offset)
+            val chunkPayload = if (length > 0) payload.copyOfRange(offset, offset + length) else ByteArray(0)
 
             val headerBuffer = ByteBuffer.allocate(48)
             val idBytes = messageId.toByteArray(Charsets.UTF_8).copyOf(36)
@@ -191,7 +203,9 @@ open class A2ASession(
             
             val combined = ByteArray(48 + length)
             System.arraycopy(headerBuffer.array(), 0, combined, 0, 48)
-            System.arraycopy(chunkPayload, 0, combined, 48, length)
+            if (length > 0) {
+                System.arraycopy(chunkPayload, 0, combined, 48, length)
+            }
 
             val buffer = DataChannel.Buffer(ByteBuffer.wrap(combined), true)
             dataChannel?.send(buffer)

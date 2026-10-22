@@ -51,10 +51,10 @@ fun CallScreen(
     var elapsedSeconds by remember { mutableLongStateOf(0L) }
 
     val context = LocalContext.current
-    var webRtcManager by remember { mutableStateOf<WebRtcManager?>(null) }
+    val webRtcManager = remember { WebRtcManager(context) }
     val audioManager = remember { context.getSystemService(android.content.Context.AUDIO_SERVICE) as? AudioManager }
 
-    val liveAmplitude by (webRtcManager?.audioAmplitude?.collectAsStateWithLifecycle() ?: remember { mutableFloatStateOf(0.4f) })
+    val liveAmplitude by webRtcManager.audioAmplitude.collectAsStateWithLifecycle(0.4f)
 
     LaunchedEffect(Unit) {
         while (true) {
@@ -63,20 +63,19 @@ fun CallScreen(
         }
     }
 
-    DisposableEffect(Unit) {
-        val manager = WebRtcManager(context)
+    DisposableEffect(webRtcManager) {
         var focusRequest: Any? = null
         val focusChangeListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
             when (focusChange) {
                 AudioManager.AUDIOFOCUS_LOSS_TRANSIENT,
                 AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
-                    manager.setMicrophoneMute(true)
+                    webRtcManager.setMicrophoneMute(true)
                 }
                 AudioManager.AUDIOFOCUS_GAIN -> {
-                    manager.setMicrophoneMute(isMuted)
+                    webRtcManager.setMicrophoneMute(isMuted)
                 }
                 AudioManager.AUDIOFOCUS_LOSS -> {
-                    try { manager.endCall() } catch (_: Exception) {}
+                    try { webRtcManager.endCall() } catch (_: Exception) {}
                     onEndCall()
                 }
             }
@@ -106,9 +105,8 @@ fun CallScreen(
         } catch (_: Exception) {}
 
         try {
-            manager.initialize()
-            manager.startVoiceCall(agentName)
-            webRtcManager = manager
+            webRtcManager.initialize()
+            webRtcManager.startVoiceCall(agentName)
         } catch (e: Exception) {
             // Ignored for UI preview
         }
@@ -124,7 +122,7 @@ fun CallScreen(
                 }
             } catch (_: Exception) {}
             try {
-                manager.endCall()
+                webRtcManager.endCall()
             } catch (e: Exception) {
                 // Ignore
             }
@@ -142,7 +140,7 @@ fun CallScreen(
     }
 
     LaunchedEffect(isMuted) {
-        webRtcManager?.setMicrophoneMute(isMuted)
+        webRtcManager.setMicrophoneMute(isMuted)
     }
 
     LaunchedEffect(isSpeaker) {

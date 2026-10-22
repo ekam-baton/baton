@@ -391,9 +391,10 @@ class ChatViewModel(
     }
 
     private suspend fun fetchJwtToken(): String? {
-        val backendUrlStr = appPreferences.backendUrl.first()
-        val jwtSecretStr = appPreferences.jwtSecret.first()
-        if (jwtSecretStr.isBlank()) return null
+        val backendUrlStr = appPreferences.backendUrl.first().trim()
+        val jwtSecretStr = appPreferences.jwtSecret.first().trim()
+        if (jwtSecretStr.isBlank() || backendUrlStr.isBlank()) return null
+        if (!backendUrlStr.startsWith("http://") && !backendUrlStr.startsWith("https://")) return null
 
         return withContext(Dispatchers.IO) {
             try {
@@ -432,7 +433,8 @@ class ChatViewModel(
                     if (response.isSuccessful) {
                         val responseBody = response.body?.string() ?: ""
                         val json = JSONObject(responseBody)
-                        "Bearer ${json.getString("token")}"
+                        val token = json.optString("token")
+                        if (token.isNotBlank()) "Bearer $token" else null
                     } else {
                         null
                     }
@@ -533,13 +535,27 @@ class ChatViewModel(
                     newId
                 }
                 
-                // Decode attachments from string to Dto
-                val attachments = message.attachments?.let {
-                    jsonParser.decodeFromString<List<AttachmentDto>>(it)
+                // Decode attachments safely
+                val attachments = message.attachments?.takeIf { it.isNotBlank() }?.let { raw ->
+                    try {
+                        jsonParser.decodeFromString<List<AttachmentDto>>(raw)
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to parse attachments during forward", e)
+                        emptyList()
+                    }
                 } ?: emptyList()
 
+                val authHeader = fetchJwtToken()
+                val extractFacts = appPreferences.autoExtractFacts.first()
+
                 // Send the message
-                chatRepository.sendMessageWithResponse(cid, message.content, attachments).collect {}
+                chatRepository.sendMessageWithResponse(
+                    conversationId = cid,
+                    content = message.content,
+                    attachments = attachments,
+                    authHeader = authHeader,
+                    extractFacts = extractFacts
+                ).collect {}
                 
                 withContext(Dispatchers.Main) {
                     onComplete()
