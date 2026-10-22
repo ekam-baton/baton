@@ -290,7 +290,8 @@ class ChatViewModel(
             viewModelScope.launch {
                 val conv = chatRepository.getConversationById(id) ?: return@launch
                 try {
-                    _availableTools.value = chatRepository.getAvailableTools(conv.agentId)
+                    val authHeader = fetchJwtToken()
+                    _availableTools.value = chatRepository.getAvailableTools(conv.agentId, authHeader)
                 } catch (e: Exception) {
                     _uiError.value = "Failed to load agent tools: ${e.message}"
                 }
@@ -573,7 +574,8 @@ class ChatViewModel(
         _agentActivityStatus.value = "Executing tool $toolName..."
         viewModelScope.launch {
             try {
-                chatRepository.executeToolManual(cid, toolName, arguments).collect {}
+                val authHeader = fetchJwtToken()
+                chatRepository.executeToolManual(cid, toolName, arguments, authHeader).collect {}
             } catch (e: Exception) {
                 _uiError.value = "Tool execution failed: ${e.message}"
             } finally {

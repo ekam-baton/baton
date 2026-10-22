@@ -283,8 +283,9 @@ class ChatRepository constructor(
             withContext(NonCancellable) {
                 // Runs after stream finishes: write complete accumulated message with full audit hash
                 val finalMsg = messageDao.getMessageById(tempMessageId)
+                val completedContent = accumulatedContent.ifEmpty { finalMsg?.content ?: "" }
                 if (finalMsg != null && finalMsg.isStreaming) {
-                    updateMessage(finalMsg.copy(content = accumulatedContent.ifEmpty { finalMsg.content }, isStreaming = false))
+                    updateMessage(finalMsg.copy(content = completedContent, isStreaming = false))
                 }
 
                 // Increment response message count in conversation metadata
@@ -299,14 +300,14 @@ class ChatRepository constructor(
                 }
 
                 // Telegram & WhatsApp-grade background notification
-                if (finalMsg != null && !finalMsg.isFailed && finalMsg.content.isNotBlank()) {
+                if (finalMsg != null && !finalMsg.isFailed && completedContent.isNotBlank()) {
                     val shouldNotify = appStateTracker?.shouldNotify(conversationId) ?: false
                     if (shouldNotify) {
                         notificationDispatcher?.postAgentMessageNotification(
                             agentId = agent.id,
                             agentName = agent.name,
                             conversationId = conversationId,
-                            content = finalMsg.content,
+                            content = completedContent,
                             timestamp = finalMsg.timestamp
                         )
                     }
@@ -342,8 +343,12 @@ class ChatRepository constructor(
             .sortedBy { it.timestamp }
             .map { com.ekam.baton.core.network.dto.McpMessageDto(role = it.role, content = it.content) }
 
-        val attachments = userMsg.attachments?.let {
-            jsonParser.decodeFromString<List<AttachmentDto>>(it)
+        val attachments = userMsg.attachments?.takeIf { it.isNotBlank() }?.let { raw ->
+            try {
+                jsonParser.decodeFromString<List<AttachmentDto>>(raw)
+            } catch (e: Exception) {
+                emptyList()
+            }
         } ?: emptyList()
 
         var accumulatedContent = ""
@@ -383,21 +388,22 @@ class ChatRepository constructor(
         }.onCompletion {
             withContext(NonCancellable) {
                 val finalMsg = messageDao.getMessageById(tempMessageId)
+                val completedContent = accumulatedContent.ifEmpty { finalMsg?.content ?: "" }
                 if (finalMsg != null && finalMsg.isStreaming) {
-                    updateMessage(finalMsg.copy(content = accumulatedContent.ifEmpty { finalMsg.content }, isStreaming = false))
+                    updateMessage(finalMsg.copy(content = completedContent, isStreaming = false))
                 }
                 val finalConv = conversationDao.getConversationById(conversationId)
                 if (finalConv != null) {
                     conversationDao.upsertConversation(finalConv.copy(updatedAt = System.currentTimeMillis(), messageCount = finalConv.messageCount + 1))
                 }
-                if (finalMsg != null && !finalMsg.isFailed && finalMsg.content.isNotBlank()) {
+                if (finalMsg != null && !finalMsg.isFailed && completedContent.isNotBlank()) {
                     val shouldNotify = appStateTracker?.shouldNotify(conversationId) ?: false
                     if (shouldNotify) {
                         notificationDispatcher?.postAgentMessageNotification(
                             agentId = agent.id,
                             agentName = agent.name,
                             conversationId = conversationId,
-                            content = finalMsg.content,
+                            content = completedContent,
                             timestamp = finalMsg.timestamp
                         )
                     }
@@ -410,15 +416,16 @@ class ChatRepository constructor(
         messageDao.deleteMessage(id)
     }
 
-    suspend fun getAvailableTools(agentId: String): List<com.ekam.baton.core.network.mcp.McpTool> {
+    suspend fun getAvailableTools(agentId: String, authHeader: String? = null): List<com.ekam.baton.core.network.mcp.McpTool> {
         val agent = agentDao.getAgentById(agentId) ?: return emptyList()
-        return mcpMessageSender.getAvailableTools(agentId, agent.mcpEndpointUrl, null)
+        return mcpMessageSender.getAvailableTools(agentId, agent.mcpEndpointUrl, authHeader)
     }
 
     suspend fun executeToolManual(
         conversationId: String,
         toolName: String,
-        arguments: kotlinx.serialization.json.JsonObject
+        arguments: kotlinx.serialization.json.JsonObject,
+        authHeader: String? = null
     ): kotlinx.coroutines.flow.Flow<String> {
         val conv = conversationDao.getConversationById(conversationId) ?: throw IllegalStateException("Conversation not found")
         val agent = agentDao.getAgentById(conv.agentId) ?: throw IllegalStateException("Agent not found")
@@ -437,7 +444,7 @@ class ChatRepository constructor(
         return mcpMessageSender.executeTool(
             agentId = agent.id,
             endpointUrl = agent.mcpEndpointUrl,
-            authHeader = null,
+            authHeader = authHeader,
             toolName = toolName,
             arguments = arguments,
             relayUrl = agent.relayUrl,
