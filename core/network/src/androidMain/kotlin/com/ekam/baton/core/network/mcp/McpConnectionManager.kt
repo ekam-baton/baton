@@ -69,10 +69,6 @@ class McpConnectionManager constructor(
                 for (session in snapshot) {
                     if (now - session.lastAccessedAt.get() > MAX_IDLE_TIME_MS) {
                         toEvict.add(session.agentId)
-                    } else {
-                        // Network I/O happens fully outside any lock — safe to suspend here
-                        val isAlive = getTransport(session.endpointUrl).ping(session.endpointUrl)
-                        if (!isAlive) toEvict.add(session.agentId)
                     }
                 }
 
