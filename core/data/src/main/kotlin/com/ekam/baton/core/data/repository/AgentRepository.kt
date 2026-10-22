@@ -29,10 +29,18 @@ open class AgentRepository constructor(
     }
 
     open suspend fun deleteAgent(id: String) {
-        val conv = conversationDao?.getConversationByAgentId(id)
-        if (conv != null) {
-            messageDao?.deleteMessagesForConversation(conv.id)
-            conversationDao.deleteConversation(conv.id)
+        val convs = conversationDao?.getConversationsByAgentId(id)
+        if (convs != null && convs.isNotEmpty()) {
+            for (conv in convs) {
+                messageDao?.deleteMessagesForConversation(conv.id)
+            }
+            conversationDao.deleteConversationsByAgentId(id)
+        } else {
+            val singleConv = conversationDao?.getConversationByAgentId(id)
+            if (singleConv != null) {
+                messageDao?.deleteMessagesForConversation(singleConv.id)
+                conversationDao.deleteConversation(singleConv.id)
+            }
         }
         memoryDao?.deleteMemoriesForAgent(id)
         agentDao.deleteAgent(id)

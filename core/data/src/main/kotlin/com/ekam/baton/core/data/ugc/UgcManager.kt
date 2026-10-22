@@ -242,10 +242,7 @@ class UgcManagerImpl(
             sessionManager.setLoggedIn(false)
 
             // 4. Wipe AppPreferences & auth tokens
-            appPreferences.setJwtSecret("")
-            appPreferences.setRefreshToken("")
-            appPreferences.setAppLockEnabled(false)
-            appPreferences.qtspPassword = null
+            appPreferences.clearAllPreferences()
 
             // 5. Purge Android Keystore master keys
             try {

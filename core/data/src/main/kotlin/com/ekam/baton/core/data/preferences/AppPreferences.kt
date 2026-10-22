@@ -490,4 +490,19 @@ open class AppPreferences constructor(
         qtspPassword = null
         clearRegistration()
     }
+
+    open suspend fun clearAllPreferences() {
+        purgeAllSecurityPreferences()
+        try {
+            securePrefs?.edit()?.clear()?.apply()
+        } catch (_: Exception) {}
+        _jwtSecretFlow.value = ""
+        _refreshTokenFlow.value = ""
+        _userEmailFlow.value = ""
+        _userPhoneFlow.value = ""
+        _isPremiumUnlockedFlow.value = false
+        try {
+            _context?.dataStore?.edit { it.clear() }
+        } catch (_: Exception) {}
+    }
 }

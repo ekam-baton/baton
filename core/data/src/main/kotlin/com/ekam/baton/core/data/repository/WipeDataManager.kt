@@ -5,7 +5,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 open class WipeDataManager constructor(
-    private val database: BatonDatabase? = null
+    private val database: BatonDatabase? = null,
+    private val appPreferences: com.ekam.baton.core.data.preferences.AppPreferences? = null
 ) {
     open suspend fun wipeAllData() = withContext(Dispatchers.IO) {
         database?.clearAllTables()
@@ -18,6 +19,10 @@ open class WipeDataManager constructor(
     open suspend fun emergencyCryptographicShred() = withContext(Dispatchers.IO) {
         try {
             database?.clearAllTables()
+        } catch (_: Exception) {}
+
+        try {
+            appPreferences?.clearAllPreferences()
         } catch (_: Exception) {}
 
         try {

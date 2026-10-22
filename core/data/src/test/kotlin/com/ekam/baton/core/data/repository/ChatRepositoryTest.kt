@@ -49,6 +49,11 @@ class FakeConversationDao : ConversationDao {
         FakeConversationPagingSource(conversations.values.toList())
     override suspend fun getConversationById(id: String): ConversationEntity? = conversations[id]
     override suspend fun getConversationByAgentId(agentId: String): ConversationEntity? = conversations.values.find { it.agentId == agentId }
+    override suspend fun getConversationsByAgentId(agentId: String): List<ConversationEntity> = conversations.values.filter { it.agentId == agentId }
+    override suspend fun deleteConversationsByAgentId(agentId: String) {
+        val toRemove = conversations.values.filter { it.agentId == agentId }.map { it.id }
+        toRemove.forEach { conversations.remove(it) }
+    }
     override suspend fun upsertConversation(conversation: ConversationEntity) { conversations[conversation.id] = conversation }
     override suspend fun deleteConversation(id: String) { conversations.remove(id) }
 }

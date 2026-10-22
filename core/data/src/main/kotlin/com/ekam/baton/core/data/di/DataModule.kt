@@ -395,7 +395,7 @@ val dataModule = module {
         ) 
     }
     single { com.ekam.baton.core.data.repository.AgentActionAuditRepository(get()) }
-    single { com.ekam.baton.core.data.repository.WipeDataManager(get()) }
+    single { com.ekam.baton.core.data.repository.WipeDataManager(get(), getOrNull()) }
 
     single { com.ekam.baton.core.data.memory.WorkingMemoryManager(get()) }
 

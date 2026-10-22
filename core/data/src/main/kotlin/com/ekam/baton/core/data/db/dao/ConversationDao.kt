@@ -19,6 +19,12 @@ interface ConversationDao {
     @Query("SELECT * FROM conversations WHERE agent_id = :agentId LIMIT 1")
     suspend fun getConversationByAgentId(agentId: String): ConversationEntity?
 
+    @Query("SELECT * FROM conversations WHERE agent_id = :agentId")
+    suspend fun getConversationsByAgentId(agentId: String): List<ConversationEntity>
+
+    @Query("DELETE FROM conversations WHERE agent_id = :agentId")
+    suspend fun deleteConversationsByAgentId(agentId: String)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertConversation(conversation: ConversationEntity)
 
